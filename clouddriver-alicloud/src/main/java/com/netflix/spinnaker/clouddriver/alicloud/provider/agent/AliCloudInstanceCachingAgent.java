@@ -21,8 +21,6 @@ import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.IN
 import com.aliyuncs.IAcsClient;
 import com.aliyuncs.ecs.model.v20140526.DescribeInstancesRequest;
 import com.aliyuncs.ecs.model.v20140526.DescribeInstancesResponse;
-import com.aliyuncs.exceptions.ClientException;
-import com.aliyuncs.exceptions.ServerException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -33,8 +31,10 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
+import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import java.util.*;
 import org.springframework.util.CollectionUtils;
 
@@ -102,9 +102,8 @@ public class AliCloudInstanceCachingAgent implements CachingAgent {
           break;
         }
       }
-    } catch (ServerException e) {
-      e.printStackTrace();
-    } catch (ClientException e) {
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
       e.printStackTrace();
     }
 

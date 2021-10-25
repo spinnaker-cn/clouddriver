@@ -36,10 +36,12 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
+import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -97,9 +99,8 @@ public class AliCloudSecurityGroupCachingAgent
           break;
         }
       }
-    } catch (ServerException e) {
-      e.printStackTrace();
-    } catch (ClientException e) {
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
       e.printStackTrace();
     }
 

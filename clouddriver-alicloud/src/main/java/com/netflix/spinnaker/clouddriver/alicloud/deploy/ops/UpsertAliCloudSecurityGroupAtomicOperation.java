@@ -34,7 +34,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.alicloud.common.ClientFactory;
 import com.netflix.spinnaker.clouddriver.alicloud.deploy.description.UpsertAliCloudSecurityGroupDescription;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
+import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import groovy.util.logging.Slf4j;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -92,10 +94,8 @@ public class UpsertAliCloudSecurityGroupAtomicOperation implements AtomicOperati
 
       buildIngressRule(client, securityGroups.get(0).getSecurityGroupId());
 
-    } catch (ServerException e) {
-      log.info(e.getMessage());
-      throw new AliCloudException(e.getMessage());
-    } catch (ClientException e) {
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
       log.info(e.getMessage());
       throw new AliCloudException(e.getMessage());
     }

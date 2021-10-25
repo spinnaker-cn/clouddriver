@@ -4,13 +4,13 @@ import com.aliyuncs.IAcsClient;
 import com.aliyuncs.ecs.model.v20140526.DescribeImagesRequest;
 import com.aliyuncs.ecs.model.v20140526.DescribeImagesResponse;
 import com.aliyuncs.ecs.model.v20140526.TagResourcesRequest;
-import com.aliyuncs.exceptions.ClientException;
-import com.aliyuncs.exceptions.ServerException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.alicloud.common.ClientFactory;
 import com.netflix.spinnaker.clouddriver.alicloud.deploy.description.UpsertAliCloudImageTagsDescription;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
+import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -65,10 +65,8 @@ public class UpsertAliCloudImageTagsAtomicOperation implements AtomicOperation<V
       } else {
         throw new AliCloudException("The image not fond");
       }
-    } catch (ServerException e) {
-      e.printStackTrace();
-      throw new AliCloudException(e.getMessage());
-    } catch (ClientException e) {
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
       e.printStackTrace();
       throw new AliCloudException(e.getMessage());
     }

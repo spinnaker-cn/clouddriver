@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.alicloud.deploy.ops;
 
 import com.aliyuncs.IAcsClient;
 import com.aliyuncs.exceptions.ClientException;
-import com.aliyuncs.exceptions.ServerException;
 import com.aliyuncs.slb.model.v20140515.CreateLoadBalancerHTTPListenerRequest;
 import com.aliyuncs.slb.model.v20140515.CreateLoadBalancerHTTPSListenerRequest;
 import com.aliyuncs.slb.model.v20140515.CreateLoadBalancerRequest;
@@ -40,10 +39,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.alicloud.common.ClientFactory;
 import com.netflix.spinnaker.clouddriver.alicloud.deploy.description.UpsertAliCloudLoadBalancerDescription;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
+import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.alicloud.model.Listener;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import groovy.util.logging.Slf4j;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -111,66 +112,39 @@ public class UpsertAliCloudLoadBalancerAtomicOperation implements AtomicOperatio
         loadBalancerT = queryResponse.getLoadBalancers().get(0);
       }
 
-    } catch (ServerException e) {
-      logger.info(e.getMessage());
-      throw new AliCloudException(e.getMessage());
-    } catch (ClientException e) {
-      logger.info(e.getMessage());
-      throw new AliCloudException(e.getMessage());
-    }
-
-    if (loadBalancerT != null) {
-      description.setLoadBalancerId(loadBalancerT.getLoadBalancerId());
-    } else {
-      CreateLoadBalancerRequest loadBalancerRequest =
-          objectMapper.convertValue(description, CreateLoadBalancerRequest.class);
-      loadBalancerRequest.setLoadBalancerName(description.getLoadBalancerName());
-      if (!StringUtils.isEmpty(description.getVSwitchId())) {
-        loadBalancerRequest.setVSwitchId(description.getVSwitchId());
-      }
-      if ("internet".equalsIgnoreCase(loadBalancerRequest.getAddressType())) {
-        loadBalancerRequest.setVSwitchId("");
-      }
-      // Instance delete protection off
-      loadBalancerRequest.setDeleteProtection("off");
-      CreateLoadBalancerResponse loadBalancerResponse;
-      try {
+      if (loadBalancerT != null) {
+        description.setLoadBalancerId(loadBalancerT.getLoadBalancerId());
+      } else {
+        CreateLoadBalancerRequest loadBalancerRequest =
+            objectMapper.convertValue(description, CreateLoadBalancerRequest.class);
+        loadBalancerRequest.setLoadBalancerName(description.getLoadBalancerName());
+        if (!StringUtils.isEmpty(description.getVSwitchId())) {
+          loadBalancerRequest.setVSwitchId(description.getVSwitchId());
+        }
+        if ("internet".equalsIgnoreCase(loadBalancerRequest.getAddressType())) {
+          loadBalancerRequest.setVSwitchId("");
+        }
+        // Instance delete protection off
+        loadBalancerRequest.setDeleteProtection("off");
+        CreateLoadBalancerResponse loadBalancerResponse;
         loadBalancerResponse = client.getAcsResponse(loadBalancerRequest);
         description.setLoadBalancerId(loadBalancerResponse.getLoadBalancerId());
-
-      } catch (ServerException e) {
-        logger.info(e.getMessage());
-        throw new AliCloudException(e.getMessage());
-      } catch (ClientException e) {
-        logger.info(e.getMessage());
-        throw new AliCloudException(e.getMessage());
       }
-    }
 
-    if (StringUtils.isEmpty(description.getLoadBalancerId())) {
-      return null;
-    }
+      if (StringUtils.isEmpty(description.getLoadBalancerId())) {
+        return null;
+      }
 
-    try {
-      createListener(loadBalancerT == null ? false : true, client);
-    } catch (ServerException e) {
-      logger.info(e.getMessage());
-      throw new AliCloudException(e.getMessage());
-    } catch (ClientException e) {
-      logger.info(e.getMessage());
-      throw new AliCloudException(e.getMessage());
-    }
+      createListener(loadBalancerT != null, client);
 
-    // Restart instance
-    SetLoadBalancerStatusRequest statusRequest = new SetLoadBalancerStatusRequest();
-    statusRequest.setLoadBalancerId(description.getLoadBalancerId());
-    statusRequest.setLoadBalancerStatus(STATUS);
-    try {
+      // Restart instance
+      SetLoadBalancerStatusRequest statusRequest = new SetLoadBalancerStatusRequest();
+      statusRequest.setLoadBalancerId(description.getLoadBalancerId());
+      statusRequest.setLoadBalancerStatus(STATUS);
+
       client.getAcsResponse(statusRequest);
-    } catch (ServerException e) {
-      logger.info(e.getMessage());
-      throw new AliCloudException(e.getMessage());
-    } catch (ClientException e) {
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
       logger.info(e.getMessage());
       throw new AliCloudException(e.getMessage());
     }

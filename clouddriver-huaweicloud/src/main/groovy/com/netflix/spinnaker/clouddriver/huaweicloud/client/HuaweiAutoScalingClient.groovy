@@ -172,7 +172,7 @@ class HuaweiAutoScalingClient {
     body.setMinInstanceNumber(description.minSize)
     body.setMaxInstanceNumber(description.maxSize)
     body.setVpcId(description.vpcId)
-
+    body.setHealthPeriodicAuditMethod(CreateScalingGroupRequestBody.HealthPeriodicAuditMethodEnum.NOVA_AUDIT)
     // set default delete option
     body.setDeletePublicip(true)
 

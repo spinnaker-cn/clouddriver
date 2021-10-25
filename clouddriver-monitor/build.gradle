@@ -1,0 +1,17 @@
+dependencies {
+  implementation project(":clouddriver-core")
+
+  compileOnly "org.projectlombok:lombok"
+  testCompile "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+  implementation "org.springframework.boot:spring-boot-starter"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+
+  implementation 'org.springframework.boot:spring-boot-starter-actuator'
+  implementation 'io.micrometer:micrometer-core'
+  implementation 'io.micrometer:micrometer-registry-prometheus'
+
+  implementation 'com.google.code.gson:gson'
+
+}

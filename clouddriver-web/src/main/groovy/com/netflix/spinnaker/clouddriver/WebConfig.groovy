@@ -86,7 +86,7 @@ public class WebConfig extends WebMvcConfigurerAdapter {
   @Override
   void configureContentNegotiation(ContentNegotiationConfigurer configurer) {
     configurer
-      .defaultContentType(MediaType.APPLICATION_JSON_UTF8)
+      .defaultContentType(MediaType.APPLICATION_JSON_UTF8,MediaType.TEXT_PLAIN)
       .favorPathExtension(false)
       .ignoreAcceptHeader(true)
   }

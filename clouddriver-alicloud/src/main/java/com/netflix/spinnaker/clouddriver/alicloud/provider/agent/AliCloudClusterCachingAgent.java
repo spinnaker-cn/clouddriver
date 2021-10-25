@@ -40,8 +40,6 @@ import com.aliyuncs.ess.model.v20140828.DescribeScalingGroupsResponse.ScalingGro
 import com.aliyuncs.ess.model.v20140828.DescribeScalingInstancesRequest;
 import com.aliyuncs.ess.model.v20140828.DescribeScalingInstancesResponse;
 import com.aliyuncs.ess.model.v20140828.DescribeScalingInstancesResponse.ScalingInstance;
-import com.aliyuncs.exceptions.ClientException;
-import com.aliyuncs.exceptions.ServerException;
 import com.aliyuncs.slb.model.v20140515.DescribeLoadBalancerAttributeRequest;
 import com.aliyuncs.slb.model.v20140515.DescribeLoadBalancerAttributeResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,10 +54,12 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
+import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -130,11 +130,9 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
       logger.info(
           "yejingtao bug log serverGroup loadData scalingGroups size " + scalingGroups.size());
       result = buildCacheResult(scalingGroups, client);
-    } catch (ServerException e) {
-      e.printStackTrace();
-    } catch (ClientException e) {
-      e.printStackTrace();
     } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
+      logger.info(e.getMessage());
       e.printStackTrace();
     }
 
@@ -199,12 +197,14 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
             DescribeLoadBalancerAttributeResponse describeLoadBalancerAttributeResponse =
                 client.getAcsResponse(describeLoadBalancerAttributeRequest);
             loadBalancerAttributes.add(describeLoadBalancerAttributeResponse);
-          } catch (ClientException e) {
+          } catch (Exception e) {
             String message = e.getMessage();
             if (message.indexOf("InvalidLoadBalancerId.NotFound") == -1) {
+              ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
               throw new IllegalStateException(e.getMessage());
             } else {
-              logger.info(loadBalancerId + " -> NotFound");
+              ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
+              logger.error(loadBalancerId + " -> NotFound");
             }
           }
         }
@@ -264,6 +264,7 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
         cacheLoadBalancer(sgData, loadBalancerCaches);
       }
     } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
       e.printStackTrace();
       logger.error("yejingtao bug log buildCacheResult error " + e.getMessage());
       throw e;

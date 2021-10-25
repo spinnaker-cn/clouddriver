@@ -21,13 +21,13 @@ import com.aliyuncs.ess.model.v20140828.DescribeScalingGroupsRequest;
 import com.aliyuncs.ess.model.v20140828.DescribeScalingGroupsResponse;
 import com.aliyuncs.ess.model.v20140828.DescribeScalingGroupsResponse.ScalingGroup;
 import com.aliyuncs.ess.model.v20140828.ModifyScalingGroupRequest;
-import com.aliyuncs.exceptions.ClientException;
-import com.aliyuncs.exceptions.ServerException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.alicloud.common.ClientFactory;
 import com.netflix.spinnaker.clouddriver.alicloud.deploy.description.ModifyScalingGroupDescription;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
+import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import groovy.util.logging.Slf4j;
 import java.util.List;
 import org.slf4j.Logger;
@@ -83,10 +83,8 @@ public class ModifyScalingGroupAtomicOperation implements AtomicOperation<Void> 
           client.getAcsResponse(modifyScalingGroupRequest);
         }
 
-      } catch (ServerException e) {
-        log.info(e.getMessage());
-        throw new AliCloudException(e.getMessage());
-      } catch (ClientException e) {
+      } catch (Exception e) {
+        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
         log.info(e.getMessage());
         throw new AliCloudException(e.getMessage());
       }

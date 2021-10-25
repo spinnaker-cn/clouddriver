@@ -19,16 +19,17 @@ package com.netflix.spinnaker.clouddriver.alicloud.deploy.ops;
 import com.aliyuncs.IAcsClient;
 import com.aliyuncs.ess.model.v20140828.*;
 import com.aliyuncs.exceptions.ClientException;
-import com.aliyuncs.exceptions.ServerException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.common.ClientFactory;
 import com.netflix.spinnaker.clouddriver.alicloud.deploy.AliCloudServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.alicloud.deploy.description.BasicAliCloudDeployDescription;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
+import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import groovy.util.logging.Slf4j;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -97,10 +98,8 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
     try {
       createScalingGroupResponse = client.getAcsResponse(createScalingGroupRequest);
       description.setScalingGroupId(createScalingGroupResponse.getScalingGroupId());
-    } catch (ServerException e) {
-      log.info(e.getMessage());
-      throw new AliCloudException(e.getMessage());
-    } catch (ClientException e) {
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
       log.info(e.getMessage());
       throw new AliCloudException(e.getMessage());
     }
@@ -121,10 +120,8 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
       try {
         configurationResponse = client.getAcsResponse(configurationRequest);
         scalingConfigurationId = configurationResponse.getScalingConfigurationId();
-      } catch (ServerException e) {
-        log.info(e.getMessage());
-        throw new AliCloudException(e.getMessage());
-      } catch (ClientException e) {
+      } catch (Exception e) {
+        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
         log.info(e.getMessage());
         throw new AliCloudException(e.getMessage());
       }
@@ -140,10 +137,8 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
     EnableScalingGroupResponse enableScalingGroupResponse;
     try {
       enableScalingGroupResponse = client.getAcsResponse(enableScalingGroupRequest);
-    } catch (ServerException e) {
-      log.error(e.getMessage());
-      throw new AliCloudException(e.getMessage());
     } catch (ClientException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
       log.error(e.getMessage());
       throw new AliCloudException(e.getMessage());
     }
@@ -203,6 +198,7 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
                 ? scalingGroup.getDesiredCapacity()
                 : scalingGroup.getMinSize());
       } catch (Exception e) {
+        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
         log.info(e.getMessage());
         throw new AliCloudException(e.getMessage());
       }
@@ -291,13 +287,7 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
             }
             createScheduledTaskRequest.setSysRegionId(region);
             createScheduledTaskRequest.setScheduledTaskName("");
-            // client.getAcsResponse(createScheduledTaskRequest);
-            try {
-              client.getAcsResponse(createScheduledTaskRequest);
-            } catch (Exception e) {
-              log.error(e.getMessage());
-              throw new AliCloudException(e.getMessage());
-            }
+            client.getAcsResponse(createScheduledTaskRequest);
           }
         }
 
@@ -365,13 +355,8 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
                 }
                 createScheduledTaskRequest.setSysRegionId(region);
                 createScheduledTaskRequest.setScheduledTaskName("");
-                try {
-                  CreateScheduledTaskResponse createScheduledTaskResponse =
-                      client.getAcsResponse(createScheduledTaskRequest);
-                } catch (Exception e) {
-                  log.error(e.getMessage());
-                  throw new AliCloudException(e.getMessage());
-                }
+                CreateScheduledTaskResponse createScheduledTaskResponse =
+                    client.getAcsResponse(createScheduledTaskRequest);
               }
 
               taskPageNumber = taskPageNumber + 1;
@@ -490,6 +475,7 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
       }
 
     } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
       log.error(e.getMessage());
       throw new AliCloudException(e.getMessage());
     }

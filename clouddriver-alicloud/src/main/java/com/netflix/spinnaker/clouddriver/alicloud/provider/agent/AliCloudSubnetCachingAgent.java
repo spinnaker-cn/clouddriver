@@ -19,8 +19,6 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 import static com.netflix.spinnaker.clouddriver.alicloud.cache.Keys.Namespace.SUBNETS;
 
 import com.aliyuncs.IAcsClient;
-import com.aliyuncs.exceptions.ClientException;
-import com.aliyuncs.exceptions.ServerException;
 import com.aliyuncs.vpc.model.v20160428.DescribeVSwitchesRequest;
 import com.aliyuncs.vpc.model.v20160428.DescribeVSwitchesResponse;
 import com.aliyuncs.vpc.model.v20160428.DescribeVSwitchesResponse.VSwitch;
@@ -38,8 +36,10 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
+import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -97,9 +97,8 @@ public class AliCloudSubnetCachingAgent implements CachingAgent, AccountAware {
         datas.add(data);
       }
 
-    } catch (ServerException e) {
-      e.printStackTrace();
-    } catch (ClientException e) {
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
       e.printStackTrace();
     }
 
