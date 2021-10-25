@@ -1,0 +1,40 @@
+dependencies {
+  implementation project(":clouddriver-core")
+  implementation project(":cats:cats-core")
+  implementation project(":clouddriver-security")
+
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  implementation "com.github.ben-manes.caffeine:guava"
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spectator:spectator-api"
+  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.oracle.oci.sdk:oci-java-sdk-core"
+  implementation "com.oracle.oci.sdk:oci-java-sdk-identity"
+  implementation "com.oracle.oci.sdk:oci-java-sdk-loadbalancer"
+  implementation "com.oracle.oci.sdk:oci-java-sdk-objectstorage"
+  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.springframework.boot:spring-boot-starter-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "org.objenesis:objenesis"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "org.springframework:spring-test"
+}
+
+def allSourceSets = sourceSets
+
+def licenseExtension = project.extensions.findByName('license')
+if (licenseExtension != null) {
+  licenseExtension.header project.file('oracle-source-header')
+  licenseExtension.includes(["**/*.groovy", "**/*.java", "**/*.properties"])
+  licenseExtension.strictCheck true
+  licenseExtension.skipExistingHeaders false
+  licenseExtension.sourceSets = allSourceSets
+}

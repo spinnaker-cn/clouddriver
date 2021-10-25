@@ -1,0 +1,98 @@
+apply plugin: "com.google.protobuf"
+
+ext {
+  protobufVersion = '3.2.+'
+  grpcVersion = '1.10.+'
+}
+
+repositories {
+  maven { url 'https://dl.bintray.com/netflixoss' }
+}
+
+dependencies {
+  protobuf 'com.netflix.titus:titus-api-definitions:0.0.1-rc71'
+
+  implementation project(":cats:cats-core")
+  implementation project(":clouddriver-aws")
+  implementation project(":clouddriver-core")
+  implementation project(":clouddriver-eureka")
+  implementation project(":clouddriver-saga")
+  implementation project(":clouddriver-security")
+
+  annotationProcessor "org.projectlombok:lombok"
+  compileOnly "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  implementation "com.amazonaws:aws-java-sdk"
+  implementation "com.google.protobuf:protobuf-java:$protobufVersion"
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spectator:spectator-api"
+  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation "com.netflix.spinnaker.kork:kork-core"
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
+  implementation "com.netflix.spinnaker.kork:kork-security"
+  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.squareup.okhttp3:okhttp:3.1.2"
+  implementation "io.grpc:grpc-netty-shaded:$grpcVersion"
+  implementation "io.grpc:grpc-protobuf:$grpcVersion"
+  implementation "io.grpc:grpc-stub:$grpcVersion"
+  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.slf4j:slf4j-api"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+  implementation "org.yaml:snakeyaml:1.24"
+
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "junit:junit"
+  testImplementation "org.hamcrest:hamcrest-core"
+  testImplementation "org.objenesis:objenesis"
+  testImplementation "org.slf4j:slf4j-simple"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "org.springframework:spring-test"
+  testImplementation "com.netflix.spinnaker.kork:kork-test"
+}
+
+sourceSets {
+  main {
+    java {
+      srcDir "${protobuf.generatedFilesBaseDir}/main/grpc"
+      srcDir "${protobuf.generatedFilesBaseDir}/main/java"
+    }
+  }
+}
+
+task cleanGenerated(type: Delete) {
+  delete "$projectDir/src/generated"
+}
+
+clean.dependsOn cleanGenerated
+
+protobuf {
+  protoc {
+    artifact = "com.google.protobuf:protoc:$protobufVersion"
+  }
+  plugins {
+    grpc {
+      artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion"
+    }
+  }
+  generateProtoTasks {
+    all()*.plugins {
+      grpc {}
+    }
+  }
+}
+
+javadoc {
+  exclude 'io/titanframework/**'
+  exclude 'com/netflix/titus/grpc/protogen/**'
+}
+
+def licenseExtension = project.extensions.findByName('license')
+if (licenseExtension != null) {
+  licenseExtension.exclude('io/titanframework/**')
+  licenseExtension.exclude('com/netflix/titus/grpc/protogen/**')
+}
