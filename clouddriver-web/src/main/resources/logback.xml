@@ -1,0 +1,57 @@
+<!--
+  ~ Copyright 2015 Netflix, Inc.
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License")
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~    http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <!--            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } -&#45;&#45; [%15.15t] %-40.40logger{39} : [%X{X-SPINNAKER-USER}]-->
+      <!--                %m%n-->
+      <!--            </pattern>-->
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} 【%5p】 ${PID} [thread: %t] %C-%L: %m%n </pattern>
+    </encoder>
+  </appender>
+  <appender name="errorAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>/var/log/spinnaker/error.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>/var/log/spinnaker/error.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+      <!-- 文件最大保存历史数量 -->
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } [t] %L : %m%n </pattern>
+    </encoder>
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <level>ERROR</level>
+      <onMismatch>DENY</onMismatch>
+    </filter>
+  </appender>
+  <appender name="syslog" class="ch.qos.logback.classic.net.SyslogAppender">
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <level>ERROR</level>
+      <onMatch>ACCEPT</onMatch>
+      <onMismatch>DENY</onMismatch>
+    </filter>
+    <syslogHost>127.0.0.1</syslogHost>
+    <port>514</port>
+    <facility>LOCAL3</facility>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+    <appender-ref ref="syslog"/>
+    <appender-ref ref="errorAppender"/>
+  </root>
+</configuration>
