@@ -1,14 +1,20 @@
 package com.netflix.spinnaker.monitor.util;
 
 import com.google.gson.Gson;
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
+import com.netflix.spinnaker.monitor.enums.CloudTypeEnum;
 import com.netflix.spinnaker.monitor.model.MonitorModel;
-import io.micrometer.core.instrument.MeterRegistry;
-import java.util.HashMap;
-import java.util.Map;
-import javax.annotation.PostConstruct;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+
+
+//import io.micrometer.core.instrument.MeterRegistry;
+import com.netflix.spinnaker.monitor.model.CloudApiMetric;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.DigestUtils;
 
 /**
  * @author chen_muyi
@@ -17,16 +23,9 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class MonitorUtils {
+  public static Map<String, CloudApiMetric> metricsMap = new ConcurrentHashMap<>();
   private static final Gson GSON = new Gson();
 
-  @Autowired private MeterRegistry meterRegistry;
-
-  private static MeterRegistry meterRegistryStatic;
-
-  @PostConstruct
-  public void init() {
-    meterRegistryStatic = meterRegistry;
-  }
 
   private static final String CODE = "code";
   private static final String LOG_ID = "logId";
@@ -36,18 +35,28 @@ public class MonitorUtils {
   private static final String ERROR = "error";
 
   public static void registerMetric(MonitorModel model, Throwable e) {
-    meterRegistryStatic
-        .counter(
-            "invoke api error",
-            new String[] {
-              CODE,
-              String.valueOf(model.getCode()),
-              CLOUD_TYPE,
-              model.getCloudType().name(),
-              API_CODE,
-              String.valueOf(model.getApiCode())
-            })
-        .increment();
+    String key = DigestUtils.md5DigestAsHex(String.join(",", model.getMonitorName(), model.getCode().name(), model.getCloudType().name(), model.getApiCode()).getBytes());
+    CloudApiMetric cloudApiMetric = metricsMap.get(key);
+    if (cloudApiMetric == null) {
+      cloudApiMetric = new CloudApiMetric();
+      metricsMap.put(key, cloudApiMetric);
+      cloudApiMetric.setName(model.getMonitorName());
+      List<String> lables = new ArrayList<>();
+      lables.add(CODE);
+      lables.add(CLOUD_TYPE);
+      lables.add(API_CODE);
+      lables.add(MESSAGE);
+      List<String> values = new ArrayList<>();
+      values.add(model.getCode().name());
+      values.add(model.getCloudType().name());
+      values.add(model.getApiCode());
+      values.add(model.getMessage());
+      cloudApiMetric.setLables(lables);
+      cloudApiMetric.setValues(values);
+      cloudApiMetric.setCount(1);
+    } else {
+      cloudApiMetric.setCount(cloudApiMetric.getCount()+1);
+    }
     Map<String, Object> map = new HashMap<>();
     map.put(LOG_ID, model.getLogId());
     map.put(ERROR, e);
