@@ -3,12 +3,10 @@ package com.netflix.spinnaker.monitor.collector;
 import com.netflix.spinnaker.monitor.model.CloudApiMetric;
 import com.netflix.spinnaker.monitor.util.MonitorUtils;
 import io.prometheus.client.Collector;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -26,7 +24,7 @@ public class CloudApiInvokeCollector extends Collector {
     List<MetricFamilySamples> collect = metricsMap.values().stream().map(
       meter -> {
         String metricName = StringUtils.isEmpty(meter.getName()) ? "cloud_api_invoke" : meter.getName();
-        MetricFamilySamples.Sample sample = new MetricFamilySamples.Sample(metricName, meter.getLables(), meter.getValues(), meter.getCount().get());
+        MetricFamilySamples.Sample sample = new MetricFamilySamples.Sample(metricName, meter.getLables(), meter.getValues(), meter.getCount());
         List<MetricFamilySamples.Sample> samples = new ArrayList<>();
         samples.add(sample);
         return new MetricFamilySamples(metricName,
