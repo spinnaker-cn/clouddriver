@@ -5,12 +5,12 @@ dependencies {
   testCompile "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"
-  implementation "org.springframework.boot:spring-boot-starter"
-  implementation "org.springframework.boot:spring-boot-starter-web"
 
-  implementation 'org.springframework.boot:spring-boot-starter-actuator'
-  implementation 'io.micrometer:micrometer-core'
-  implementation 'io.micrometer:micrometer-registry-prometheus'
+  implementation "org.springframework.boot:spring-boot-starter-web"
+  implementation "io.prometheus:simpleclient:0.9.0"
+  implementation "io.prometheus:simpleclient_httpserver:0.9.0"
+  
+
 
   implementation 'com.google.code.gson:gson'
 

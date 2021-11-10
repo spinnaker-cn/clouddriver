@@ -226,7 +226,7 @@ class TencentServerGroupCachingAgent extends AbstractTencentCachingAgent impleme
 
     List<String> launchConfigurationIds = asgs.collect {
       it.launchConfigurationId
-    }
+    }.findAll{it?.trim()}
 
     def launchConfigurations = client.getLaunchConfigurations launchConfigurationIds
 
