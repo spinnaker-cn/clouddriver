@@ -4,12 +4,14 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencentLoadBalancerDescription
+import com.netflix.spinnaker.clouddriver.tencent.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerHealthCheck
 import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerListener
 import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerRule
 import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerTarget
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.TencentLoadBalancerProvider
 import com.netflix.spinnaker.clouddriver.tencent.client.LoadBalancerClient
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import com.tencentcloudapi.clb.v20180317.models.HealthCheck
 import com.tencentcloudapi.clb.v20180317.models.ListenerBackend
 import com.tencentcloudapi.clb.v20180317.models.Listener
@@ -20,7 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired
 
 /**
  curl -X POST -H "Content-Type: application/json" -d '[ { "upsertLoadBalancer": {"application":"myapplication", "account":"account-test", "loadBalancerName": "fengCreate5", "region":"ap-guangzhou", "loadBalancerType":"OPEN" ,"listener":[{"listenerName":"listen-create","port":80,"protocol":"TCP", "targets":[{"instanceId":"ins-lq6o6xyc", "port":8080}]}]}} ]' localhost:7004/tencent/ops
-*/
+ */
 
 @Slf4j
 class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
@@ -36,18 +38,21 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
   }
 
   @Override
-   Map operate(List priorOutputs) {
+  Map operate(List priorOutputs) {
     task.updateStatus(BASE_PHASE, "Initializing upsert of Tencent loadBalancer ${description.loadBalancerName} " +
       "in ${description.region}...")
     log.info("params = ${description}")
-
-    def loadBalancerId = description.loadBalancerId
-    if (loadBalancerId?.length() > 0 ) {
-      updateLoadBalancer(description)
-    }else {  //create new loadBalancer
-      insertLoadBalancer(description)
+    try {
+      def loadBalancerId = description.loadBalancerId
+      if (loadBalancerId?.length() > 0) {
+        updateLoadBalancer(description)
+      } else {  //create new loadBalancer
+        insertLoadBalancer(description)
+      }
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1, this.class)
+      throw e
     }
-
     return [loadBalancers: [(description.region): [name: description.loadBalancerName]]]
   }
 
@@ -78,7 +83,7 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
 
     //create listener
     def lbListener = description.listener
-    if (lbListener?.size() > 0 ) {
+    if (lbListener?.size() > 0) {
       lbListener.each {
         insertListener(lbClient, loadBalancerId, it)
       }
@@ -131,7 +136,7 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     }
 
     //comapre listener
-    if (newListeners?.size() > 0 ) {
+    if (newListeners?.size() > 0) {
       newListeners.each { inputListener ->
         if (inputListener.listenerId?.length() > 0) {
           def oldListener = queryListeners.find {
@@ -142,10 +147,10 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
               it.listenerId.equals(inputListener.listenerId)
             }
             updateListener(lbClient, loadBalancerId, oldListener, inputListener, oldTargets) //modify
-          }else {
+          } else {
             task.updateStatus(BASE_PHASE, "Input listener ${inputListener.listenerId} not exist!")
           }
-        }else {  //not listener id, create new
+        } else {  //not listener id, create new
           insertListener(lbClient, loadBalancerId, inputListener)
         }
       }
@@ -169,7 +174,7 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
           def ret = lbClient.registerTarget4Layer(loadBalancerId, listenerId, targets)
           task.updateStatus(BASE_PHASE, "Register targets to listener ${listenerId} ${ret} end.")
         }
-      }else if (listener.protocol in ["HTTP", "HTTPS"]) {   //http/https 7 layer
+      } else if (listener.protocol in ["HTTP", "HTTPS"]) {   //http/https 7 layer
         def rules = listener.rules
         if (rules?.size() > 0) {
           rules.each {
@@ -177,7 +182,7 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
           }
         }
       }
-    }else {
+    } else {
       task.updateStatus(BASE_PHASE, "Create new listener failed!")
       return ""
     }
@@ -187,15 +192,15 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
 
   private boolean isEqualHealthCheck(HealthCheck oldHealth, TencentLoadBalancerHealthCheck newHealth) {
     if ((oldHealth != null) && (newHealth != null)) {
-      if ( !oldHealth.healthSwitch.equals(newHealth.healthSwitch)
-           || !oldHealth.timeOut.equals(newHealth.timeOut)
-           || !oldHealth.intervalTime.equals(newHealth.intervalTime)
-           || !oldHealth.healthNum.equals(newHealth.healthNum)
-           || !oldHealth.unHealthNum.equals(newHealth.unHealthNum)
-           || !oldHealth.httpCode.equals(newHealth.httpCode)
-           || !oldHealth.httpCheckPath.equals(newHealth.httpCheckPath)
-           || !oldHealth.httpCheckDomain.equals(newHealth.httpCheckDomain)
-           || !oldHealth.httpCheckMethod.equals(newHealth.httpCheckMethod) ) {
+      if (!oldHealth.healthSwitch.equals(newHealth.healthSwitch)
+        || !oldHealth.timeOut.equals(newHealth.timeOut)
+        || !oldHealth.intervalTime.equals(newHealth.intervalTime)
+        || !oldHealth.healthNum.equals(newHealth.healthNum)
+        || !oldHealth.unHealthNum.equals(newHealth.unHealthNum)
+        || !oldHealth.httpCode.equals(newHealth.httpCode)
+        || !oldHealth.httpCheckPath.equals(newHealth.httpCheckPath)
+        || !oldHealth.httpCheckDomain.equals(newHealth.httpCheckDomain)
+        || !oldHealth.httpCheckMethod.equals(newHealth.httpCheckMethod)) {
         return false
       }
     }
@@ -207,7 +212,7 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     def newHealth = newListener.healthCheck
 
     if (!isEqualHealthCheck(oldHealth, newHealth)) {
-       return  false
+      return false
     }
     return true
   }
@@ -261,7 +266,7 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
         task.updateStatus(BASE_PHASE, "add listener target to ${loadBalancerId}.${newListener.listenerId} ...")
         lbClient.registerTarget4Layer(loadBalancerId, newListener.listenerId, addTargets)
       }
-    }else if (newListener.protocol in ["HTTP", "HTTPS"]) {  // 7 layer, rules, targets
+    } else if (newListener.protocol in ["HTTP", "HTTPS"]) {  // 7 layer, rules, targets
       oldRules.each { oldRuleEntry ->          //delete rule
         def keepRule = newRules.find {
           oldRuleEntry.locationId.equals(it.locationId)
@@ -280,10 +285,10 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
               it.locationId.equals(newRuleEntry.locationId)
             }
             updateLBListenerRule(lbClient, loadBalancerId, newListener.listenerId, oldRule, newRuleEntry, ruleTargets)
-          }else {
+          } else {
             task.updateStatus(BASE_PHASE, "Input rule ${newRuleEntry.locationId} not exist!")
           }
-        }else {    //create new rule
+        } else {    //create new rule
           lbClient.createLBListenerRule(loadBalancerId, newListener.listenerId, newRuleEntry)
         }
       }
@@ -298,7 +303,7 @@ class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     def newHealth = newRule.healthCheck
 
     if (!isEqualHealthCheck(oldHealth, newHealth)) {
-      return  false
+      return false
     }
     return true
   }

@@ -5,10 +5,12 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.tencent.client.LoadBalancerClient
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.DeleteTencentLoadBalancerDescription
+import com.netflix.spinnaker.clouddriver.tencent.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerListener
 import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerRule
 import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerTarget
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.TencentLoadBalancerProvider
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -32,34 +34,39 @@ class DeleteTencentLoadBalancerAtomicOperation implements AtomicOperation<Void> 
   }
 
   @Override
-   Void operate(List priorOutputs) {
+  Void operate(List priorOutputs) {
     task.updateStatus(BASE_PHASE, "Initializing delete of Tencent loadBalancer ${description.loadBalancerId} " +
       "in ${description.region}...")
     log.info("params = ${description}")
 
     def lbListener = description.listener
-    if (lbListener?.size() > 0) {    //listener
-      lbListener.each {
-        def listenerId = it.listenerId
-        def rules = it.rules
-        def targets = it.targets
-        if (rules?.size() > 0) {
-          rules.each {
-            def ruleTargets = it.targets
-            if (ruleTargets?.size() > 0) {    //delete rule's targets
-              deleteRuleTargets(description.loadBalancerId, listenerId, it.locationId, ruleTargets)
-            }else {  //delete rule
-              deleteListenerRule(description.loadBalancerId, listenerId, it)
+    try {
+      if (lbListener?.size() > 0) {    //listener
+        lbListener.each {
+          def listenerId = it.listenerId
+          def rules = it.rules
+          def targets = it.targets
+          if (rules?.size() > 0) {
+            rules.each {
+              def ruleTargets = it.targets
+              if (ruleTargets?.size() > 0) {    //delete rule's targets
+                deleteRuleTargets(description.loadBalancerId, listenerId, it.locationId, ruleTargets)
+              } else {  //delete rule
+                deleteListenerRule(description.loadBalancerId, listenerId, it)
+              }
             }
+          } else if (targets?.size() > 0) {    //delete listener's targets
+            deleteListenerTargets(description.loadBalancerId, listenerId, targets)
+          } else {    //delete listener
+            deleteListener(description.loadBalancerId, listenerId)
           }
-        }else if (targets?.size() > 0) {    //delete listener's targets
-          deleteListenerTargets(description.loadBalancerId, listenerId, targets)
-        }else {    //delete listener
-          deleteListener(description.loadBalancerId, listenerId)
         }
+      } else {    //no listener, delete loadBalancer
+        deleteLoadBalancer(description.loadBalancerId)
       }
-    }else {    //no listener, delete loadBalancer
-      deleteLoadBalancer(description.loadBalancerId)
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1, this.class)
+      throw e
     }
     return null
   }

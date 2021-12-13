@@ -6,11 +6,15 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.tencent.client.AutoScalingClient
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.EnableDisableTencentServerGroupDescription
+import com.netflix.spinnaker.clouddriver.tencent.exception.ExceptionUtils
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import groovy.transform.Canonical
 
 abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<Void> {
   EnableDisableTencentServerGroupDescription description
+
   abstract boolean isDisable()
+
   abstract String getBasePhase()
 
   AbstractEnableDisableAtomicOperation(EnableDisableTencentServerGroupDescription description) {
@@ -21,41 +25,45 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
   Void operate(List priorOutputs) {
     String basePhase = getBasePhase()
 
-    task.updateStatus basePhase,"Initializing disable server group $description.serverGroupName in $description.region..."
+    task.updateStatus basePhase, "Initializing disable server group $description.serverGroupName in $description.region..."
 
 
     def serverGroupName = description.serverGroupName
     def region = description.region
-    def client = new AutoScalingClient(
-      description.credentials.credentials.secretId,
-      description.credentials.credentials.secretKey,
-      region
-    )
+    try {
+      def client = new AutoScalingClient(
+        description.credentials.credentials.secretId,
+        description.credentials.credentials.secretKey,
+        region
+      )
 
-    // find auto scaling group
-    def asg = getAutoScalingGroup client, serverGroupName
-    def asgId = asg.autoScalingGroupId
+      // find auto scaling group
+      def asg = getAutoScalingGroup client, serverGroupName
+      def asgId = asg.autoScalingGroupId
 
-    // enable or disable auto scaling group
-    enableOrDisableAutoScalingGroup client, asgId
+      // enable or disable auto scaling group
+      enableOrDisableAutoScalingGroup client, asgId
 
-    // get in service instances in auto scaling group
-    def inServiceInstanceIds = getInServiceAutoScalingInstances client, asgId
+      // get in service instances in auto scaling group
+      def inServiceInstanceIds = getInServiceAutoScalingInstances client, asgId
 
-    if (!inServiceInstanceIds) {
-      task.updateStatus basePhase, "Auto scaling group has no IN_SERVICE instance. "
-      return null
+      if (!inServiceInstanceIds) {
+        task.updateStatus basePhase, "Auto scaling group has no IN_SERVICE instance. "
+        return null
+      }
+
+      // enable or disable load balancer
+      if (!asg.loadBalancerIdSet && !asg.forwardLoadBalancerSet) {
+        task.updateStatus basePhase, "Auto scaling group does not have a load balancer. "
+        return null
+      }
+
+      enableOrDisableClassicLoadBalancer client, asg, inServiceInstanceIds
+      enableOrDisableForwardLoadBalancer client, asg, inServiceInstanceIds
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1, this.class)
+      throw e
     }
-
-    // enable or disable load balancer
-    if (!asg.loadBalancerIdSet && !asg.forwardLoadBalancerSet) {
-      task.updateStatus basePhase, "Auto scaling group does not have a load balancer. "
-      return null
-    }
-
-    enableOrDisableClassicLoadBalancer client, asg, inServiceInstanceIds
-    enableOrDisableForwardLoadBalancer client, asg, inServiceInstanceIds
-
     task.updateStatus basePhase, "Complete enable server group $serverGroupName in $region."
     null
   }
@@ -65,10 +73,10 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
     if (asgs) {
       def asg = asgs[0]
       def asgId = asg.autoScalingGroupId
-      task.updateStatus basePhase,"Server group $serverGroupName's auto scaling group id is $asgId"
+      task.updateStatus basePhase, "Server group $serverGroupName's auto scaling group id is $asgId"
       asg
     } else {
-      task.updateStatus basePhase,"Server group $serverGroupName is not found."
+      task.updateStatus basePhase, "Server group $serverGroupName is not found."
       null
     }
   }
