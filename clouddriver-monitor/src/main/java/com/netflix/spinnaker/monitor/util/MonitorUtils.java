@@ -45,12 +45,10 @@ public class MonitorUtils {
       lables.add(CODE);
       lables.add(CLOUD_TYPE);
       lables.add(API_CODE);
-      lables.add(MESSAGE);
       List<String> values = new ArrayList<>();
       values.add(model.getCode().name());
       values.add(model.getCloudType().name());
       values.add(model.getApiCode());
-      values.add(model.getMessage());
       cloudApiMetric.setLables(lables);
       cloudApiMetric.setValues(values);
       cloudApiMetric.setCount(1);
