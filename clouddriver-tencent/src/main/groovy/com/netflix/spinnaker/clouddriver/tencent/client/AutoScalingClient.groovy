@@ -443,7 +443,9 @@ class AutoScalingClient extends AbstractTencentServiceClient {
         request.targets = targets.collect {
           def target = new BatchTarget();
           target.listenerId = flb.listenerId
-          target.locationId = flb.locationId
+          if (flb?.locationId) {
+            target.locationId = flb?.locationId
+          }
           target.instanceId = it.instanceId
           target.weight = it.weight
           target.port = it.port
