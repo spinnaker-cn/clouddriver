@@ -5,7 +5,9 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.tencent.client.CloudVirtualMachineClient
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.TerminateTencentInstancesDescription
+import com.netflix.spinnaker.clouddriver.tencent.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.TencentClusterProvider
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import org.springframework.beans.factory.annotation.Autowired
 
 class TerminateTencentInstancesAtomicOperation implements AtomicOperation<Void> {
@@ -30,14 +32,17 @@ class TerminateTencentInstancesAtomicOperation implements AtomicOperation<Void> 
 
     task.updateStatus BASE_PHASE, "Initializing termination of instances (${description.instanceIds.join(", ")}) in " +
       "$description.region:$serverGroupName..."
-
-    def client = new CloudVirtualMachineClient(
-      description.credentials.credentials.secretId,
-      description.credentials.credentials.secretKey,
-      region
-    )
-    client.terminateInstances(instanceIds)
-
+    try {
+      def client = new CloudVirtualMachineClient(
+        description.credentials.credentials.secretId,
+        description.credentials.credentials.secretKey,
+        region
+      )
+      client.terminateInstances(instanceIds)
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1, this.class)
+      throw e
+    }
     task.updateStatus BASE_PHASE, "Complete termination of instance."
     return null
   }

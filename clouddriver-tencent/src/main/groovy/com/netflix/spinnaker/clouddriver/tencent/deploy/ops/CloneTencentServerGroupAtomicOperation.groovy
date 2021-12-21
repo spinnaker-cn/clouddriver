@@ -7,7 +7,9 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.tencent.client.AutoScalingClient
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.TencentDeployDescription
 import com.netflix.spinnaker.clouddriver.tencent.deploy.handlers.TencentDeployHandler
+import com.netflix.spinnaker.clouddriver.tencent.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.TencentClusterProvider
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -31,7 +33,13 @@ class CloneTencentServerGroupAtomicOperation implements AtomicOperation<Deployme
   @Override
   DeploymentResult operate(List priorOutputs) {
     def newDescription = cloneAndOverrideDescription()
-    def result = tencentDeployHandler.handle(newDescription, priorOutputs)
+    def result;
+    try {
+      result = tencentDeployHandler.handle(newDescription, priorOutputs)
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1, this.class)
+      throw e
+    }
     result
   }
 

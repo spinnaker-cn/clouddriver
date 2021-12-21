@@ -5,6 +5,8 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.tencent.client.AutoScalingClient
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.DeleteTencentScalingPolicyDescription
+import com.netflix.spinnaker.clouddriver.tencent.exception.ExceptionUtils
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 
 class DeleteTencentScalingPolicyAtomicOperation implements AtomicOperation<Void> {
 
@@ -21,14 +23,18 @@ class DeleteTencentScalingPolicyAtomicOperation implements AtomicOperation<Void>
     def region = description.region
     def scalingPolicyId = description.scalingPolicyId
     def serverGroupName = description.serverGroupName
-
-    task.updateStatus BASE_PHASE, "Initializing delete scaling policy $scalingPolicyId in $serverGroupName..."
-    def client = new AutoScalingClient(
-      description.credentials.credentials.secretId,
-      description.credentials.credentials.secretKey,
-      region
-    )
-    client.deleteScalingPolicy(scalingPolicyId)
+    try {
+      task.updateStatus BASE_PHASE, "Initializing delete scaling policy $scalingPolicyId in $serverGroupName..."
+      def client = new AutoScalingClient(
+        description.credentials.credentials.secretId,
+        description.credentials.credentials.secretKey,
+        region
+      )
+      client.deleteScalingPolicy(scalingPolicyId)
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1, this.class)
+      throw e
+    }
     task.updateStatus(BASE_PHASE, "Complete delete scaling policy. ")
     null
   }

@@ -5,6 +5,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.tencent.client.VirtualPrivateCloudClient
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencentSecurityGroupDescription
+import com.netflix.spinnaker.clouddriver.tencent.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentSecurityGroupRule
 import groovy.util.logging.Slf4j
 
@@ -24,14 +25,17 @@ class UpsertTencentSecurityGroupAtomicOperation implements AtomicOperation<Map> 
     task.updateStatus(BASE_PHASE, "Initializing upsert of Tencent securityGroup ${description.securityGroupName} " +
       "in ${description.region}...")
     log.info("params = ${description}")
-
-    def securityGroupId = description.securityGroupId
-    if (securityGroupId?.length() > 0) {
-      updateSecurityGroup(description)
-    }else {
-      insertSecurityGroup(description)
+    try {
+      def securityGroupId = description.securityGroupId
+      if (securityGroupId?.length() > 0) {
+        updateSecurityGroup(description)
+      } else {
+        insertSecurityGroup(description)
+      }
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1, this.class)
+      throw e
     }
-
     log.info("upsert securityGroup name:${description.securityGroupName}, id:${description.securityGroupId}")
     return [securityGroups: [(description.region): [name: description.securityGroupName, id: description.securityGroupId]]]
   }

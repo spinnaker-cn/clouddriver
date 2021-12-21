@@ -438,21 +438,20 @@ class AutoScalingClient extends AbstractTencentServiceClient {
     while (retry_count < DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME) {
       try {
         retry_count = retry_count + 1
-        def request = new DeregisterTargetsRequest()
+        def request = new BatchDeregisterTargetsRequest()
         request.loadBalancerId = flb.loadBalancerId
-        request.listenerId = flb.listenerId
-        if (flb?.locationId) {
-          request.locationId = flb?.locationId
-        }
         request.targets = targets.collect {
-          return new Target(
-            instanceId: it.instanceId,
-            weight: it.weight,
-            port: it.port
-          )
+          def target = new BatchTarget();
+          target.listenerId = flb.listenerId
+          if (flb?.locationId) {
+            target.locationId = flb?.locationId
+          }
+          target.instanceId = it.instanceId
+          target.weight = it.weight
+          target.port = it.port
+          return target;
         }
-
-        clbClient.DeregisterTargets(request)
+        clbClient.BatchDeregisterTargets(request)
         break
       } catch (TencentCloudSDKException e) {
         if (e.toString().contains("FailedOperation") && retry) {
