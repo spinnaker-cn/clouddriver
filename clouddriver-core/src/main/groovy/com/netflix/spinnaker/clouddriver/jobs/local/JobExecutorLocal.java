@@ -44,15 +44,16 @@ public class JobExecutorLocal implements JobExecutor {
 
   private <T> JobResult<T> executeWrapper(
       final JobRequest jobRequest, RequestExecutor<T> requestExecutor) {
-    log.debug(String.format("Starting job: '%s'...", jobRequest.toString()));
+
     final String jobId = UUID.randomUUID().toString();
+    log.info(String.format("Starting jobId: %s, job: '%s' ...", jobId, jobRequest.toString()));
 
     JobResult<T> jobResult;
     try {
       jobResult = requestExecutor.execute(jobRequest);
     } catch (IOException e) {
       throw new JobExecutionException(
-          String.format("Error executing job: %s", jobRequest.toString()), e);
+          String.format("Error executing jobId: %s, job: %s", jobId, jobRequest.toString()), e);
     }
 
     if (jobResult.isKilled()) {

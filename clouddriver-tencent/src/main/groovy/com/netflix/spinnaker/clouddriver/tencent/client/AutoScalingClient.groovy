@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.tencent.client
 
+import com.google.common.collect.Lists
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.TencentDeployDescription
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencentScalingPolicyDescription
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencentScheduledActionDescription
@@ -386,35 +387,37 @@ class AutoScalingClient extends AbstractTencentServiceClient {
   }
 
   void attachAutoScalingInstancesToForwardClb(def flb, def targets, boolean retry = false) {
-    def retry_count = 0
-    while (retry_count < DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME) {
-      try {
+    def partTargets = Lists.partition(targets, 20)
+    def request = new RegisterTargetsRequest()
+    request.loadBalancerId = flb.loadBalancerId
+    request.listenerId = flb.listenerId
+    if (flb?.locationId) {
+      request.locationId = flb?.locationId
+    }
+    partTargets.forEach({ partTarget ->
+      def retry_count = 0
+      while (retry_count < DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME) {
         retry_count = retry_count + 1
-        def request = new RegisterTargetsRequest()
-        request.loadBalancerId = flb.loadBalancerId
-        request.listenerId = flb.listenerId
-        if (flb?.locationId) {
-          request.locationId = flb?.locationId
-        }
-        request.targets = targets.collect {
+        request.targets = partTarget.collect {
           return new Target(
             instanceId: it.instanceId,
             weight: it.weight,
             port: it.port
           )
         }
-
-        clbClient.RegisterTargets(request)
-        break
-      } catch (TencentCloudSDKException e) {
-        if (e.toString().contains("FailedOperation") && retry) {
-          log.info("lb service throw FailedOperation error, probably $flb.loadBalancerId is locked, will retry later.")
-          sleep(500)
-        } else {
-          throw new TencentCloudSDKException(e.toString())
+        try {
+          clbClient.RegisterTargets(request)
+          break
+        } catch (TencentCloudSDKException e) {
+          if (e.toString().contains("FailedOperation") && retry) {
+            log.info("lb service throw FailedOperation error, probably $flb.loadBalancerId is locked, will retry later.")
+            sleep(500)
+          } else {
+            throw new TencentCloudSDKException(e.toString())
+          }
         }
       }
-    }
+    })
   }
 
   void attachAutoScalingInstancesToClassicClb(def lbId, def targets) {
@@ -434,34 +437,37 @@ class AutoScalingClient extends AbstractTencentServiceClient {
   }
 
   void detachAutoScalingInstancesFromForwardClb(def flb, def targets, boolean retry = false) {
-    def retry_count = 0
-    while (retry_count < DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME) {
-      try {
+    def request = new DeregisterTargetsRequest()
+    request.loadBalancerId = flb.loadBalancerId
+    request.listenerId = flb.listenerId
+    if (flb?.locationId) {
+      request.locationId = flb?.locationId
+    }
+    def partTargets = Lists.partition(targets.collect {
+      return new Target(
+        instanceId: it.instanceId,
+        weight: it.weight,
+        port: it.port
+      )
+    }, 20)
+    partTargets.forEach({ target ->
+      def retry_count = 0
+      while (retry_count < DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME) {
         retry_count = retry_count + 1
-        def request = new BatchDeregisterTargetsRequest()
-        request.loadBalancerId = flb.loadBalancerId
-        request.targets = targets.collect {
-          def target = new BatchTarget();
-          target.listenerId = flb.listenerId
-          if (flb?.locationId) {
-            target.locationId = flb?.locationId
+        request.setTargets(target as Target[])
+        try {
+          clbClient.DeregisterTargets(request)
+          break
+        } catch (TencentCloudSDKException e) {
+          if (e.toString().contains("FailedOperation") && retry) {
+            log.info("lb service throw FailedOperation error, probably $flb.loadBalancerId is locked, will retry later.")
+            sleep(500)
+          } else {
+            throw new TencentCloudSDKException(e.toString())
           }
-          target.instanceId = it.instanceId
-          target.weight = it.weight
-          target.port = it.port
-          return target;
-        }
-        clbClient.BatchDeregisterTargets(request)
-        break
-      } catch (TencentCloudSDKException e) {
-        if (e.toString().contains("FailedOperation") && retry) {
-          log.info("lb service throw FailedOperation error, probably $flb.loadBalancerId is locked, will retry later.")
-          sleep(500)
-        } else {
-          throw new TencentCloudSDKException(e.toString())
         }
       }
-    }
+    })
   }
 
   void detachAutoScalingInstancesFromClassicClb(String lbId, List<String> instanceIds) {
