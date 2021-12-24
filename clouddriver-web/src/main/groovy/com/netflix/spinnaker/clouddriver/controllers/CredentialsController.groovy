@@ -76,7 +76,8 @@ class CredentialsController {
                                'accountId',
                                'skin'])
     }
-
+    cred.remove("accessKeyId")
+    cred.remove("accessSecretKey")
     cred.type = accountCredentials.cloudProvider
     cred.challengeDestructiveActions = credentialsConfiguration.challengeDestructiveActionsEnvironments.contains(accountCredentials.environment)
     cred.primaryAccount = credentialsConfiguration.primaryAccountTypes.contains(accountCredentials.accountType)
