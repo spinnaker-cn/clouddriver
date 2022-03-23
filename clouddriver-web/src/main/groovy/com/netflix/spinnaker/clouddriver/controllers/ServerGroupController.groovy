@@ -143,7 +143,7 @@ class ServerGroupController {
 
     Collection<Set<Cluster>> clusterCollentions = []
 
-    clusterProviders.stream()
+    clusterProviders.parallelStream()
       .filter({ provider -> cloudProvider ? cloudProvider.equalsIgnoreCase(provider.cloudProviderId) : true })
       .forEach({ provider ->
         def execute = requestQueue.execute(application, { provider.getClusterDetails(application)?.values() })
