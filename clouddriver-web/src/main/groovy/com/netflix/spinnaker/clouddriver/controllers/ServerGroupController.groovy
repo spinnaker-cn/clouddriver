@@ -94,9 +94,9 @@ class ServerGroupController {
   }
 
   private ServerGroup getServerGroup(String account,
-                         String region,
-                         String name,
-                         String includeDetails) {
+                                     String region,
+                                     String name,
+                                     String includeDetails) {
 
     Boolean shouldIncludeDetails = Boolean.valueOf(includeDetails)
 
@@ -113,17 +113,17 @@ class ServerGroupController {
     return clusterProviders
       .findAll { cloudProvider ? cloudProvider.equalsIgnoreCase(it.cloudProviderId) : true }
       .findResults { ClusterProvider cp ->
-      requestQueue.execute(application, {
-        cp.getClusterDetails(application)?.values()?.collect { Set<Cluster> clusters ->
-          applyExtensions(clusterViewModelPostProcessors, clusters)
-        }
-      })
-    }
-    .collectNested { Cluster c ->
-      c.serverGroups?.collect {
-        expanded(applyExtensionsToObject(serverGroupViewModelPostProcessors, it), c)
-      } ?: []
-    }.flatten()
+        requestQueue.execute(application, {
+          cp.getClusterDetails(application)?.values()?.collect { Set<Cluster> clusters ->
+            applyExtensions(clusterViewModelPostProcessors, clusters)
+          }
+        })
+      }
+      .collectNested { Cluster c ->
+        c.serverGroups?.collect {
+          expanded(applyExtensionsToObject(serverGroupViewModelPostProcessors, it), c)
+        } ?: []
+      }.flatten()
   }
 
   Map expanded(ServerGroup serverGroup, Cluster cluster) {
@@ -141,13 +141,21 @@ class ServerGroupController {
 
     List<ServerGroupViewModel> serverGroupViews = []
 
-    def clusters = (Set<Cluster>) clusterProviders
-      .findAll { cloudProvider ? cloudProvider.equalsIgnoreCase(it.cloudProviderId) : true }
-      .findResults { provider ->
-        requestQueue.execute(application, { provider.getClusterDetails(application)?.values() })?.collect {
-          applyExtensions(clusterViewModelPostProcessors, it)
+    Collection<Set<Cluster>> clusterCollentions = []
+
+    clusterProviders.stream()
+      .filter({ provider -> cloudProvider ? cloudProvider.equalsIgnoreCase(provider.cloudProviderId) : true })
+      .forEach({ provider ->
+        def execute = requestQueue.execute(application, { provider.getClusterDetails(application)?.values() })
+        if (execute){
+          clusterCollentions.addAll(execute)
         }
-      }.flatten()
+      })
+
+    def clusters = (Set<Cluster>) clusterCollentions?.collect {
+      applyExtensions(clusterViewModelPostProcessors, it)
+    }.flatten()
+
     clusters.each { Cluster cluster ->
       cluster.serverGroups.each { ServerGroup serverGroup ->
         serverGroupViews << new ServerGroupViewModel(applyExtensionsToObject(serverGroupViewModelPostProcessors, serverGroup), cluster.name, cluster.accountName)
@@ -225,7 +233,9 @@ class ServerGroupController {
       def (account, clusterName) = accountAndName.split(':')
       if (account && clusterName) {
         return clusterProviders.findResults { clusterProvider ->
-          applyExtensionsToObject(clusterViewModelPostProcessors, requestQueue.execute(application, { clusterProvider.getCluster(application, account, clusterName) }))
+          applyExtensionsToObject(clusterViewModelPostProcessors, requestQueue.execute(application, {
+            clusterProvider.getCluster(application, account, clusterName)
+          }))
         }
       }
       return null
