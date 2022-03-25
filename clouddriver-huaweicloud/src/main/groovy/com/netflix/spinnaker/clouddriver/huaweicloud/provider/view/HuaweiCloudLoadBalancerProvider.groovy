@@ -195,7 +195,11 @@ class HuaweiCloudLoadBalancerProvider implements LoadBalancerProvider<HuaweiClou
       CacheData loadBalancerFromCache = loadBalancers[lb]
       if (loadBalancerFromCache) {
         def parts = Keys.parse(lb)
-        String name = parts.id    //loadBalancerId
+        def attributes = loadBalancerFromCache.attributes
+        String name = ""
+        if (attributes){
+          name = loadBalancerFromCache.attributes.name    //loadBalancerId
+        }
         String region = parts.region
         String account = parts.account
         def summary = map.get(name)
