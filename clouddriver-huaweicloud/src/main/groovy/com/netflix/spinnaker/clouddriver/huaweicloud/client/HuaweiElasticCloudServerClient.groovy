@@ -119,15 +119,23 @@ class HuaweiElasticCloudServerClient {
   }
 
   static Date ConvertIsoDateTime(String isoDateTime) {
+    Date date = null;
     try {
       DateTimeFormatter timeFormatter = DateTimeFormatter.ISO_DATE_TIME
       TemporalAccessor accessor = timeFormatter.parse(isoDateTime)
-      Date date = Date.from(Instant.from(accessor))
-      return date
+      date = Date.from(Instant.from(accessor))
     } catch (Exception e) {
-      log.warn "convert time error ${e.toString()}"
-      return null
+      log.warn "convert string time error ${e.toString()}"
     }
+    if (date == null){
+      try {
+        isoDateTime = isoDateTime.substring(0,11).replaceAll("\\.","");
+        date = new Date(Long.valueOf(isoDateTime)*1000);
+      } catch (Exception e) {
+        log.warn "convert timeStamp time error ${e.toString()}"
+      }
+    }
+    return date
   }
 
 }
