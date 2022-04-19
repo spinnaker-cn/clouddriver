@@ -68,7 +68,13 @@ class HuaweiCloudImageCachingAgent extends AbstractHuaweiCloudCachingAgent {
           evictions[NAMED_IMAGES.ns].addAll(originImageCache.relationships[NAMED_IMAGES.ns])
         }
       }
+      def oldCreateTimeOpt = Optional.ofNullable(namedImages[namedImageKey])
+        .map({ namedImage -> namedImage.attributes })
+        .map({ att -> att.get("createdTime") })
 
+      if (oldCreateTimeOpt.isPresent() && huaweicloudImage.createdTime.compareTo(String.valueOf(oldCreateTimeOpt.orElse(""))) < 0) {
+        return true
+      }
       namedImages[namedImageKey].attributes.imageName = huaweicloudImage.name
       namedImages[namedImageKey].attributes.type = huaweicloudImage.type
       namedImages[namedImageKey].attributes.osPlatform = huaweicloudImage.osPlatform

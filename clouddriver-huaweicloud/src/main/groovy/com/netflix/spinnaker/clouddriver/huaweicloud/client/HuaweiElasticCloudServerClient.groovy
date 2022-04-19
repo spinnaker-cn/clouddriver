@@ -130,7 +130,9 @@ class HuaweiElasticCloudServerClient {
     if (date == null){
       try {
         isoDateTime = isoDateTime.substring(0,11).replaceAll("\\.","");
-        date = new Date(Long.valueOf(isoDateTime)*1000);
+        isoDateTime =  isoDateTime.substring(0,isoDateTime.length()-2);
+        BigDecimal dateTime = new BigDecimal(isoDateTime).multiply(new BigDecimal(1000000000));
+        date = new Date(dateTime.longValue()*1000);
       } catch (Exception e) {
         log.warn "convert timeStamp time error ${e.toString()}"
       }
