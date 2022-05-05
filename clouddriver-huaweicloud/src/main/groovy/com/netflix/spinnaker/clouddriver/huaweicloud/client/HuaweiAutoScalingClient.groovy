@@ -45,9 +45,9 @@ class HuaweiAutoScalingClient {
         def scalingGroupId = createAutoScalingGroupResponse.getScalingGroupId()
 
         // 3. create tags for scaling group
-        def createScalingTagsRequest = new CreateScalingTagsRequest()
-        def createScalingTagsRequestBody = new CreateScalingTagsRequestBody()
-        createScalingTagsRequestBody.setAction(CreateScalingTagsRequestBody.ActionEnum.CREATE)
+        def createScalingTagsRequest = new CreateScalingTagInfoRequest()
+        def createScalingTagsRequestBody = new CreateTagsOption()
+        createScalingTagsRequestBody.setAction(CreateTagsOption.ActionEnum.CREATE)
         List<TagsSingleValue> tags = []
         def spinnakerTag = new TagsSingleValue().withKey(defaultServerGroupTagKey).withValue(description.serverGroupName)
         tags.add(spinnakerTag)
@@ -60,7 +60,7 @@ class HuaweiAutoScalingClient {
         createScalingTagsRequest.setBody(createScalingTagsRequestBody)
         createScalingTagsRequest.setResourceType(CreateScalingTagsRequest.ResourceTypeEnum.SCALING_GROUP_TAG)
         createScalingTagsRequest.setResourceId(scalingGroupId)
-        client.createScalingTags(createScalingTagsRequest)
+        client.createScalingTagInfo(createScalingTagsRequest)
 
         // 4. enable auto scaling group
         enableAutoScalingGroup(scalingGroupId)
@@ -81,7 +81,7 @@ class HuaweiAutoScalingClient {
 
   private static def buildLaunchConfigurationRequest(HuaweiCloudDeployDescription description) {
     def request = new CreateScalingConfigRequest()
-    def body = new CreateScalingConfigRequestBody()
+    def body = new CreateScalingConfigOption()
     def instanceConfig = new InstanceConfig()
 
     def launchConfigurationName = description.serverGroupName
@@ -96,20 +96,20 @@ class HuaweiAutoScalingClient {
     }
 
     // disks
-    List<Disk> disks = []
+    List<DiskInfo> disks = []
     if (description.systemDisk) {
-      def systemDisk = new Disk()
-      systemDisk.setDiskType(Disk.DiskTypeEnum.SYS)
+      def systemDisk = new DiskInfo()
+      systemDisk.setDiskType(DiskInfo.DiskTypeEnum.SYS)
       systemDisk.setSize(description.systemDisk.diskSize as Integer)
-      systemDisk.setVolumeType(Disk.VolumeTypeEnum.fromValue(description.systemDisk.diskType))
+      systemDisk.setVolumeType(DiskInfo.VolumeTypeEnum.fromValue(description.systemDisk.diskType))
       disks.add(systemDisk)
     }
     if (description.dataDisks) {
       def dataDisks = description.dataDisks.collect {
-        def dataDisk = new Disk()
-        dataDisk.setDiskType(Disk.DiskTypeEnum.DATA)
+        def dataDisk = new DiskInfo()
+        dataDisk.setDiskType(DiskInfo.DiskTypeEnum.DATA)
         dataDisk.setSize(it.diskSize as Integer)
-        dataDisk.setVolumeType(Disk.VolumeTypeEnum.fromValue(it.diskType))
+        dataDisk.setVolumeType(DiskInfo.VolumeTypeEnum.fromValue(it.diskType))
         dataDisk
       }
       disks.addAll(dataDisks)
@@ -121,19 +121,19 @@ class HuaweiAutoScalingClient {
     // public ip
     if (description.internetAccessible.publicIpAssigned) {
       def publicIp = new PublicIp()
-      def eip = new Eip()
-      def bandwidth = new Bandwidth()
+      def eip = new EipInfo()
+      def bandwidth = new BandwidthInfo()
       bandwidth.setSize(description.internetAccessible.internetMaxBandwidthOut as Integer)
-      bandwidth.setShareType(Bandwidth.ShareTypeEnum.PER)
+      bandwidth.setShareType(BandwidthInfo.ShareTypeEnum.PER)
       // charging mode 
       def charge = description.internetAccessible.internetChargeType
       if (charge == "TRAFFIC_POSTPAID_BY_HOUR") {
-        bandwidth.setChargingMode(Bandwidth.ChargingModeEnum.TRAFFIC)
+        bandwidth.setChargingMode(BandwidthInfo.ChargingModeEnum.TRAFFIC)
       } else {
-        bandwidth.setChargingMode(Bandwidth.ChargingModeEnum.BANDWIDTH)
+        bandwidth.setChargingMode(BandwidthInfo.ChargingModeEnum.BANDWIDTH)
       }
 
-      eip.setIpType(Eip.IpTypeEnum._5_BGP)
+      eip.setIpType(EipInfo.IpTypeEnum._5_BGP)
       eip.setBandwidth(bandwidth)
       publicIp.setEip(eip)
       instanceConfig.setPublicIp(publicIp)
@@ -165,14 +165,14 @@ class HuaweiAutoScalingClient {
 
   private static def buildAutoScalingGroupRequest(HuaweiCloudDeployDescription description, String launchConfigurationId) {
     def request = new CreateScalingGroupRequest()
-    def body = new CreateScalingGroupRequestBody()
+    def body = new CreateScalingGroupOption()
     body.setScalingGroupName(description.serverGroupName)
     body.setScalingConfigurationId(launchConfigurationId)
     body.setDesireInstanceNumber(description.desiredCapacity)
     body.setMinInstanceNumber(description.minSize)
     body.setMaxInstanceNumber(description.maxSize)
     body.setVpcId(description.vpcId)
-    body.setHealthPeriodicAuditMethod(CreateScalingGroupRequestBody.HealthPeriodicAuditMethodEnum.NOVA_AUDIT)
+    body.setHealthPeriodicAuditMethod(CreateScalingGroupOption.HealthPeriodicAuditMethodEnum.NOVA_AUDIT)
     // set default delete option
     body.setDeletePublicip(true)
 
@@ -189,6 +189,11 @@ class HuaweiAutoScalingClient {
     // cooldown time
     if (description.defaultCooldown) {
       body.setCoolDownTime(description.defaultCooldown)
+    }
+
+    // agency
+    if (description.agency) {
+      body.setIamAgencyName(description.agency)
     }
 
     // zones
@@ -213,17 +218,17 @@ class HuaweiAutoScalingClient {
 
     // instance terminate policy
     if (description.terminationPolicies) {
-      def policy = CreateScalingGroupRequestBody.InstanceTerminatePolicyEnum.fromValue(description.terminationPolicies[0])
+      def policy = CreateScalingGroupOption.InstanceTerminatePolicyEnum.fromValue(description.terminationPolicies[0])
       body.setInstanceTerminatePolicy(policy)
     }
 
     // instance health check
     if (description.healthAuditMethod) {
-      def auditMethod = CreateScalingGroupRequestBody.HealthPeriodicAuditMethodEnum.fromValue(description.healthAuditMethod)
+      def auditMethod = CreateScalingGroupOption.HealthPeriodicAuditMethodEnum.fromValue(description.healthAuditMethod)
       body.setHealthPeriodicAuditMethod(auditMethod)
     }
     if (description.healthPeriodicTime) {
-      def periodicTime = CreateScalingGroupRequestBody.HealthPeriodicAuditTimeEnum.fromValue(description.healthPeriodicTime)
+      def periodicTime = CreateScalingGroupOption.HealthPeriodicAuditTimeEnum.fromValue(description.healthPeriodicTime)
       body.setHealthPeriodicAuditTime(periodicTime)
     }
     if (description.healthGracePeriod) {
@@ -320,7 +325,7 @@ class HuaweiAutoScalingClient {
     }
   }
 
-  List<ScalingPolicyDetail> getScalingPolicies(String asgId=null) {
+  List<ScalingV1PolicyDetail> getScalingPolicies(String asgId=null) {
     try {
       def req = new ListScalingPoliciesRequest()
       if (asgId) {
@@ -333,10 +338,10 @@ class HuaweiAutoScalingClient {
     }
   }
 
-  def createScalingPolicy(String asgId, String asgName, ScalingPolicyDetail policy, String alarmId) {
+  def createScalingPolicy(String asgId, String asgName, ScalingV1PolicyDetail policy, String alarmId) {
     try {
       def request = new CreateScalingPolicyRequest()
-      def body = new CreateScalingPolicyRequestBody()
+      def body = new CreateScalingPolicyOption()
       body.setScalingGroupId(asgId)
       // policy name
       def scalingPolicyName = asgName + "-asp-" + new Date().time.toString()
@@ -368,7 +373,7 @@ class HuaweiAutoScalingClient {
       }
       // policy action
       def policyAction = policy.getScalingPolicyAction()
-      def newPolicyAction = new ScalingPolicyAction()
+      def newPolicyAction = new ScalingPolicyActionV1()
       if (policyAction.getOperation()) {
         newPolicyAction.setOperation(policyAction.getOperation())
       }
@@ -406,7 +411,7 @@ class HuaweiAutoScalingClient {
   def createNotification(String asgId, Topics notification) {
     try {
       def request = new CreateScalingNotificationRequest()
-      def body = new CreateNotificationRequestBody()
+      def body = new CreateNotificationOption()
       request.setScalingGroupId(asgId)
       body.setTopicUrn(notification.getTopicUrn())
       body.setTopicScene(notification.getTopicScene())
@@ -434,7 +439,7 @@ class HuaweiAutoScalingClient {
   def createLifeCycleHook(String asgId, LifecycleHookList hook) {
     try {
       def request = new CreateLifyCycleHookRequest()
-      def body = new CreateLifeCycleHookRequestBody()
+      def body = new CreateLifeCycleHookOption()
       request.setScalingGroupId(asgId)
       body.setLifecycleHookName(hook.getLifecycleHookName())
       // Lifecycle Hook Type
@@ -466,7 +471,7 @@ class HuaweiAutoScalingClient {
   void resizeAutoScalingGroup(String asgId, def capacity) {
     try {
       def request = new UpdateScalingGroupRequest()
-      def body = new UpdateScalingGroupRequestBody()
+      def body = new UpdateScalingGroupOption()
       request.setScalingGroupId(asgId)
       body.setMaxInstanceNumber(capacity.max)
       body.setMinInstanceNumber(capacity.min)
@@ -481,12 +486,12 @@ class HuaweiAutoScalingClient {
 
   void enableAutoScalingGroup(String asgId) {
     try {
-      def request = new EnableOrDisableScalingGroupRequest()
-      def body = new EnableOrDisableScalingGroupRequestBody()
-      body.setAction(EnableOrDisableScalingGroupRequestBody.ActionEnum.RESUME)
+      def request = new ResumeScalingGroupRequest()
+      def body = new ResumeScalingGroupOption()
+      body.setAction(ResumeScalingGroupOption.ActionEnum.RESUME)
       request.setScalingGroupId(asgId)
       request.setBody(body)
-      client.enableOrDisableScalingGroup(request)
+      client.resumeScalingGroup(request)
     } catch (ServiceResponseException e) {
       throw new HuaweiCloudOperationException(e.toString())
     }
@@ -494,12 +499,12 @@ class HuaweiAutoScalingClient {
 
   void disableAutoScalingGroup(String asgId) {
     try {
-      def request = new EnableOrDisableScalingGroupRequest()
-      def body = new EnableOrDisableScalingGroupRequestBody()
-      body.setAction(EnableOrDisableScalingGroupRequestBody.ActionEnum.PAUSE)
+      def request = new PauseScalingGroupRequest()
+      def body = new PauseScalingGroupOption()
+      body.setAction(PauseScalingGroupOption.ActionEnum.PAUSE)
       request.setScalingGroupId(asgId)
       request.setBody(body)
-      client.enableOrDisableScalingGroup(request)
+      client.pauseScalingGroup(request)
     } catch (ServiceResponseException e) {
       throw new HuaweiCloudOperationException(e.toString())
     }
