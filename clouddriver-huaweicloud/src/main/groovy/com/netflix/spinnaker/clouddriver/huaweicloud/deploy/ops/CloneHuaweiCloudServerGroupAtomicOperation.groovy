@@ -91,7 +91,6 @@ class CloneHuaweiCloudServerGroupAtomicOperation implements AtomicOperation<Depl
       newDescription.minSize = description.minSize ?: sourceAutoScalingGroup.minSize as Integer
       newDescription.desiredCapacity = description.desiredCapacity ?: sourceAutoScalingGroup.desiredCapacity as Integer
       newDescription.vpcId = description.vpcId ?: sourceAutoScalingGroup.vpcId
-      newDescription.agency = description.agency ?: sourceAutoScalingGroup.agency
 
       if (newDescription.vpcId) {
         newDescription.subnetIds = description.subnetIds ?: sourceAutoScalingGroup.subnetIdSet as List
