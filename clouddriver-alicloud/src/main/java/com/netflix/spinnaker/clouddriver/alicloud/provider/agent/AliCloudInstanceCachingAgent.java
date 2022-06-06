@@ -69,7 +69,7 @@ public class AliCloudInstanceCachingAgent implements CachingAgent {
     DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest();
     describeInstancesRequest.setSysRegionId(region);
     int pageNumber = 1;
-    int pageSize = 10;
+    int pageSize = 50;
 
     DescribeInstancesResponse describeInstancesResponse;
     try {
