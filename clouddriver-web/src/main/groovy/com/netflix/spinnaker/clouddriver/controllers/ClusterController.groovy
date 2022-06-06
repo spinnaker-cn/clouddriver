@@ -221,7 +221,7 @@ class ClusterController {
     def needsExpand  = [:]
 
     // load all server groups w/o instance details (this is reasonably efficient)
-    def sortedServerGroups = providers.collect { p ->
+    def sortedServerGroups1 = providers.collect { p ->
       def shouldExpand = !p.supportsMinimalClusters()
       def serverGroups = getServerGroups(application, account, clusterName, cloudProvider, null /* region */, shouldExpand).findAll {
         def scopeMatch = it.region == scope || it.zones?.contains(scope)
@@ -242,8 +242,14 @@ class ClusterController {
 
       return serverGroups
     }.flatten()
-    .findAll { it.createdTime != null }
-    .sort { a, b -> b.createdTime <=> a.createdTime }
+
+    def all = sortedServerGroups1
+      .findAll { it.createdTime != null }
+
+
+    def sortedServerGroups = all.sort { a, b ->
+      b.createdTime <=> a.createdTime
+    }
 
     def expandServerGroup = { ServerGroup serverGroup ->
       if (needsExpand[serverGroup]) {

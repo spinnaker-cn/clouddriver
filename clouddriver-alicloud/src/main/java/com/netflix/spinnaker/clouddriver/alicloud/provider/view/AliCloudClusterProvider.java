@@ -88,6 +88,10 @@ public class AliCloudClusterProvider
     List<AliCloudCluster> aliCloudClusters = translateClusters(clusterData, true);
 
     resultMap.put(applicationName, new HashSet<>(aliCloudClusters));
+    log.info(
+        "muyi get cluster details, application {},  cluster size: {}",
+        applicationName,
+        aliCloudClusters.size());
     return resultMap;
   }
 
@@ -112,7 +116,7 @@ public class AliCloudClusterProvider
     List<AliCloudCluster> set = new ArrayList<>();
     Collection<String> allHealthyKeys = cacheView.getIdentifiers(HEALTH.ns);
     for (CacheData clusterCache : clusterData) {
-      String application = (String) clusterCache.getAttributes().get("application");
+      String name = (String) clusterCache.getAttributes().get("name");
       Map<String, Collection<String>> relationships = clusterCache.getRelationships();
       Collection<String> serverGroupKeys = relationships.get(SERVER_GROUPS.ns);
       Set<AliCloudServerGroup> serverGroups = new HashSet<>();
@@ -125,9 +129,9 @@ public class AliCloudClusterProvider
         serverGroups.add(bulidServerGroup(allHealthyKeys, serverGroupCache));
       }
       AliCloudCluster cluster =
-          new AliCloudCluster(
-              application, AliCloudProvider.ID, accountName, serverGroups, loadBalancers);
+          new AliCloudCluster(name, AliCloudProvider.ID, accountName, serverGroups, loadBalancers);
       set.add(cluster);
+      log.info("muyi view cluster, name:{} ,serverGroups size:{}", name, serverGroups.size());
     }
     return set;
   }

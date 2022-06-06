@@ -4,7 +4,9 @@ import com.google.common.collect.Lists
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.TencentDeployDescription
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencentScalingPolicyDescription
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencentScheduledActionDescription
+import com.netflix.spinnaker.clouddriver.tencent.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.tencent.exception.TencentOperationException
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import com.tencentcloudapi.as.v20180419.AsClient
 import com.tencentcloudapi.as.v20180419.models.*
 import com.tencentcloudapi.clb.v20180317.ClbClient
@@ -14,6 +16,7 @@ import com.tencentcloudapi.common.profile.ClientProfile
 import com.tencentcloudapi.common.profile.HttpProfile
 import groovy.util.logging.Slf4j
 import org.springframework.stereotype.Component
+import org.springframework.util.StringUtils
 
 import java.util.stream.Collectors
 
@@ -22,7 +25,7 @@ import java.util.stream.Collectors
 class AutoScalingClient extends AbstractTencentServiceClient {
   final String endPoint = "as.tencentcloudapi.com"
   static String defaultServerGroupTagKey = "spinnaker:server-group-name"
-  final Integer DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME = 1000
+  final Integer DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME = 5
 
   private AsClient client
   private ClbClient clbClient // todo move to load balancer client ?
@@ -79,7 +82,9 @@ class AutoScalingClient extends AbstractTencentServiceClient {
       createLaunchConfigurationRequest.projectId = description.projectId
     }
 
-    if (description.instanceType) {
+    if (description.instanceTypes) {
+      createLaunchConfigurationRequest.instanceTypes = description.instanceTypes
+    }else if(description.instanceType){
       createLaunchConfigurationRequest.instanceType = description.instanceType
     }
 
@@ -151,9 +156,6 @@ class AutoScalingClient extends AbstractTencentServiceClient {
       createLaunchConfigurationRequest.instanceMarketOptions = instanceMarketOptionsRequest
     }
 
-    if (description.instanceTypes) {
-      createLaunchConfigurationRequest.instanceTypes = description.instanceTypes
-    }
 
     if (description.instanceTypesCheckPolicy) {
       createLaunchConfigurationRequest.instanceTypesCheckPolicy = description.instanceTypesCheckPolicy
@@ -272,6 +274,7 @@ class AutoScalingClient extends AbstractTencentServiceClient {
         def response = client.DescribeLaunchConfigurations(request)
         launchConfigurations.addAll(response.launchConfigurationSet)
       }
+      log.info("muyi load data launchConfigurations size:{}",launchConfigurations.size())
       launchConfigurations
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString())
@@ -459,10 +462,14 @@ class AutoScalingClient extends AbstractTencentServiceClient {
           clbClient.DeregisterTargets(request)
           break
         } catch (TencentCloudSDKException e) {
+          ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_3, this.class)
           if (e.toString().contains("FailedOperation") && retry) {
             log.info("lb service throw FailedOperation error, probably $flb.loadBalancerId is locked, will retry later.")
-            sleep(500)
-          } else {
+            sleep(5000)
+          }else if (!StringUtils.isEmpty(e.message) && e.message.contains("InternalError") && retry){
+            log.info("lb service throw InternalError,loadBalanceId $flb.loadBalancerId, will retry later,current retry count: $retry_count")
+            sleep(5000)
+          }else {
             throw new TencentCloudSDKException(e.toString())
           }
         }
