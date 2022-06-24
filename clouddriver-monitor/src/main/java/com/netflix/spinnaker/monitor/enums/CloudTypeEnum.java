@@ -7,5 +7,6 @@ package com.netflix.spinnaker.monitor.enums;
 public enum CloudTypeEnum {
   ALIYUN,
   TENCENT,
-  HUAWEI;
+  HUAWEI,
+  HE;
 }

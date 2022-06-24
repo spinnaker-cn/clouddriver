@@ -298,6 +298,14 @@ tencent:
       secretKey: ${TENCENTCLOUD_SECRET_KEY}
       regions: ["ap-guangzhou","ap-shanghai"]
 
+hecloud:
+  enabled: ${HE_ENABLED:false}
+  accounts:
+    - name: ${HE_ACCOUNT_NAME}
+      accessKeyId: ${HE_ACCOUNT_ACCESS_KEY_ID}
+      accessSecretKey: ${HE_ACCOUNT_ACCESS_SECRET_KEY}
+      regions:
+        - name: ${HE_ACCOUNT_REGIONS_NAME}	  
 
 spring:
   jackson:
