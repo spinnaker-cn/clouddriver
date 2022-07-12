@@ -161,6 +161,10 @@ class AutoScalingClient extends AbstractTencentServiceClient {
       createLaunchConfigurationRequest.instanceTypesCheckPolicy = description.instanceTypesCheckPolicy
     }
 
+    if (description.camRoleName){
+      createLaunchConfigurationRequest.camRoleName = description.camRoleName
+    }
+
     def spinnakerTag = new InstanceTag(
       key: defaultServerGroupTagKey,
       value: description.serverGroupName
