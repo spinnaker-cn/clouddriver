@@ -236,7 +236,15 @@ class TencentClusterProvider implements ClusterProvider<TencentCluster> {
 
       serverGroup.instances = getServerGroupInstances(account, region, serverGroupEntry)
 
-      String imageId = serverGroupEntry.attributes.launchConfig["imageId"]
+      String imageId = Optional.ofNullable(serverGroupEntry.attributes)
+        .map({ attribute -> attribute.launchConfig })
+        .map({ launch -> launch["imageId"] })
+        .orElse(null)
+      log.info("muyi tencent cluster provider imageId:{}",imageId)
+      if (org.springframework.util.StringUtils.isEmpty(imageId)){
+        log.info("muyi attributes:{}",serverGroupEntry.attributes)
+      }
+//      String imageId = serverGroupEntry.attributes.launchConfig["imageId"]
       CacheData imageConfig = imageId ? cacheView.get(
         IMAGES.ns,
         Keys.getImageKey(imageId, account, region)
