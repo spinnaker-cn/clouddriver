@@ -1,5 +1,7 @@
+sourceSets.main.java.srcDirs = ['src/main/java']
 dependencies {
   implementation project(":clouddriver-core")
+  implementation project(":cats:cats-core")
 
   compileOnly "org.projectlombok:lombok"
   testCompile "org.projectlombok:lombok"

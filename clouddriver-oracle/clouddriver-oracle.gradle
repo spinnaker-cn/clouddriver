@@ -1,3 +1,7 @@
+repositories {
+  maven { url "http://spinnaker.maven.cn:8000//repository/spinnaker-public/"}
+}
+
 dependencies {
   implementation project(":clouddriver-core")
   implementation project(":cats:cats-core")
