@@ -118,7 +118,11 @@ class TencentClusterProvider implements ClusterProvider<TencentCluster> {
     String serverGroupKey = Keys.getServerGroupKey name, account, region
     CacheData serverGroupData = cacheView.get SERVER_GROUPS.ns, serverGroupKey
     if (serverGroupData) {
-      String imageId = serverGroupData.attributes.launchConfig["imageId"]
+      String imageId = Optional.ofNullable(serverGroupData.attributes)
+        .map({ attribute -> attribute.launchConfig })
+        .map({ launch -> launch["imageId"] })
+        .orElse(null)
+//      String imageId = serverGroupData.attributes.launchConfig["imageId"]
       CacheData imageConfig = imageId ? cacheView.get(
         IMAGES.ns,
         Keys.getImageKey(imageId, account, region)
