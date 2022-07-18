@@ -4,6 +4,7 @@ dependencies {
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-eureka")
   implementation project(":clouddriver-security")
+  implementation project(":clouddriver-monitor")
 
   compileOnly "org.projectlombok:lombok"
   testCompile "org.projectlombok:lombok"

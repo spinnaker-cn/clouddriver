@@ -3,6 +3,7 @@ package com.netflix.spinnaker.monitor.util;
 import com.google.gson.Gson;
 import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import com.netflix.spinnaker.monitor.enums.CloudTypeEnum;
+import com.netflix.spinnaker.monitor.model.AgentMetric;
 import com.netflix.spinnaker.monitor.model.MonitorModel;
 
 import java.util.*;
@@ -24,15 +25,36 @@ import org.springframework.util.DigestUtils;
 @Component
 public class MonitorUtils {
   public static Map<String, CloudApiMetric> metricsMap = new ConcurrentHashMap<>();
+  public static Map<String, AgentMetric> agentMetricsMap = new ConcurrentHashMap<>();
   private static final Gson GSON = new Gson();
 
-
   private static final String CODE = "code";
+  private static final String AGENT = "agent";
   private static final String LOG_ID = "logId";
   private static final String CLOUD_TYPE = "cloudType";
   private static final String API_CODE = "apiCode";
   private static final String MESSAGE = "message";
   private static final String ERROR = "error";
+
+  public static void registerAgentElapsedMetric(String  metricName,String agentName, long elapsedMs) {
+    String key = String.join(metricName, agentName);
+    AgentMetric agentCache = agentMetricsMap.get(key);
+    if (agentCache == null) {
+      AgentMetric agentMetric = new AgentMetric();
+      agentMetric.setMetricName(metricName);
+      agentMetric.setAgentName(agentName);
+      List<String> lables = new ArrayList<>();
+      lables.add(AGENT);
+      List<String> values = new ArrayList<>();
+      values.add(agentMetric.getAgentName());
+      agentMetric.setLables(lables);
+      agentMetric.setValues(values);
+      agentMetric.setCount(elapsedMs);
+      agentMetricsMap.put(key, agentMetric);
+    } else {
+      agentCache.setCount(agentCache.getCount()+elapsedMs);
+    }
+  }
 
   public static void registerMetric(MonitorModel model, Throwable e) {
     String key = DigestUtils.md5DigestAsHex(String.join(",", model.getMonitorName(), model.getCode().name(), model.getCloudType().name(), model.getApiCode()).getBytes());

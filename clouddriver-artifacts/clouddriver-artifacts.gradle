@@ -1,6 +1,10 @@
 tasks.compileGroovy.enabled = false
 sourceSets.main.java.srcDirs = ['src/main/java']
 
+repositories {
+  maven { url "http://spinnaker.maven.cn:8000//repository/spinnaker-public/"}
+}
+
 dependencies {
   implementation project(":clouddriver-core")
 

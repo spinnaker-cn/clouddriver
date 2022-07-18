@@ -36,7 +36,7 @@ class TencentDeployDescription extends AbstractTencentCredentialsDescription imp
   List<String> instanceTypes
   String instanceTypesCheckPolicy
   List<Map<String, String>> instanceTags
-
+  String camRoleName
   /*
   auto scaling group part
    */

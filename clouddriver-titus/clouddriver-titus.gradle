@@ -6,7 +6,8 @@ ext {
 }
 
 repositories {
-  maven { url 'https://dl.bintray.com/netflixoss' }
+  maven { url 'http://maven.aliyun.com/nexus/content/groups/public' }
+//  maven { url 'https://dl.bintray.com/netflixoss' }
 }
 
 dependencies {
