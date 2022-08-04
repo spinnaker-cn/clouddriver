@@ -109,9 +109,8 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
     DescribeScalingGroupsResponse describeScalingGroupsResponse;
     CacheResult result = new DefaultCacheResult(new HashMap<>(16));
     List<ScalingGroup> scalingGroups = new ArrayList<ScalingGroup>();
-
+    try {
       while (true) {
-        try {
         describeScalingGroupsRequest.setPageSize(pageSize);
         describeScalingGroupsRequest.setPageNumber(pageNumber);
         logger.info(
@@ -130,16 +129,16 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
           logger.info("yejingtao bug log serverGroup loadData break " + pageSize + pageNumber);
           break;
         }
-        logger.info(
-            "yejingtao bug log serverGroup loadData scalingGroups size " + scalingGroups.size());
-          result = buildCacheResult(scalingGroups, client);
-        } catch (Exception e) {
-          AliCloudException aliCloudException = new AliCloudException("describle_cluster_infos_error");
-          ExceptionUtils.registerMetric(aliCloudException, AlarmLevelEnum.LEVEL_2);
-          logger.info(e.getMessage());
-          e.printStackTrace();
-        }
       }
+      logger.info(
+        "yejingtao bug log serverGroup loadData scalingGroups size " + scalingGroups.size());
+      result = buildCacheResult(scalingGroups, client);
+    } catch (Exception e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
+      logger.info(e.getMessage());
+      e.printStackTrace();
+    }
+
     return result;
   }
 
@@ -293,7 +292,7 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
       instanceCaches.size(),
       loadBalancerCaches.size(),
       launchConfigCaches.size()
-      );
+    );
     return new DefaultCacheResult(resultMap);
   }
 
