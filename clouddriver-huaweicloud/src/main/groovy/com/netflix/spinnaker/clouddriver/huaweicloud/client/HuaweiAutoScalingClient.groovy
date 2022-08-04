@@ -196,6 +196,11 @@ class HuaweiAutoScalingClient {
       body.setAvailableZones(description.zones)
     }
 
+    // agency
+    if (description.agency) {
+      body.setIamAgencyName(description.agency)
+    }
+
     // loadbalancer
     if (description.forwardLoadBalancers) {
       def forwardLoadBalancers = description.forwardLoadBalancers.collect {
