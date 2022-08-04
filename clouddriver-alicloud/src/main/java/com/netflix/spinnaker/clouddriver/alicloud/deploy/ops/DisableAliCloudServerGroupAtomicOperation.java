@@ -110,17 +110,21 @@ public class DisableAliCloudServerGroupAtomicOperation implements AtomicOperatio
           }
 
           String scalingGroupId = scalingGroup.getScalingGroupId();
+          disableAlarmsTasks(scalingGroupId,client);
           for (int i = 0; i < 5; i++) {
             try {
-              disableAlarmsTasks(scalingGroupId,client);
               DisableScalingGroupRequest disableScalingGroupRequest = new DisableScalingGroupRequest();
               disableScalingGroupRequest.setScalingGroupId(scalingGroupId);
               client.getAcsResponse(disableScalingGroupRequest);
               break;
-            } catch (Exception e) {
-              Thread.sleep(60*1000L);
-              log.error("disable scaling group failed,id:{}", scalingGroup.getScalingGroupId());
-              e.printStackTrace();
+            } catch (ClientException e) {
+                if("IncorrectScalingGroupStatus".equals(e.getErrCode())){
+                  Thread.sleep(60*1000L);
+                  log.error("disable scaling group failed,id:{}", scalingGroup.getScalingGroupId());
+                  e.printStackTrace();
+                }else {
+                  break;
+                }
             }
           }
         }
