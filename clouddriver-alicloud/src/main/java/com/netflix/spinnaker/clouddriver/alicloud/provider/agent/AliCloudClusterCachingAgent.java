@@ -54,6 +54,7 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
+import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
@@ -108,8 +109,9 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
     DescribeScalingGroupsResponse describeScalingGroupsResponse;
     CacheResult result = new DefaultCacheResult(new HashMap<>(16));
     List<ScalingGroup> scalingGroups = new ArrayList<ScalingGroup>();
-    try {
+
       while (true) {
+        try {
         describeScalingGroupsRequest.setPageSize(pageSize);
         describeScalingGroupsRequest.setPageNumber(pageNumber);
         logger.info(
@@ -128,16 +130,16 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
           logger.info("yejingtao bug log serverGroup loadData break " + pageSize + pageNumber);
           break;
         }
+        logger.info(
+            "yejingtao bug log serverGroup loadData scalingGroups size " + scalingGroups.size());
+          result = buildCacheResult(scalingGroups, client);
+        } catch (Exception e) {
+          AliCloudException aliCloudException = new AliCloudException("describle_cluster_infos_error");
+          ExceptionUtils.registerMetric(aliCloudException, AlarmLevelEnum.LEVEL_2);
+          logger.info(e.getMessage());
+          e.printStackTrace();
+        }
       }
-      logger.info(
-        "yejingtao bug log serverGroup loadData scalingGroups size " + scalingGroups.size());
-      result = buildCacheResult(scalingGroups, client);
-    } catch (Exception e) {
-      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
-      logger.info(e.getMessage());
-      e.printStackTrace();
-    }
-
     return result;
   }
 
@@ -265,10 +267,10 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
         cacheInstance(sgData, instanceCaches);
         cacheLoadBalancer(sgData, loadBalancerCaches);
       } catch (Exception e) {
-        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
+        AliCloudException error = new AliCloudException("describle_cluster_relation_error");
+        ExceptionUtils.registerMetric(error, AlarmLevelEnum.LEVEL_2);
         e.printStackTrace();
         logger.error("yejingtao bug log buildCacheResult error " + e.getMessage());
-        throw e;
       }
     }
     logger.info("yejingtao bug log buildCacheResult end ");
