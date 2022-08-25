@@ -84,7 +84,7 @@ class AutoScalingClient extends AbstractTencentServiceClient {
 
     if (description.instanceTypes) {
       createLaunchConfigurationRequest.instanceTypes = description.instanceTypes
-    }else if(description.instanceType){
+    } else if (description.instanceType) {
       createLaunchConfigurationRequest.instanceType = description.instanceType
     }
 
@@ -161,7 +161,7 @@ class AutoScalingClient extends AbstractTencentServiceClient {
       createLaunchConfigurationRequest.instanceTypesCheckPolicy = description.instanceTypesCheckPolicy
     }
 
-    if (description.camRoleName){
+    if (description.camRoleName) {
       createLaunchConfigurationRequest.camRoleName = description.camRoleName
     }
 
@@ -278,7 +278,7 @@ class AutoScalingClient extends AbstractTencentServiceClient {
         def response = client.DescribeLaunchConfigurations(request)
         launchConfigurations.addAll(response.launchConfigurationSet)
       }
-      log.info("muyi load data launchConfigurations size:{}",launchConfigurations.size())
+      log.info("muyi load data launchConfigurations size:{}", launchConfigurations.size())
       launchConfigurations
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString())
@@ -470,10 +470,10 @@ class AutoScalingClient extends AbstractTencentServiceClient {
           if (e.toString().contains("FailedOperation") && retry) {
             log.info("lb service throw FailedOperation error, probably $flb.loadBalancerId is locked, will retry later.")
             sleep(5000)
-          }else if (!StringUtils.isEmpty(e.message) && e.message.contains("InternalError") && retry){
+          } else if (!StringUtils.isEmpty(e.message) && e.message.contains("InternalError") && retry) {
             log.info("lb service throw InternalError,loadBalanceId $flb.loadBalancerId, will retry later,current retry count: $retry_count")
             sleep(5000)
-          }else {
+          } else {
             throw new TencentCloudSDKException(e.toString())
           }
         }
@@ -669,6 +669,48 @@ class AutoScalingClient extends AbstractTencentServiceClient {
         it
       }
       def response = client.CreateNotificationConfiguration request
+      response
+    } catch (TencentCloudSDKException e) {
+      throw new TencentOperationException(e.toString())
+    }
+  }
+  def getLifecycleHooks(String asgId = null) {
+    iterQuery { offset, limit ->
+      def request = new DescribeLifecycleHooksRequest(offset: offset, limit: limit)
+
+      if (asgId) {
+        request.filters = [new Filter(name: 'auto-scaling-group-id', values: [asgId])]
+      }
+
+      def response = client.DescribeLifecycleHooks request
+      response.lifecycleHookSet
+    } as List<LifecycleHook>
+  }
+
+  def createLifecycleHooks(String asgId, LifecycleHook lifecycleHook) {
+    try {
+      def request = new CreateLifecycleHookRequest().with {
+        it.autoScalingGroupId = asgId
+        it.defaultResult = lifecycleHook.defaultResult
+        it.heartbeatTimeout = lifecycleHook.heartbeatTimeout
+        it.lifecycleHookName = lifecycleHook.lifecycleHookName
+        it.lifecycleTransition = lifecycleHook.lifecycleTransition
+        it.lifecycleTransitionType = lifecycleHook.lifecycleTransitionType
+        def notificationTarget = lifecycleHook.notificationTarget
+        if (!StringUtils.isEmpty(notificationTarget.targetType)){
+          it.notificationTarget = notificationTarget
+          it.notificationTarget.targetType = notificationTarget.targetType
+          if (!StringUtils.isEmpty(notificationTarget.queueName)){
+            it.notificationTarget.queueName = notificationTarget.queueName
+          }
+          if (!StringUtils.isEmpty(notificationTarget.topicName)){
+            it.notificationTarget.topicName = notificationTarget.topicName
+          }
+        }
+        it.notificationMetadata = lifecycleHook.notificationMetadata
+        it
+      }
+      def response = client.CreateLifecycleHook request
       response
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString())

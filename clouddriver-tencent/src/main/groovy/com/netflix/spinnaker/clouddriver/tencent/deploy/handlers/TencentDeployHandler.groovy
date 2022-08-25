@@ -12,6 +12,7 @@ import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencen
 import com.netflix.spinnaker.clouddriver.tencent.exception.TencentOperationException
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.TencentClusterProvider
 import com.netflix.spinnaker.clouddriver.tencent.client.AutoScalingClient
+import com.tencentcloudapi.as.v20180419.models.LifecycleHook
 import com.tencentcloudapi.common.exception.TencentCloudSDKException
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
@@ -94,7 +95,7 @@ class TencentDeployHandler implements DeployHandler<TencentDeployDescription> {
     deploymentResult.serverGroupNameByRegion[region] = serverGroupName
 
     if (description.copySourceScalingPoliciesAndActions) {
-      copyScalingPolicyAndScheduledAction(description, deploymentResult)
+      copyScalingPolicyAndScheduledActionAndLifecycleHooks(description, deploymentResult)
       copyNotification(description, deploymentResult)  // copy notification by the way
     }
 
@@ -138,8 +139,9 @@ class TencentDeployHandler implements DeployHandler<TencentDeployDescription> {
     }
   }
 
-  private def copyScalingPolicyAndScheduledAction(TencentDeployDescription description, DeploymentResult deployResult) {
-    task.updateStatus BASE_PHASE, "Enter copyScalingPolicyAndScheduledAction."
+
+  private def copyScalingPolicyAndScheduledActionAndLifecycleHooks(TencentDeployDescription description, DeploymentResult deployResult) {
+    task.updateStatus BASE_PHASE, "Enter copyScalingPolicyAndScheduledActionAndLifecycleHooks."
 
     String sourceServerGroupName = description?.source?.serverGroupName
     String sourceRegion = description?.source?.region
@@ -168,6 +170,7 @@ class TencentDeployHandler implements DeployHandler<TencentDeployDescription> {
 
     // copy all scaling policies
     def scalingPolicies = autoScalingClient.getScalingPolicies(sourceAsgId)
+
     for (scalingPolicy in scalingPolicies) {
       try {
         def scalingPolicyDescription = new UpsertTencentScalingPolicyDescription().with {
@@ -240,6 +243,11 @@ class TencentDeployHandler implements DeployHandler<TencentDeployDescription> {
         // something bad happened during creation, log the error and continue
         log.warn "create scheduled action error $sdk_e"
       }
+    }
+    // copy all lifecycleHooks
+    def lifecycleHooks = autoScalingClient.getLifecycleHooks(sourceAsgId)
+    for (lifecycleHook in lifecycleHooks){
+      autoScalingClient.createLifecycleHooks(newAsgId,lifecycleHook)
     }
   }
 }
