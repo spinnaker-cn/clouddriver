@@ -49,3 +49,4 @@ nohup sh -c "./gradlew --daemon 2>&1 | tee /tmp//clouddriver.log | cat >/dev/nul
 nohup sh -c "./gradlew -DDEBUG=true --daemon 2>&1 | tee /tmp//clouddriver.log | cat >/dev/null" >/dev/null &
 ```
 
+因为spinnaker最新版本的依赖方式变更,我们搭建了当前版本的maven仓库，将spinnaker.maven.cn在本地解析到目标仓库ip即可，仓库端口8000

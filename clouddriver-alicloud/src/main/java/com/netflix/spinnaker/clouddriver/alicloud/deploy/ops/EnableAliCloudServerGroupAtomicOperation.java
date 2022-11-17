@@ -17,13 +17,11 @@
 package com.netflix.spinnaker.clouddriver.alicloud.deploy.ops;
 
 import com.aliyuncs.IAcsClient;
-import com.aliyuncs.ess.model.v20140828.DescribeScalingConfigurationsRequest;
-import com.aliyuncs.ess.model.v20140828.DescribeScalingConfigurationsResponse;
+import com.aliyuncs.ess.model.v20140828.*;
 import com.aliyuncs.ess.model.v20140828.DescribeScalingConfigurationsResponse.ScalingConfiguration;
-import com.aliyuncs.ess.model.v20140828.DescribeScalingGroupsRequest;
-import com.aliyuncs.ess.model.v20140828.DescribeScalingGroupsResponse;
 import com.aliyuncs.ess.model.v20140828.DescribeScalingGroupsResponse.ScalingGroup;
-import com.aliyuncs.ess.model.v20140828.EnableScalingGroupRequest;
+import com.aliyuncs.exceptions.ClientException;
+import com.google.common.collect.Lists;
 import com.netflix.spinnaker.clouddriver.alicloud.common.ClientFactory;
 import com.netflix.spinnaker.clouddriver.alicloud.deploy.description.EnableAliCloudServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
@@ -32,8 +30,11 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import groovy.util.logging.Slf4j;
 import java.util.List;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.CollectionUtils;
 
 @Slf4j
 public class EnableAliCloudServerGroupAtomicOperation implements AtomicOperation<Void> {
@@ -84,6 +85,7 @@ public class EnableAliCloudServerGroupAtomicOperation implements AtomicOperation
             enableScalingGroupRequest.setActiveScalingConfigurationId(
                 scalingConfiguration.getScalingConfigurationId());
             client.getAcsResponse(enableScalingGroupRequest);
+            enableAlarmsTasks(scalingGroup.getScalingGroupId(),client);
           }
         }
       }
@@ -95,5 +97,19 @@ public class EnableAliCloudServerGroupAtomicOperation implements AtomicOperation
     }
 
     return null;
+  }
+
+  private void enableAlarmsTasks(String asgId, IAcsClient client) throws ClientException {
+    DescribeAlarmsRequest describeAlarmsRequest = new DescribeAlarmsRequest();
+    describeAlarmsRequest.setScalingGroupId(asgId);
+    DescribeAlarmsResponse alarmsResponse = client.getAcsResponse(describeAlarmsRequest);
+    List<DescribeAlarmsResponse.Alarm> alarmList = alarmsResponse.getAlarmList();
+    if (!CollectionUtils.isEmpty(alarmList)) {
+      EnableAlarmRequest alarmRequest = new EnableAlarmRequest();
+      for (DescribeAlarmsResponse.Alarm alarm : alarmList) {
+        alarmRequest.setAlarmTaskId(alarm.getAlarmTaskId());
+        client.getAcsResponse(alarmRequest);
+      }
+    }
   }
 }
