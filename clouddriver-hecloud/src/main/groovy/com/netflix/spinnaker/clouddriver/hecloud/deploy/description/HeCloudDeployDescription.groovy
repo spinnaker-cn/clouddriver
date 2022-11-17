@@ -32,6 +32,7 @@ class HeCloudDeployDescription extends AbstractHeCloudCredentialsDescription imp
   List<String> securityGroupIds
   Map<String, Object> enhancedService
   String userData
+  String agency
   String instanceChargeType
   Map<String, Object> instanceMarketOptionsRequest
   List<String> instanceTypes

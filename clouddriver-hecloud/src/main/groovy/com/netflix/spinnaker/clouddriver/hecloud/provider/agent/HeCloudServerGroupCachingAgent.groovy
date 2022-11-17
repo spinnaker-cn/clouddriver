@@ -282,6 +282,7 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
         autoScalingGroupName: autoScalingGroupName,
         zoneSet: it.getAvailableZones(),
         vpcId: it.getVpcId(),
+        agency: it.getIamAgencyName(),
         subnetIdSet: subnetIds,
         minSize: it.getMinInstanceNumber(),
         maxSize: it.getMaxInstanceNumber(),
