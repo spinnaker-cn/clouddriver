@@ -8,8 +8,8 @@ import com.huaweicloud.sdk.core.auth.BasicCredentials
 import com.huaweicloud.sdk.core.exception.ServiceResponseException
 import com.huaweicloud.sdk.core.http.HttpConfig
 import com.huaweicloud.sdk.core.region.Region
-import com.huaweicloud.sdk.as.v1.AsClient
-import com.huaweicloud.sdk.as.v1.model.*
+import com.hecloud.sdk.as.v1.AsClient
+import com.hecloud.sdk.as.v1.model.*
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -25,10 +25,10 @@ class HeCloudAutoScalingClient {
     def regionId = new Region(region, "https://as." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
     client = AsClient.newBuilder()
-        .withHttpConfig(config)
-        .withCredential(auth)
-        .withRegion(regionId)
-        .build()
+      .withHttpConfig(config)
+      .withCredential(auth)
+      .withRegion(regionId)
+      .build()
   }
 
   String deploy(HeCloudDeployDescription description) {
@@ -194,6 +194,11 @@ class HeCloudAutoScalingClient {
     // zones
     if (description.zones.size() > 0) {
       body.setAvailableZones(description.zones)
+    }
+
+    // agency
+    if (description.agency) {
+      body.setIamAgencyName(description.agency)
     }
 
     // loadbalancer

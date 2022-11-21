@@ -13,6 +13,7 @@ import groovy.transform.InheritConstructors
 import groovy.util.logging.Slf4j
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.SERVER_GROUPS
 import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.IMAGES
 import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.NAMED_IMAGES
 
@@ -21,6 +22,7 @@ import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.NAM
 class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
 
   final Set<AgentDataType> providedDataTypes = [
+    AUTHORITATIVE.forType(IMAGES.ns),
     AUTHORITATIVE.forType(IMAGES.ns)
   ] as Set
 
@@ -86,6 +88,13 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
     log.info 'finish loads image data.'
     log.info "Caching ${namespaceCache[IMAGES.ns].size()} items in $agentType"
     defaultCacheResult
+  }
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (NAMED_IMAGES.ns): Keys.getNamedImageKey('***', '*'),
+      (IMAGES.ns): Keys.getImageKey('***', '*', '*')
+    ]
   }
 }
 
