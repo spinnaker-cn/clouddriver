@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.huaweicloud.client
 
+import com.netflix.spinnaker.clouddriver.huaweicloud.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.huaweicloud.model.loadbalance.HuaweiCloudLoadBalancerListener
 import com.netflix.spinnaker.clouddriver.huaweicloud.model.loadbalance.HuaweiCloudLoadBalancerRule
 import com.netflix.spinnaker.clouddriver.huaweicloud.model.loadbalance.HuaweiCloudLoadBalancerTarget
@@ -11,6 +12,7 @@ import com.huaweicloud.sdk.core.http.HttpConfig
 import com.huaweicloud.sdk.core.region.Region
 import com.huaweicloud.sdk.elb.v3.ElbClient
 import com.huaweicloud.sdk.elb.v3.model.*
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import groovy.util.logging.Slf4j
 import org.springframework.stereotype.Component
 
@@ -45,6 +47,7 @@ class HuaweiLoadBalancerClient {
       }
       return loadBalancerAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -65,6 +68,7 @@ class HuaweiLoadBalancerClient {
       def resp = client.listLoadBalancers(req);
       return resp.getLoadbalancers()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -97,6 +101,7 @@ class HuaweiLoadBalancerClient {
       }
       return listenerAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -119,6 +124,7 @@ class HuaweiLoadBalancerClient {
       }
       return l7policiesAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -151,6 +157,7 @@ class HuaweiLoadBalancerClient {
       }
       return poolsAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -190,6 +197,7 @@ class HuaweiLoadBalancerClient {
       }
       return healthMonitorsAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -209,6 +217,7 @@ class HuaweiLoadBalancerClient {
       }
       return membersAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -228,6 +237,7 @@ class HuaweiLoadBalancerClient {
       }
       return poolsAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }

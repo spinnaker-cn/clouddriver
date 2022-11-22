@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.clouddriver.huaweicloud.client
 
 import com.netflix.spinnaker.clouddriver.huaweicloud.deploy.description.HuaweiCloudDeployDescription
+import com.netflix.spinnaker.clouddriver.huaweicloud.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.huaweicloud.exception.HuaweiCloudOperationException
 
 import com.huaweicloud.sdk.core.auth.BasicCredentials
@@ -9,6 +10,7 @@ import com.huaweicloud.sdk.core.http.HttpConfig
 import com.huaweicloud.sdk.core.region.Region
 import com.huaweicloud.sdk.as.v1.AsClient
 import com.huaweicloud.sdk.as.v1.model.*
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import groovy.util.logging.Slf4j
 import org.springframework.stereotype.Component
 
@@ -254,6 +256,7 @@ class HuaweiAutoScalingClient {
       }
       return scalingGroupAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -265,6 +268,7 @@ class HuaweiAutoScalingClient {
       def resp = client.listScalingGroups(req)
       resp.getScalingGroups()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -284,6 +288,7 @@ class HuaweiAutoScalingClient {
       }
       return scalingConfigAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }

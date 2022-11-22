@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.huaweicloud.client
 
+import com.netflix.spinnaker.clouddriver.huaweicloud.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.huaweicloud.exception.HuaweiCloudOperationException
 
 import com.huaweicloud.sdk.core.auth.BasicCredentials
@@ -8,6 +9,7 @@ import com.huaweicloud.sdk.core.http.HttpConfig
 import com.huaweicloud.sdk.core.region.Region
 import com.huaweicloud.sdk.ecs.v2.EcsClient
 import com.huaweicloud.sdk.ecs.v2.model.*
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import groovy.util.logging.Slf4j
 import org.springframework.stereotype.Component
 
@@ -75,6 +77,7 @@ class HuaweiElasticCloudServerClient {
       def response = client.listFlavors(request)
       response.getFlavors()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -85,6 +88,7 @@ class HuaweiElasticCloudServerClient {
       def response = client.novaListKeypairs(request)
       response.getKeypairs()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -104,6 +108,7 @@ class HuaweiElasticCloudServerClient {
       }
       return instanceAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e.errorMsg, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -114,6 +119,7 @@ class HuaweiElasticCloudServerClient {
       def response = client.showServerTags(request)
       response.getTags()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }

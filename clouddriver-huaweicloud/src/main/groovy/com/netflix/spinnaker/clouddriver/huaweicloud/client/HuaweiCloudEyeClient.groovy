@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.clouddriver.huaweicloud.client
 
 import com.netflix.spinnaker.clouddriver.huaweicloud.deploy.description.HuaweiCloudDeployDescription
+import com.netflix.spinnaker.clouddriver.huaweicloud.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.huaweicloud.exception.HuaweiCloudOperationException
 
 import com.huaweicloud.sdk.core.auth.BasicCredentials
@@ -9,6 +10,7 @@ import com.huaweicloud.sdk.core.http.HttpConfig
 import com.huaweicloud.sdk.core.region.Region
 import com.huaweicloud.sdk.ces.v1.CesClient
 import com.huaweicloud.sdk.ces.v1.model.*
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import groovy.util.logging.Slf4j
 import org.springframework.stereotype.Component
 
@@ -38,6 +40,7 @@ class HuaweiCloudEyeClient {
       }
       alarms[0]
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -65,6 +68,7 @@ class HuaweiCloudEyeClient {
       def response = client.createAlarm request
       response
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
