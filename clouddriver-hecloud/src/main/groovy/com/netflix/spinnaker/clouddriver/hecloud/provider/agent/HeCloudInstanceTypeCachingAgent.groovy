@@ -46,9 +46,9 @@ class HeCloudInstanceTypeCachingAgent extends AbstractHeCloudCachingAgent {
       def flavorStatus = extraSpec.getCondOperationStatus();
 
       //不返回售罄的规格
+      // Remove abandon filter: InstanceCondOperationStatusEnum.ABANDON
       if(
-        InstanceCondOperationStatusEnum.ABANDON.name().toLowerCase() == flavorStatus ||
-          InstanceCondOperationStatusEnum.SELLOUT.name().toLowerCase() == flavorStatus ||
+        InstanceCondOperationStatusEnum.SELLOUT.name().toLowerCase() == flavorStatus ||
           InstanceCondOperationStatusEnum.OBT_SELLOUT.name().toLowerCase() == flavorStatus
       ){
         null
