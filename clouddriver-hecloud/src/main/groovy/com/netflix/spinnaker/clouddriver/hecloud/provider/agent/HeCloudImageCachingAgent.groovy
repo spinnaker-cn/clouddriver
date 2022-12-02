@@ -92,8 +92,8 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
   @Override
   Optional<Map<String, String>> getCacheKeyPatterns() {
     return [
-      (NAMED_IMAGES.ns): Keys.getNamedImageKey('***', '*'),
-      (IMAGES.ns): Keys.getImageKey('***', '*', '*')
+      (NAMED_IMAGES.ns): Keys.getNamedImageKey('***', accountName + "/" + region),
+      (IMAGES.ns)      : Keys.getImageKey('***', accountName, region)
     ]
   }
 }
