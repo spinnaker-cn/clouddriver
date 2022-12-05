@@ -538,7 +538,26 @@ class HeCloudAutoScalingClient {
       def request = new DeleteScalingConfigRequest()
       request.setScalingConfigurationId(ascId)
       client.deleteScalingConfig(request)
+
+      // wait for deleting successed
+      for (def i = 0; i < MAX_TRY_COUNT; i++) {
+        Thread.sleep(REQ_TRY_INTERVAL)
+        def getReq = new ShowScalingConfigRequest()
+        getReq.setScalingConfigurationId(ascId)
+        client.showScalingConfig(getReq)
+      }
     } catch (ServiceResponseException e) {
+      if (e.getHttpStatusCode() == 404) {
+        return
+      } else {
+        try {
+          def request = new DeleteScalingConfigRequest()
+          request.setScalingConfigurationId(ascId)
+          client.deleteScalingConfig(request)
+        } catch (ServiceResponseException e1) {
+          throw new HeCloudOperationException(e1.toString())
+        }
+      }
       throw new HeCloudOperationException(e.toString())
     }
   }

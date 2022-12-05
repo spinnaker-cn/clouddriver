@@ -476,4 +476,10 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
       ]
     }
   }
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (SERVER_GROUPS.ns): Keys.getServerGroupKey("***", accountName, region,),
+    ]
+  }
 }

@@ -166,4 +166,10 @@ class HeCloudInstanceCachingAgent extends AbstractHeCloudCachingAgent {
     log.info "Caching ${namespaceCache[INSTANCES.ns].size()} items in $agentType"
     defaultCacheResult
   }
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (INSTANCES.ns): Keys.getInstanceKey('***', accountName, region),
+    ]
+  }
 }
