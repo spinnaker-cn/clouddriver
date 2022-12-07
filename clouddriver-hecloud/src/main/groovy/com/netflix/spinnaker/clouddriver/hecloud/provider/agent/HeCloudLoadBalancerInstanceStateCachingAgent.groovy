@@ -1,33 +1,30 @@
 package com.netflix.spinnaker.clouddriver.hecloud.provider.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.spinnaker.cats.agent.AccountAware
-import com.netflix.spinnaker.cats.agent.AgentDataType
-import com.netflix.spinnaker.cats.agent.CacheResult
-import com.netflix.spinnaker.cats.agent.CachingAgent
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult
+import com.netflix.spinnaker.cats.agent.*
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.core.provider.agent.HealthProvidingCachingAgent
+import com.netflix.spinnaker.clouddriver.hecloud.cache.Keys
 import com.netflix.spinnaker.clouddriver.hecloud.client.HeCloudElasticCloudServerClient
 import com.netflix.spinnaker.clouddriver.hecloud.client.HeCloudLoadBalancerClient
 import com.netflix.spinnaker.clouddriver.hecloud.model.loadbalance.HeCloudLoadBalancerTargetHealth
 import com.netflix.spinnaker.clouddriver.hecloud.provider.HeCloudInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.hecloud.security.HeCloudNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.hecloud.cache.Keys
 import groovy.util.logging.Slf4j
 
 import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.HEALTH_CHECKS
 
 @Slf4j
-class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, HealthProvidingCachingAgent, AccountAware{
+class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, HealthProvidingCachingAgent, AccountAware {
   final String providerName = HeCloudInfrastructureProvider.name
   HeCloudNamedAccountCredentials credentials
   final String accountName
   final String region
   final ObjectMapper objectMapper
   final static String healthId = "hecloud-load-balancer-instance-health"
+
 
   HeCloudLoadBalancerInstanceStateCachingAgent(HeCloudNamedAccountCredentials credentials,
                                                ObjectMapper objectMapper,
@@ -59,6 +56,7 @@ class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, Heal
     accountName
   }
 
+
   @Override
   Collection<AgentDataType> getProvidedDataTypes() {
     types
@@ -75,7 +73,7 @@ class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, Heal
     List<CacheData> data = targetHealths.collect() { HeCloudLoadBalancerTargetHealth targetHealth ->
       Map<String, Object> attributes = ["targetHealth": targetHealth]
       def targetHealthKey = Keys.getTargetHealthKey(targetHealth.loadBalancerId, targetHealth.listenerId,
-                                               targetHealth.poolId, targetHealth.instanceId, accountName, region)
+        targetHealth.poolId, targetHealth.instanceId, accountName, region)
       def keepKey = evictions.find {
         it.equals(targetHealthKey)
       }
@@ -103,7 +101,7 @@ class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, Heal
     def poolSet = client.getAllPools()
     def memberHealths = client.getAllMembers()
     List<HeCloudLoadBalancerTargetHealth> hecloudLBTargetHealths = []
-    HashMap<String,String> instanceMap = []
+    HashMap<String, String> instanceMap = []
     for (pool in poolSet) {
       def loadBalancerIds = pool.getLoadbalancers()
       def loadBalancerId = ""
@@ -127,13 +125,13 @@ class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, Heal
         //通过实例ip地址获取实例id，memberId不是实例id
         def instanceId = ""
 
-        if(instanceMap.containsKey(memberHealth.getAddress())){
+        if (instanceMap.containsKey(memberHealth.getAddress())) {
           instanceId = instanceMap.get(memberHealth.getAddress())
-        }else {
+        } else {
           def instances = ecsClient.getInstancesByIp(memberHealth.getAddress())
-          if(instances != null && instances.size() >  0){
+          if (instances != null && instances.size() > 0) {
             instanceId = instances.get(0).getId()
-            instanceMap.put(memberHealth.getAddress(),instanceId)
+            instanceMap.put(memberHealth.getAddress(), instanceId)
           }
         }
 
@@ -142,9 +140,9 @@ class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, Heal
           log.warn("The corresponding instance of member ${memberId} is not found")
           continue
         }
-        def health = new HeCloudLoadBalancerTargetHealth(instanceId:instanceId,
-                    loadBalancerId:loadBalancerId, listenerId:listenerId, poolId:poolId,
-                    healthStatus:healthStatus, port:port )
+        def health = new HeCloudLoadBalancerTargetHealth(instanceId: instanceId,
+          loadBalancerId: loadBalancerId, listenerId: listenerId, poolId: poolId,
+          healthStatus: healthStatus, port: port)
         hecloudLBTargetHealths.add(health)
       }
     }

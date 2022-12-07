@@ -1,11 +1,7 @@
 package com.netflix.spinnaker.clouddriver.hecloud.provider.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.spinnaker.cats.agent.AccountAware
-import com.netflix.spinnaker.cats.agent.AgentDataType
-import com.netflix.spinnaker.cats.agent.CacheResult
-import com.netflix.spinnaker.cats.agent.CachingAgent
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult
+import com.netflix.spinnaker.cats.agent.*
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
@@ -85,4 +81,10 @@ class HeCloudSubnetCachingAgent implements CachingAgent, AccountAware {
     return subnetDescriptionSet
   }
 
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (SUBNETS.ns): Keys.getSubnetKey("*", accountName, region,),
+    ]
+  }
 }

@@ -1,20 +1,17 @@
 package com.netflix.spinnaker.clouddriver.hecloud.provider.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.spinnaker.cats.agent.AccountAware
-import com.netflix.spinnaker.cats.agent.AgentDataType
-import com.netflix.spinnaker.cats.agent.CacheResult
-import com.netflix.spinnaker.cats.agent.CachingAgent
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult
+import com.netflix.spinnaker.cats.agent.*
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
+import com.netflix.spinnaker.clouddriver.hecloud.cache.Keys
 import com.netflix.spinnaker.clouddriver.hecloud.client.HeCloudVirtualPrivateCloudClient
 import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudNetworkDescription
 import com.netflix.spinnaker.clouddriver.hecloud.provider.HeCloudInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.hecloud.security.HeCloudNamedAccountCredentials
 import groovy.util.logging.Slf4j
-import com.netflix.spinnaker.clouddriver.hecloud.cache.Keys
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.NETWORKS
 
@@ -82,4 +79,10 @@ class HeCloudNetworkCachingAgent implements CachingAgent, AccountAware{
     return networkDescriptionSet
   }
 
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (NETWORKS.ns): Keys.getNetworkKey("*", accountName, region),
+    ]
+  }
 }

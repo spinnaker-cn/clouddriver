@@ -30,9 +30,10 @@ class HeCloudKeyPairCachingAgent extends AbstractHeCloudCachingAgent {
 
     Map<String, Collection<CacheData>> cacheResults = [:]
     Map<String, Map<String, CacheData>> namespaceCache = [:].withDefault {
-      namespace -> [:].withDefault {
-        id -> new MutableCacheData(id as String)
-      }
+      namespace ->
+        [:].withDefault {
+          id -> new MutableCacheData(id as String)
+        }
     }
 
     HeCloudElasticCloudServerClient ecsClient = new HeCloudElasticCloudServerClient(
@@ -65,5 +66,12 @@ class HeCloudKeyPairCachingAgent extends AbstractHeCloudCachingAgent {
     log.info 'finish loads key pair data.'
     log.info "Caching ${namespaceCache[KEY_PAIRS.ns].size()} items in $agentType"
     defaultCacheResult
+  }
+
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (KEY_PAIRS.ns): Keys.getKeyPairKey("*", accountName, region),
+    ]
   }
 }

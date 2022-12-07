@@ -13,7 +13,6 @@ import groovy.transform.InheritConstructors
 import groovy.util.logging.Slf4j
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.SERVER_GROUPS
 import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.IMAGES
 import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.NAMED_IMAGES
 
@@ -44,6 +43,11 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
       region
     )
 
+    // 当前地域缓存的image数据
+    Collection<String> evictableNamedImage = providerCache.getAll(IMAGES.ns, providerCache.filterIdentifiers(IMAGES.ns, Keys.getImageKey('*', accountName, region))).stream()
+      .flatMap({ cacheData -> cacheData.getRelationships().get(NAMED_IMAGES.ns).stream() })
+      .collect()
+
     def result = imsClient.getImages()
 
     result.each {
@@ -62,6 +66,7 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
       def namedImageKey = Keys.getNamedImageKey hecloudImage.name, this.accountName
       images[imageKey].attributes.image = hecloudImage
       images[imageKey].relationships[NAMED_IMAGES.ns].add namedImageKey
+      evictableNamedImage.removeIf({e -> e.equals(namedImageKey)})
 
       def originImageCache = providerCache.get(IMAGES.ns, imageKey)
       if (originImageCache) {
@@ -87,13 +92,13 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
     CacheResult defaultCacheResult = new DefaultCacheResult(cacheResults, evictions)
     log.info 'finish loads image data.'
     log.info "Caching ${namespaceCache[IMAGES.ns].size()} items in $agentType"
+    defaultCacheResult.evictions[NAMED_IMAGES.ns] = evictableNamedImage
     defaultCacheResult
   }
   @Override
   Optional<Map<String, String>> getCacheKeyPatterns() {
     return [
-      (NAMED_IMAGES.ns): Keys.getNamedImageKey('***', accountName + "/" + region),
-      (IMAGES.ns)      : Keys.getImageKey('***', accountName, region)
+      (IMAGES.ns): Keys.getImageKey('*', accountName, region)
     ]
   }
 }
