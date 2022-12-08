@@ -2,11 +2,7 @@ package com.netflix.spinnaker.clouddriver.hecloud.provider.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.cats.agent.AccountAware
-import com.netflix.spinnaker.cats.agent.AgentDataType
-import com.netflix.spinnaker.cats.agent.CacheResult
-import com.netflix.spinnaker.cats.agent.CachingAgent
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult
+import com.netflix.spinnaker.cats.agent.*
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
@@ -14,17 +10,17 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.hecloud.HeCloudProvider
+import com.netflix.spinnaker.clouddriver.hecloud.cache.Keys
 import com.netflix.spinnaker.clouddriver.hecloud.client.HeCloudVirtualPrivateCloudClient
 import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudSecurityGroupDescription
 import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudSecurityGroupRule
 import com.netflix.spinnaker.clouddriver.hecloud.provider.HeCloudInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.hecloud.security.HeCloudNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.hecloud.cache.Keys
-
 import groovy.util.logging.Slf4j
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
-import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.*
+import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.ON_DEMAND
+import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.SECURITY_GROUPS
 
 @Slf4j
 class HeCloudSecurityGroupCachingAgent implements CachingAgent, OnDemandAgent, AccountAware {
@@ -379,4 +375,10 @@ class HeCloudSecurityGroupCachingAgent implements CachingAgent, OnDemandAgent, A
     false
   }
 
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (SECURITY_GROUPS.ns): Keys.getSecurityGroupKey("*","*", accountName, region),
+    ]
+  }
 }

@@ -85,7 +85,7 @@ class HeCloudInstanceTypeCachingAgent extends AbstractHeCloudCachingAgent {
   @Override
   Optional<Map<String, String>> getCacheKeyPatterns() {
     return [
-      (INSTANCE_TYPES.ns): Keys.getInstanceTypeKey(accountName, region, "***"),
+      (INSTANCE_TYPES.ns): Keys.getInstanceTypeKey(accountName, region, "*"),
     ]
   }
 }
