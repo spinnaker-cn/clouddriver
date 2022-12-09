@@ -32,7 +32,7 @@ public class HeCloudRedisCheckCachingAgent implements CachingAgent {
 
   @Override
   public String getAgentType() {
-    return String.format("%s/%s/%s",credentials.getAccountId(),"*", this.getClass().getSimpleName());
+    return String.format("%s/%s/%s", credentials.getAccountId(), "*", this.getClass().getSimpleName());
   }
 
   @Override
@@ -47,19 +47,22 @@ public class HeCloudRedisCheckCachingAgent implements CachingAgent {
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    // cluster数据同步(cluster attribute存在，对应的serverGroup的relationShip中不存在，就删掉)
     HashMap<String, Collection<String>> evition = new HashMap<>();
+    // cluster脏数据处理(cluster attribute存在，对应的serverGroup中的relationShip中不存在，就删掉)
     Collection<String> clusterCaches = providerCache.getAll(SERVER_GROUPS.ns).stream().flatMap(cacheData -> cacheData.getRelationships().get(CLUSTERS.ns).stream()).collect(Collectors.toList());
     evition.put(CLUSTERS.ns, providerCache.filterIdentifiers(CLUSTERS.ns, Keys.getClusterKey("*", "*", credentials.getName())).stream()
       .filter(cluster -> clusterCaches.stream().noneMatch(ship -> ship.equals(cluster))).collect(Collectors.toList()));
+
+    // namedImage脏数据处理(namedImage attribute存在，对应的image中的relationShip中不存在，就删掉)
+    Collection<String> namedImageCaches = providerCache.getAll(IMAGES.ns).stream().flatMap(cacheData -> cacheData.getRelationships().get(NAMED_IMAGES.ns).stream()).collect(Collectors.toList());
+    evition.put(NAMED_IMAGES.ns, providerCache.filterIdentifiers(NAMED_IMAGES.ns, Keys.getNamedImageKey("*", credentials.getName())).stream()
+      .filter(namedImage -> namedImageCaches.stream().noneMatch(ship -> ship.equals(namedImage))).collect(Collectors.toList()));
 
 
     // HEALTH_CHECK脏数据处理
     redisClientDelegate.withCommandsClient(c -> {
       String key = hashKey(providerName, HEALTH_CHECKS.ns);
       String prefix = prefix(HEALTH_CHECKS.ns);
-//      Map<String, String> v = ;
-//      long count = c.hkeys(key).stream().filter(s -> s.startsWith(prefix)).count();
       if (c.pfcount(prefix) != c.hkeys(key).stream().filter(s -> s.startsWith(prefix)).count()) {
         c.del(key);
       }
