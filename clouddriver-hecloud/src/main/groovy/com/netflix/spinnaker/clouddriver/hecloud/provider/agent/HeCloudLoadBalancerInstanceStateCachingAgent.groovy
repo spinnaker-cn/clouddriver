@@ -92,11 +92,12 @@ class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, Heal
     HeCloudLoadBalancerClient client = new HeCloudLoadBalancerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
     HeCloudElasticCloudServerClient ecsClient = new HeCloudElasticCloudServerClient(credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region)
+      region,accountName)
 
     def poolSet = client.getAllPools()
     def memberHealths = client.getAllMembers()

@@ -37,6 +37,7 @@ class HeCloudInstanceTypeCachingAgent extends AbstractHeCloudCachingAgent {
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
       region,
+      accountName
     )
 
     def result = ecsClient.getInstanceTypes()

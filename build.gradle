@@ -22,24 +22,10 @@ buildscript {
   }
 
   repositories {
-    mavenLocal()
-//    jcenter()
-
-//    maven{ url'https://maven.aliyun.com/repository/public/' }
-//    jcenter { url 'https://maven.aliyun.com/repository/public/' }
-//    maven{ url 'https://maven.aliyun.com/repository/central/'}
-//    google()
-
-    maven { url 'https://maven.aliyun.com/repository/central' }
-    maven { url 'https://maven.aliyun.com/repository/public' }
-    maven { url 'https://maven.aliyun.com/repository/google' }
-    // google()
-    // mavenCentral()
-    // jcenter()
-
-    maven { url "https://plugins.gradle.org/m2/" }
+    maven { url "http://spinnaker.maven.cn:8000//repository/spinnaker-public/"}
     gradlePluginPortal()
   }
+
 
   dependencies {
     classpath "org.junit.platform:junit-platform-gradle-plugin:${junitPlatformVersion}"
@@ -53,26 +39,6 @@ plugins {
   id "com.google.protobuf" version "0.8.12" apply false
 }
 
-allprojects {
-  repositories {
-    mavenLocal()
-//    jcenter()
-
-//    maven{ url'https://maven.aliyun.com/repository/public/' }
-//    jcenter { url 'https://maven.aliyun.com/repository/public/' }
-//    maven{ url 'https://maven.aliyun.com/repository/central/'}
-//    google()
-
-    maven { url 'https://maven.aliyun.com/repository/central' }
-    maven { url 'https://maven.aliyun.com/repository/public' }
-    maven { url 'https://maven.aliyun.com/repository/google' }
-    // google()
-    // mavenCentral()
-    // jcenter()
-
-    maven { url "https://plugins.gradle.org/m2/" }
-  }
-}
 subprojects {
   group = "com.netflix.spinnaker.clouddriver"
   apply plugin: 'io.spinnaker.project'

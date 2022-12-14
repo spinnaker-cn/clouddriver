@@ -16,13 +16,15 @@ import groovy.util.logging.Slf4j
 class HeCloudLoadBalancerClient {
   private final DEFAULT_LIMIT = 100
   String region
+  String account
   ElbClient client
 
-  HeCloudLoadBalancerClient(String accessKeyId, String accessSecretKey, String region) {
+  HeCloudLoadBalancerClient(String accessKeyId, String accessSecretKey, String region, String account) {
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey).withIamEndpoint(HeCloudConstants.Region.getIamEndPoint(region))
     def regionId = new Region(region, "https://elb." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
     this.region = region
+    this.account = account
     client = ElbClient.newBuilder()
       .withHttpConfig(config)
       .withCredential(auth)
@@ -38,9 +40,10 @@ class HeCloudLoadBalancerClient {
       resp = client.listLoadBalancers(req)
     } catch (ServiceResponseException e) {
       log.error(
-        "Unable to listLoadBalancers (limit: {}, region: {})",
-        DEFAULT_LIMIT,
+        "Unable to listLoadBalancers (limit: {}, region: {}, account: {})",
+        String.valueOf(DEFAULT_LIMIT),
         region,
+        account,
         e
       )
     }
@@ -54,10 +57,11 @@ class HeCloudLoadBalancerClient {
         resp = client.listLoadBalancers(req)
       } catch (ServiceResponseException e) {
         log.error(
-          "Unable to listLoadBalancers (limit: {}, marker: {}, region: {})",
-          DEFAULT_LIMIT,
-          req.getMarker(),
+          "Unable to listLoadBalancers (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
           region,
+          account,
           e
         )
       }
@@ -92,10 +96,11 @@ class HeCloudLoadBalancerClient {
       resp = client.listListeners(req)
     } catch (ServiceResponseException e) {
       log.error(
-        "Unable to listListeners (limit: {}, marker: {}, region: {})",
-        DEFAULT_LIMIT,
-        req.getMarker(),
+        "Unable to listListeners (limit: {}, marker: {}, region: {}, account: {})",
+        String.valueOf(DEFAULT_LIMIT),
+        req.getMarker()?.toString(),
         region,
+        account,
         e
       )
     }
@@ -110,10 +115,11 @@ class HeCloudLoadBalancerClient {
         resp = client.listListeners(req)
       } catch (ServiceResponseException e) {
         log.error(
-          "Unable to listListeners (limit: {}, marker: {}, region: {})",
-          DEFAULT_LIMIT,
-          req.getMarker(),
+          "Unable to listListeners (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
           region,
+          account,
           e
         )
       }
@@ -135,10 +141,11 @@ class HeCloudLoadBalancerClient {
       resp = client.listL7policies(req)
     } catch (ServiceResponseException e) {
       log.error(
-        "Unable to listL7policies (limit: {}, marker: {}, region: {})",
-        DEFAULT_LIMIT,
-        req.getMarker(),
+        "Unable to listL7policies (limit: {}, marker: {}, region: {}, account: {})",
+        String.valueOf(DEFAULT_LIMIT),
+        req.getMarker()?.toString(),
         region,
+        account,
         e
       )
     }
@@ -152,10 +159,11 @@ class HeCloudLoadBalancerClient {
         resp = client.listL7policies(req)
       } catch (ServiceResponseException e) {
         log.error(
-          "Unable to listL7policies (limit: {}, marker: {}, region: {})",
-          DEFAULT_LIMIT,
-          req.getMarker(),
+          "Unable to listL7policies (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
           region,
+          account,
           e
         )
       }
@@ -177,10 +185,11 @@ class HeCloudLoadBalancerClient {
       resp = client.listPools(req)
     } catch (ServiceResponseException e) {
       log.error(
-        "Unable to listPools (limit: {}, marker: {}, region: {})",
-        DEFAULT_LIMIT,
-        req.getMarker(),
+        "Unable to listPools (limit: {}, marker: {}, region: {}, account: {})",
+        String.valueOf(DEFAULT_LIMIT),
+        req.getMarker()?.toString(),
         region,
+        account,
         e
       )
     }
@@ -195,10 +204,11 @@ class HeCloudLoadBalancerClient {
         resp = client.listPools(req)
       } catch (ServiceResponseException e) {
         log.error(
-          "Unable to listPools (limit: {}, marker: {}, region: {})",
-          DEFAULT_LIMIT,
-          req.getMarker(),
+          "Unable to listPools (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
           region,
+          account,
           e
         )
       }
@@ -228,10 +238,11 @@ class HeCloudLoadBalancerClient {
       resp = client.healthmonitors(req)
     } catch (ServiceResponseException e) {
       log.error(
-        "Unable to healthmonitors (limit: {}, marker: {}, region: {})",
-        DEFAULT_LIMIT,
-        req.getMarker(),
+        "Unable to healthmonitors (limit: {}, marker: {}, region: {}, account: {})",
+        String.valueOf(DEFAULT_LIMIT),
+        req.getMarker()?.toString(),
         region,
+        account,
         e
       )
     }
@@ -245,10 +256,11 @@ class HeCloudLoadBalancerClient {
         resp = client.healthmonitors(req)
       } catch (ServiceResponseException e) {
         log.error(
-          "Unable to healthmonitors (limit: {}, marker: {}, region: {})",
-          DEFAULT_LIMIT,
-          req.getMarker(),
+          "Unable to healthmonitors (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
           region,
+          account,
           e
         )
       }
@@ -270,10 +282,11 @@ class HeCloudLoadBalancerClient {
         resp = client.listMembers(req)
       } catch (ServiceResponseException e) {
         log.error(
-          "Unable to listMembers (limit: {}, marker: {}, region: {})",
-          DEFAULT_LIMIT,
-          req.getMarker(),
+          "Unable to listMembers (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
           region,
+          account,
           e
         )
       }
@@ -290,10 +303,11 @@ class HeCloudLoadBalancerClient {
           resp = client.listMembers(req)
         } catch (ServiceResponseException e) {
           log.error(
-            "Unable to listMembers (limit: {}, marker: {}, region: {})",
-            DEFAULT_LIMIT,
-            req.getMarker(),
+            "Unable to listMembers (limit: {}, marker: {}, region: {}, account: {})",
+            String.valueOf(DEFAULT_LIMIT),
+            req.getMarker()?.toString(),
             region,
+            account,
             e
           )
         }
@@ -313,10 +327,11 @@ class HeCloudLoadBalancerClient {
       resp = client.listPools(req)
     } catch (ServiceResponseException e) {
       log.error(
-        "Unable to listPools (limit: {}, marker: {}, region: {})",
-        DEFAULT_LIMIT,
-        req.getMarker(),
+        "Unable to listPools (limit: {}, marker: {}, region: {}, account: {})",
+        String.valueOf(DEFAULT_LIMIT),
+        req.getMarker()?.toString(),
         region,
+        account,
         e
       )
     }
@@ -330,10 +345,11 @@ class HeCloudLoadBalancerClient {
         resp = client.listPools(req)
       } catch (ServiceResponseException e) {
         log.error(
-          "Unable to listPools (limit: {}, marker: {}, region: {})",
-          DEFAULT_LIMIT,
-          req.getMarker(),
+          "Unable to listPools (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
           region,
+          account,
           e
         )
       }

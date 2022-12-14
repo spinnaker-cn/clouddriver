@@ -39,7 +39,8 @@ class HeCloudKeyPairCachingAgent extends AbstractHeCloudCachingAgent {
     HeCloudElasticCloudServerClient ecsClient = new HeCloudElasticCloudServerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region)
+      region,
+      accountName)
 
     def result = ecsClient.getKeyPairs()
     result?.each {

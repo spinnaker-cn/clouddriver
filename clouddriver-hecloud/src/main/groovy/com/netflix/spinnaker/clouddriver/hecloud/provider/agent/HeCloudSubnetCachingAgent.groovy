@@ -64,7 +64,8 @@ class HeCloudSubnetCachingAgent implements CachingAgent, AccountAware {
     HeCloudVirtualPrivateCloudClient vpcClient = new HeCloudVirtualPrivateCloudClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     def subnetSet = vpcClient.getSubnetsAll()

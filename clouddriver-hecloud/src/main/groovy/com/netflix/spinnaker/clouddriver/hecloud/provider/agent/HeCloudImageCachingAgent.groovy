@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.hecloud.provider.agent
 
+import com.huaweicloud.sdk.ims.v2.model.ImageInfo
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult
@@ -8,6 +9,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.hecloud.cache.Keys
 import com.netflix.spinnaker.clouddriver.hecloud.client.HeCloudImageClient
 import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudImage
+import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudModelUtil
 import com.netflix.spinnaker.clouddriver.hecloud.provider.view.MutableCacheData
 import groovy.transform.InheritConstructors
 import groovy.util.logging.Slf4j
@@ -40,7 +42,8 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
     HeCloudImageClient imsClient = new HeCloudImageClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     // 当前地域缓存的image数据
@@ -50,7 +53,21 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
 
     def result = imsClient.getImages()
 
-    result.each {
+    // 云上有两个同名的镜像，那么spinnaker中应该取最新的镜像
+    HashMap<String, ImageInfo> instanceMap = []
+    result?.each {
+      if (!instanceMap.containsKey(it.getName())) {
+        instanceMap.put(it.getName(), it)
+      } else {
+        if (HeCloudModelUtil.translateTime(it.getCreatedAt()) >
+          HeCloudModelUtil.translateTime(instanceMap.get(it.getName()).getCreatedAt())) {
+          instanceMap.put(it.getName(), it)
+        }
+      }
+    }
+    def refinedImages = instanceMap.values()
+
+    refinedImages?.each {
       def hecloudImage = new HeCloudImage(
         region: this.region,
         name: it.getName(),
@@ -64,15 +81,6 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
       def namedImages = namespaceCache[NAMED_IMAGES.ns]
       def imageKey = Keys.getImageKey hecloudImage.id, this.accountName, this.region
       def namedImageKey = Keys.getNamedImageKey hecloudImage.name, this.accountName
-      if (namedImages.containsKey(namedImageKey)){
-        def attr = namedImages.get(namedImageKey).getAttributes()
-        if (attr.createdTime < hecloudImage.createdTime) {
-          namedImages.remove(namedImageKey)
-          images.remove(attr.imageId)
-        } else {
-          return
-        }
-      }
       images[imageKey].attributes.image = hecloudImage
       images[imageKey].relationships[NAMED_IMAGES.ns].add namedImageKey
       evictableNamedImage.removeIf({e -> e.equals(namedImageKey)})

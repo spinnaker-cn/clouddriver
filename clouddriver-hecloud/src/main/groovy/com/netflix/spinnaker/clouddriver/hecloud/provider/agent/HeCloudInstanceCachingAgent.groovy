@@ -42,13 +42,15 @@ class HeCloudInstanceCachingAgent extends AbstractHeCloudCachingAgent {
     HeCloudElasticCloudServerClient ecsClient = new HeCloudElasticCloudServerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     HeCloudLoadBalancerClient elbClient = new HeCloudLoadBalancerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     def memberHealths = elbClient.getAllMembers()

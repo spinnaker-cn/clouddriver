@@ -88,7 +88,8 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
     HeCloudLoadBalancerClient client = new HeCloudLoadBalancerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     def lbSet = []
@@ -124,9 +125,9 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
 
     def poolSet = client.getAllPools(lbIds)
     def poolMap = poolSet?.collectEntries({ [(it.id): it] })
-    def listenerMap = client.getAllLBListener(lbIds).collectEntries({ [(it.id): it] })
-    def healthMonitorMap = client.getAllHealthMonitors().collectEntries({ [(it.id): it] })
-    def membersMap = client.getAllMembers().groupBy { it.poolId }
+    def listenerMap = client.getAllLBListener(lbIds)?.collectEntries({ [(it.id): it] })
+    def healthMonitorMap = client.getAllHealthMonitors()?.collectEntries({ [(it.id): it] })
+    def membersMap = client.getAllMembers()?.groupBy { it.poolId }
 
     def loadBanancerList = lbSet?.collect {
       HeCloudLoadBalancer loadBalancer = new HeCloudLoadBalancer()

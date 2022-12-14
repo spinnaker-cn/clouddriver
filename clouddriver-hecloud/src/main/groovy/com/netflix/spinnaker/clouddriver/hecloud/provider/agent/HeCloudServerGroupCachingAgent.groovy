@@ -69,7 +69,8 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     HeCloudAutoScalingClient client = new HeCloudAutoScalingClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
     // 当前地域缓存的serverGroup数据
     Collection<CacheData> cacheServerGroup = providerCache.getAll(SERVER_GROUPS.ns, providerCache.filterIdentifiers(SERVER_GROUPS.ns, Keys.getServerGroupKey('*', '*', accountName, region)))
@@ -247,7 +248,8 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     HeCloudLoadBalancerClient lbClient = new HeCloudLoadBalancerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
     def asgs
     if (serverGroupName) {
@@ -427,7 +429,8 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     HeCloudAutoScalingClient client = new HeCloudAutoScalingClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
     HeCloudServerGroup serverGroup = metricsSupport.readData {
       loadAsgAsServerGroup(client, data.serverGroupName as String)[0]

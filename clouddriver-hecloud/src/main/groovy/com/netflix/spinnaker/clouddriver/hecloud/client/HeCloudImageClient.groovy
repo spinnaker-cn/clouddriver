@@ -16,13 +16,15 @@ import groovy.util.logging.Slf4j
 class HeCloudImageClient {
   private final DEFAULT_LIMIT = 100
   String region
+  String account
   ImsClient client
 
-  HeCloudImageClient(String accessKeyId, String accessSecretKey, String region) {
+  HeCloudImageClient(String accessKeyId, String accessSecretKey, String region, String account) {
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey).withIamEndpoint(HeCloudConstants.Region.getIamEndPoint(region))
     def regionId = new Region(region, "https://ims." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
     this.region = region
+    this.account = account
     client = ImsClient.newBuilder()
       .withHttpConfig(config)
       .withCredential(auth)
@@ -46,9 +48,10 @@ class HeCloudImageClient {
         resp = client.listImages(request)
       } catch (ServiceResponseException e) {
         log.error(
-          "Unable to listImages (limit: {}, region: {})",
-          DEFAULT_LIMIT,
+          "Unable to listImages (limit: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
           region,
+          account,
           e
         )
       }

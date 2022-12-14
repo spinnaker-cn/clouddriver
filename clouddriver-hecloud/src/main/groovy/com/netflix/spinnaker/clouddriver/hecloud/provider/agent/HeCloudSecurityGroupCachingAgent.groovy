@@ -133,7 +133,8 @@ class HeCloudSecurityGroupCachingAgent implements CachingAgent, OnDemandAgent, A
     HeCloudVirtualPrivateCloudClient vpcClient = new HeCloudVirtualPrivateCloudClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     def securityGroupSet = vpcClient.getSecurityGroupsAll()
@@ -214,7 +215,8 @@ class HeCloudSecurityGroupCachingAgent implements CachingAgent, OnDemandAgent, A
     HeCloudVirtualPrivateCloudClient vpcClient = new HeCloudVirtualPrivateCloudClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     def securityGroup = vpcClient.getSecurityGroupById(securityGroupId)[0]

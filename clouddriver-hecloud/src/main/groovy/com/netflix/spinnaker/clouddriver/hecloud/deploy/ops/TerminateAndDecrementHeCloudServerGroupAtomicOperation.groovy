@@ -34,7 +34,8 @@ class TerminateAndDecrementHeCloudServerGroupAtomicOperation implements AtomicOp
     def client = new HeCloudAutoScalingClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      region
+      region,
+      description.account
     )
     client.removeInstances(asgId, instanceIds)
     task.updateStatus BASE_PHASE, "Complete terminate instance and decrease server group desired capacity."

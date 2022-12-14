@@ -35,7 +35,8 @@ class ResizeHeCloudServerGroupAtomicOperation implements AtomicOperation<Void> {
     def client = new HeCloudAutoScalingClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
     client.resizeAutoScalingGroup(asgId, description.capacity)
 
