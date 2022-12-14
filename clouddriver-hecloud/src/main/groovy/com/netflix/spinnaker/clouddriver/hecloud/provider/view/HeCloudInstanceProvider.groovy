@@ -83,7 +83,7 @@ class HeCloudInstanceProvider implements InstanceProvider<HeCloudInstance, Strin
           instance.targetHealths.add(new HeCloudTargetHealth())
         }
       }
-    } else if (asgInstance && asgInstance["life_cycle_state"].equals("INSERVICE") && asgInstance["health_status"].equals("NORMAL")) {
+    } else if (asgInstance && asgInstance["life_cycle_state"]?.equals("INSERVICE") && asgInstance["health_status"]?.equals("NORMAL")) {
       instance.instanceHealth = new HeCloudInstanceHealth(instanceStatus: "NORMAL")
     }
     instance

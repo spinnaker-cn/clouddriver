@@ -242,20 +242,22 @@ class HeCloudAutoScalingClient {
   List<ScalingGroups> getAllAutoScalingGroups() {
     def startNumber = 0
     List<ScalingGroups> scalingGroupAll = []
-    try {
-      while(true) {
-        def req = new ListScalingGroupsRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
-        def resp = client.listScalingGroups(req)
-        if(resp == null || resp.getScalingGroups() == null || resp.getScalingGroups().size() == 0) {
-          break
-        }
-        scalingGroupAll.addAll(resp.getScalingGroups())
-        startNumber += DEFAULT_LIMIT
+    while (true) {
+      def req = new ListScalingGroupsRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
+      def resp
+      try {
+        resp = client.listScalingGroups(req)
+      } catch (ServiceResponseException e) {
+        throw new HeCloudOperationException(e.getErrorMsg())
       }
-      return scalingGroupAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      if (resp == null || resp.getScalingGroups() == null || resp.getScalingGroups().size() == 0) {
+        break
+      }
+      scalingGroupAll.addAll(resp.getScalingGroups())
+      startNumber += DEFAULT_LIMIT
+
     }
+    return scalingGroupAll
   }
 
   List<ScalingGroups> getAutoScalingGroupsByName(String name) {
@@ -272,20 +274,22 @@ class HeCloudAutoScalingClient {
   List<ScalingConfiguration> getLaunchConfigurations() {
     def startNumber = 0
     List<ScalingConfiguration> scalingConfigAll = []
-    try {
-      while(true) {
-        def req = new ListScalingConfigsRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
-        def resp = client.listScalingConfigs(req)
-        if(resp == null || resp.getScalingConfigurations() == null || resp.getScalingConfigurations().size() == 0) {
-          break
-        }
-        scalingConfigAll.addAll(resp.getScalingConfigurations())
-        startNumber += DEFAULT_LIMIT
+    while (true) {
+      def req = new ListScalingConfigsRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
+      def resp
+      try {
+        resp = client.listScalingConfigs(req)
+      } catch (ServiceResponseException e) {
+        throw new HeCloudOperationException(e.getErrorMsg())
       }
-      return scalingConfigAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      if (resp == null || resp.getScalingConfigurations() == null || resp.getScalingConfigurations().size() == 0) {
+        break
+      }
+      scalingConfigAll.addAll(resp.getScalingConfigurations())
+      startNumber += DEFAULT_LIMIT
+
     }
+    return scalingConfigAll
   }
 
   List<ScalingGroupInstance> getAutoScalingInstances(String asgId=null) {

@@ -136,6 +136,9 @@ class HeCloudDeployHandler implements DeployHandler<HeCloudDeployDescription> {
       } catch (HeCloudOperationException e) {
         // something bad happened during creation, log the error and continue
         log.warn "create notification error $e"
+        autoScalingClient.deleteAutoScalingGroup(newAsgId)
+        log.warn "delete scaling group ${newAsgId}"
+        throw e
       }
     }
   }
@@ -173,6 +176,9 @@ class HeCloudDeployHandler implements DeployHandler<HeCloudDeployDescription> {
       } catch (HeCloudOperationException e) {
         // something bad happened during creation, log the error and continue
         log.warn "create hook error $e"
+        autoScalingClient.deleteAutoScalingGroup(newAsgId)
+        log.warn "delete scaling group ${newAsgId}"
+        throw e
       }
     }
   }
@@ -225,6 +231,9 @@ class HeCloudDeployHandler implements DeployHandler<HeCloudDeployDescription> {
       } catch (HeCloudOperationException e) {
         // something bad happened during creation, log the error and continue
         log.warn "create scaling policy error $e"
+        autoScalingClient.deleteAutoScalingGroup(newAsgId)
+        log.warn "delete scaling group ${newAsgId}"
+        throw e
       }
     }
   }

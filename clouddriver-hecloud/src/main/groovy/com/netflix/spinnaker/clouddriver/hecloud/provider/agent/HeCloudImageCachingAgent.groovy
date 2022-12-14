@@ -64,6 +64,15 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
       def namedImages = namespaceCache[NAMED_IMAGES.ns]
       def imageKey = Keys.getImageKey hecloudImage.id, this.accountName, this.region
       def namedImageKey = Keys.getNamedImageKey hecloudImage.name, this.accountName
+      if (namedImages.containsKey(namedImageKey)){
+        def attr = namedImages.get(namedImageKey).getAttributes()
+        if (attr.createdTime < hecloudImage.createdTime) {
+          namedImages.remove(namedImageKey)
+          images.remove(attr.imageId)
+        } else {
+          return
+        }
+      }
       images[imageKey].attributes.image = hecloudImage
       images[imageKey].relationships[NAMED_IMAGES.ns].add namedImageKey
       evictableNamedImage.removeIf({e -> e.equals(namedImageKey)})
