@@ -18,12 +18,14 @@ import java.time.temporal.TemporalAccessor
 @Slf4j
 class HeCloudElasticCloudServerClient {
   private final DEFAULT_LIMIT = 100
+  String region
   EcsClient client
 
   HeCloudElasticCloudServerClient(String accessKeyId, String accessSecretKey, String region) {
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey).withIamEndpoint(HeCloudConstants.Region.getIamEndPoint(region))
     def regionId = new Region(region, "https://ecs." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
+    this.region = region
     client = EcsClient.newBuilder()
       .withHttpConfig(config)
       .withCredential(auth)
@@ -98,7 +100,13 @@ class HeCloudElasticCloudServerClient {
       try {
         resp = client.listServersDetails(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listServersDetails (limit: {}, startNumber: {}, region: {})",
+          DEFAULT_LIMIT,
+          startNumber,
+          region,
+          e
+        )
       }
       if (resp == null || resp.getServers() == null || resp.getServers().size() == 0) {
         break
@@ -120,7 +128,13 @@ class HeCloudElasticCloudServerClient {
       try {
         resp = client.listServersDetails(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listServersDetails (limit: {}, startNumber: {}, region: {})",
+          DEFAULT_LIMIT,
+          startNumber,
+          region,
+          e
+        )
       }
       if (resp == null || resp.getServers() == null || resp.getServers().size() == 0) {
         break

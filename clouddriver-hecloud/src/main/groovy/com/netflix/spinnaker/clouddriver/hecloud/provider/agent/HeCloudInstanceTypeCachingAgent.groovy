@@ -43,7 +43,7 @@ class HeCloudInstanceTypeCachingAgent extends AbstractHeCloudCachingAgent {
     result.each {
 
       def extraSpec = it.getOsExtraSpecs()
-      def flavorStatus = extraSpec.getCondOperationStatus();
+      def flavorStatus = extraSpec?.getCondOperationStatus();
 
       //不返回售罄的规格
       // Remove abandon filter: InstanceCondOperationStatusEnum.ABANDON
@@ -54,7 +54,7 @@ class HeCloudInstanceTypeCachingAgent extends AbstractHeCloudCachingAgent {
         null
       }
       else {
-        def instanceFamily = extraSpec.getEcsPerformancetype()
+        def instanceFamily = extraSpec?.getEcsPerformancetype()
         def hecloudInstanceType = new HeCloudInstanceType(
           name: it.getName(),
           account: this.accountName,

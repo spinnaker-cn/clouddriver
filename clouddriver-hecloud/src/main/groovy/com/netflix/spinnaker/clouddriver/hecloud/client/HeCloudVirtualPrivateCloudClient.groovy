@@ -15,12 +15,14 @@ import groovy.util.logging.Slf4j
 @Slf4j
 class HeCloudVirtualPrivateCloudClient {
   private final DEFAULT_LIMIT = 100
+  String region
   VpcClient client
 
   HeCloudVirtualPrivateCloudClient(String accessKeyId, String accessSecretKey, String region) {
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey).withIamEndpoint(HeCloudConstants.Region.getIamEndPoint(region))
     def regionId = new Region(region, "https://vpc." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
+    this.region = region
     client = VpcClient.newBuilder()
       .withHttpConfig(config)
       .withCredential(auth)
@@ -100,7 +102,13 @@ class HeCloudVirtualPrivateCloudClient {
       try {
         resp = client.listSecurityGroups(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listSecurityGroups (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       if (resp == null || resp.getSecurityGroups() == null || resp.getSecurityGroups().size() == 0) {
         break
@@ -145,7 +153,13 @@ class HeCloudVirtualPrivateCloudClient {
       try {
         resp = client.listVpcs(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listVpcs (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       if (resp == null || resp.getVpcs() == null || resp.getVpcs().size() == 0) {
         break
@@ -171,7 +185,13 @@ class HeCloudVirtualPrivateCloudClient {
       try {
         resp = client.listSubnets(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listSubnets (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       if (resp == null || resp.getSubnets() == null || resp.getSubnets().size() == 0) {
         break
@@ -215,7 +235,13 @@ class HeCloudVirtualPrivateCloudClient {
       try {
         resp = client.listPorts(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listPorts (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       if (resp == null || resp.getPorts() == null || resp.getPorts().size() == 0) {
         break

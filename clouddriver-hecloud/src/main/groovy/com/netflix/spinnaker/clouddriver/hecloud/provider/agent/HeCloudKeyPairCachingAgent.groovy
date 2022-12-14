@@ -42,7 +42,7 @@ class HeCloudKeyPairCachingAgent extends AbstractHeCloudCachingAgent {
       region)
 
     def result = ecsClient.getKeyPairs()
-    result.each {
+    result?.each {
       def keyPair = it.getKeypair()
       def hecloudKeyPair = new HeCloudKeyPair(
         keyId: keyPair.getName(),

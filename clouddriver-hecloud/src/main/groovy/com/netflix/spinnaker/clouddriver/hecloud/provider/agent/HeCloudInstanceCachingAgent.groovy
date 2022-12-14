@@ -53,7 +53,7 @@ class HeCloudInstanceCachingAgent extends AbstractHeCloudCachingAgent {
 
     def memberHealths = elbClient.getAllMembers()
     Map<String, Boolean> memberHealthMap = [:]
-    memberHealths.each {
+    memberHealths?.each {
       if (!memberHealthMap.containsKey(it.getAddress())) {
         memberHealthMap.put(it.getAddress(), it.getOperatingStatus().equals("ONLINE"))
       } else {
@@ -64,9 +64,9 @@ class HeCloudInstanceCachingAgent extends AbstractHeCloudCachingAgent {
     }
 
     def result = ecsClient.getInstances()
-    result.each {
+    result?.each {
       def tags = ecsClient.getInstanceTags(it.getId())
-      def serverGroupName = tags.find {
+      def serverGroupName = tags?.find {
         it.getKey() == HeCloudAutoScalingClient.defaultServerGroupTagKey
       }?.getValue()
 
@@ -79,18 +79,18 @@ class HeCloudInstanceCachingAgent extends AbstractHeCloudCachingAgent {
       def vpcId = ""
       def privateIps = []
       def publicIps = []
-      def vpcSet = it.getAddresses().keySet() as String[]
+      def vpcSet = it.getAddresses()?.keySet() as String[]
       if (vpcSet.size() > 0) {
         vpcId = vpcSet[0]
         // address
         def addresses = it.getAddresses()[vpcId]
-        def privateIp = addresses.find {
+        def privateIp = addresses?.find {
           it.getOsEXTIPSType().toString() == "fixed"
         }?.getAddr()
         if (privateIp) {
           privateIps.add(privateIp)
         }
-        def publicIp = addresses.find {
+        def publicIp = addresses?.find {
           it.getOsEXTIPSType().toString() == "floating"
         }?.getAddr()
         if (publicIp) {

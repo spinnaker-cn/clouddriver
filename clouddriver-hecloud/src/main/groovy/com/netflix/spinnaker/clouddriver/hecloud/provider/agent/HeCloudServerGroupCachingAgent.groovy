@@ -88,7 +88,7 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     def toEvictOnDemandCacheData = [] as List<CacheData>
     def toKeepOnDemandCacheData = [] as List<CacheData>
 
-    def serverGroupKeys = serverGroups.collect {
+    def serverGroupKeys = serverGroups?.collect {
       Keys.getServerGroupKey(it.name, credentials.name, region)
     } as Set<String>
 
@@ -259,7 +259,7 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     def launchConfigurations = client.getLaunchConfigurations()
     def pools = lbClient.getAllPools()
 
-    return asgs.collect {
+    return asgs?.collect {
       def autoScalingGroupId = it.getScalingGroupId()
       def autoScalingGroupName = it.getScalingGroupName()
       def disabled = it.getScalingGroupStatus().toString() != 'INSERVICE'
@@ -324,11 +324,11 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
         terminationPolicySet  : [it.getInstanceTerminatePolicy().toString()]
       ]
 
-      def asc = launchConfigurations.find {
+      def asc = launchConfigurations?.find {
         it.getScalingConfigurationId() == launchConfigurationId
       }
-      def isc = asc.getInstanceConfig()
-      def sgIds = isc.getSecurityGroups().collect {
+      def isc = asc?.getInstanceConfig()
+      def sgIds = isc?.getSecurityGroups().collect {
         it.getId()
       }
       def tags = client.getAutoScalingTags(autoScalingGroupId).collect {
@@ -345,8 +345,8 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
 
       if (publicIP) {
         internetAccessible.publicIpAssigned = true
-        internetAccessible.internetMaxBandwidthOut = publicIP.getEip().getBandwidth().getSize()
-        def chargingMode = publicIP.getEip().getBandwidth().getChargingMode().toString()
+        internetAccessible.internetMaxBandwidthOut = publicIP.getEip()?.getBandwidth()?.getSize()
+        def chargingMode = publicIP.getEip()?.getBandwidth()?.getChargingMode()?.toString()
         if (chargingMode == "bandwidth") {
           internetAccessible.internetChargeType = "BANDWIDTH_POSTPAID_BY_HOUR"
         }
@@ -359,13 +359,13 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
       ]
       def dataDisks = []
       disks.each {
-        if (it.getDiskType().toString() == "SYS") {
+        if (it.getDiskType()?.toString() == "SYS") {
           systemDisk.diskSize = it.getSize()
-          systemDisk.diskType = it.getVolumeType().toString()
-        } else if (it.getDiskType().toString() == "DATA") {
+          systemDisk.diskType = it.getVolumeType()?.toString()
+        } else if (it.getDiskType()?.toString() == "DATA") {
           def dataDisk = [
             diskSize: it.getSize(),
-            diskType: it.getVolumeType().toString()
+            diskType: it.getVolumeType()?.toString()
           ]
           dataDisks.add(dataDisk)
         }

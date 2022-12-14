@@ -18,12 +18,14 @@ class HeCloudAutoScalingClient {
   private final MAX_TRY_COUNT = 60
   private final REQ_TRY_INTERVAL = 60 * 1000  //MillSeconds
   static String defaultServerGroupTagKey = "spinnaker-server-group-name"
+  String region
   AsClient client
 
   HeCloudAutoScalingClient(String accessKeyId, String accessSecretKey, String region){
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey).withIamEndpoint(HeCloudConstants.Region.getIamEndPoint(region))
     def regionId = new Region(region, "https://as." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
+    this.region = region
     client = AsClient.newBuilder()
       .withHttpConfig(config)
       .withCredential(auth)
@@ -248,7 +250,13 @@ class HeCloudAutoScalingClient {
       try {
         resp = client.listScalingGroups(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listScalingGroups (limit: {}, startNumber: {}, region: {})",
+          DEFAULT_LIMIT,
+          startNumber,
+          region,
+          e
+        )
       }
       if (resp == null || resp.getScalingGroups() == null || resp.getScalingGroups().size() == 0) {
         break
@@ -280,7 +288,13 @@ class HeCloudAutoScalingClient {
       try {
         resp = client.listScalingConfigs(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listScalingConfigs (limit: {}, startNumber: {}, region: {})",
+          DEFAULT_LIMIT,
+          startNumber,
+          region,
+          e
+        )
       }
       if (resp == null || resp.getScalingConfigurations() == null || resp.getScalingConfigurations().size() == 0) {
         break

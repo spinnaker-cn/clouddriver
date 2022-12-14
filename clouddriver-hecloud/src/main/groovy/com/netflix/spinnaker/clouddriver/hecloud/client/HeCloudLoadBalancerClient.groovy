@@ -15,12 +15,14 @@ import groovy.util.logging.Slf4j
 @Slf4j
 class HeCloudLoadBalancerClient {
   private final DEFAULT_LIMIT = 100
+  String region
   ElbClient client
 
   HeCloudLoadBalancerClient(String accessKeyId, String accessSecretKey, String region) {
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey).withIamEndpoint(HeCloudConstants.Region.getIamEndPoint(region))
     def regionId = new Region(region, "https://elb." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
+    this.region = region
     client = ElbClient.newBuilder()
       .withHttpConfig(config)
       .withCredential(auth)
@@ -35,7 +37,12 @@ class HeCloudLoadBalancerClient {
     try {
       resp = client.listLoadBalancers(req)
     } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      log.error(
+        "Unable to listLoadBalancers (limit: {}, region: {})",
+        DEFAULT_LIMIT,
+        region,
+        e
+      )
     }
     def loadBalancers = resp.getLoadbalancers()
     if (loadBalancers != null) {
@@ -46,7 +53,13 @@ class HeCloudLoadBalancerClient {
       try {
         resp = client.listLoadBalancers(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listLoadBalancers (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       loadBalancers = resp.getLoadbalancers()
       loadBalancerAll.addAll(loadBalancers)
@@ -78,7 +91,13 @@ class HeCloudLoadBalancerClient {
     try {
       resp = client.listListeners(req)
     } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      log.error(
+        "Unable to listListeners (limit: {}, marker: {}, region: {})",
+        DEFAULT_LIMIT,
+        req.getMarker(),
+        region,
+        e
+      )
     }
     def listeners = resp.getLblistener()
     if (listeners != null) {
@@ -90,7 +109,13 @@ class HeCloudLoadBalancerClient {
       try {
         resp = client.listListeners(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listListeners (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       listeners = resp.getLblistener()
       listenerAll.addAll(listeners)
@@ -109,7 +134,13 @@ class HeCloudLoadBalancerClient {
     try {
       resp = client.listL7policies(req)
     } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      log.error(
+        "Unable to listL7policies (limit: {}, marker: {}, region: {})",
+        DEFAULT_LIMIT,
+        req.getMarker(),
+        region,
+        e
+      )
     }
     def l7policies = resp.getL7policies()
     if (l7policies != null) {
@@ -120,7 +151,13 @@ class HeCloudLoadBalancerClient {
       try {
         resp = client.listL7policies(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listL7policies (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       l7policies = resp.getL7policies()
       l7policiesAll.addAll(l7policies)
@@ -139,7 +176,13 @@ class HeCloudLoadBalancerClient {
     try {
       resp = client.listPools(req)
     } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      log.error(
+        "Unable to listPools (limit: {}, marker: {}, region: {})",
+        DEFAULT_LIMIT,
+        req.getMarker(),
+        region,
+        e
+      )
     }
     def pools = resp.getPools()
     if (pools != null) (
@@ -151,7 +194,13 @@ class HeCloudLoadBalancerClient {
       try {
         resp = client.listPools(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listPools (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       pools = resp.getPools()
       poolsAll.addAll(pools)
@@ -178,7 +227,13 @@ class HeCloudLoadBalancerClient {
     try {
       resp = client.healthmonitors(req)
     } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      log.error(
+        "Unable to healthmonitors (limit: {}, marker: {}, region: {})",
+        DEFAULT_LIMIT,
+        req.getMarker(),
+        region,
+        e
+      )
     }
     def healthMonitors = resp.getHealthmonitors()
     if (healthMonitors != null) {
@@ -189,7 +244,13 @@ class HeCloudLoadBalancerClient {
       try {
         resp = client.healthmonitors(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to healthmonitors (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       healthMonitors = resp.getHealthmonitors()
       healthMonitorsAll.addAll(healthMonitors)
@@ -208,7 +269,13 @@ class HeCloudLoadBalancerClient {
       try {
         resp = client.listMembers(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listMembers (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       resp.getMembers().collect {
         it.setPoolId(poolId)
@@ -222,7 +289,13 @@ class HeCloudLoadBalancerClient {
         try {
           resp = client.listMembers(req)
         } catch (ServiceResponseException e) {
-          throw new HeCloudOperationException(e.getErrorMsg())
+          log.error(
+            "Unable to listMembers (limit: {}, marker: {}, region: {})",
+            DEFAULT_LIMIT,
+            req.getMarker(),
+            region,
+            e
+          )
         }
         members = resp.getMembers()
         membersAll.addAll(members)
@@ -239,7 +312,13 @@ class HeCloudLoadBalancerClient {
     try {
       resp = client.listPools(req)
     } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      log.error(
+        "Unable to listPools (limit: {}, marker: {}, region: {})",
+        DEFAULT_LIMIT,
+        req.getMarker(),
+        region,
+        e
+      )
     }
     def pools = resp.getPools()
     if (pools != null) {
@@ -250,7 +329,13 @@ class HeCloudLoadBalancerClient {
       try {
         resp = client.listPools(req)
       } catch (ServiceResponseException e) {
-        throw new HeCloudOperationException(e.getErrorMsg())
+        log.error(
+          "Unable to listPools (limit: {}, marker: {}, region: {})",
+          DEFAULT_LIMIT,
+          req.getMarker(),
+          region,
+          e
+        )
       }
       pools = resp.getPools()
       poolsAll.addAll(pools)
