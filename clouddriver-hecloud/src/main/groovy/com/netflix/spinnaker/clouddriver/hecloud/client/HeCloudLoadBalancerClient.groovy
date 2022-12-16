@@ -290,11 +290,12 @@ class HeCloudLoadBalancerClient {
           e
         )
       }
-      resp.getMembers().collect {
-        it.setPoolId(poolId)
-      }
+
       def members = resp.getMembers()
       if (members != null) {
+        members.each {
+          it.setPoolId(poolId)
+        }
         membersAll.addAll(members)
       }
       while (LinkUtils.hasNextOrPrevious(resp.getMembersLinks(), Link.RelEnum.NEXT)) {
@@ -312,9 +313,15 @@ class HeCloudLoadBalancerClient {
           )
         }
         members = resp.getMembers()
-        membersAll.addAll(members)
+        if (members != null) {
+          members.each {
+            it.setPoolId(poolId)
+          }
+          membersAll.addAll(members)
+        }
       }
     }
+
     return membersAll
 
   }
@@ -359,5 +366,7 @@ class HeCloudLoadBalancerClient {
     return poolsAll
 
   }
+
+
 
 }

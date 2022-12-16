@@ -94,7 +94,7 @@ class HeCloudElasticCloudServerClient {
   }
 
   def getInstances() {
-    def startNumber = 0
+    def startNumber = 1
     List<ServerDetail> instanceAll = []
     while (true) {
       def req = new ListServersDetailsRequest().withLimit(DEFAULT_LIMIT).withOffset(startNumber)
@@ -115,7 +115,7 @@ class HeCloudElasticCloudServerClient {
         break
       }
       instanceAll.addAll(resp.getServers())
-      startNumber += DEFAULT_LIMIT
+      startNumber ++
 
     }
     return instanceAll
@@ -123,7 +123,7 @@ class HeCloudElasticCloudServerClient {
 
 
   def getInstancesByIp(String ip) {
-    def startNumber = 0
+    def startNumber = 1
     List<ServerDetail> instanceAll = []
     while (true) {
       def req = new ListServersDetailsRequest().withIp(ip).withLimit(DEFAULT_LIMIT).withOffset(startNumber)
@@ -144,7 +144,7 @@ class HeCloudElasticCloudServerClient {
         break
       }
       instanceAll.addAll(resp.getServers())
-      startNumber += DEFAULT_LIMIT
+      startNumber ++
     }
     return instanceAll
   }
