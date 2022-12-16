@@ -15,21 +15,25 @@ import groovy.util.logging.Slf4j
 @Slf4j
 class HeCloudVirtualPrivateCloudClient {
   private final DEFAULT_LIMIT = 100
+  String region
+  String account
   VpcClient client
 
-  HeCloudVirtualPrivateCloudClient(String accessKeyId, String accessSecretKey, String region){
+  HeCloudVirtualPrivateCloudClient(String accessKeyId, String accessSecretKey, String region, String account) {
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey).withIamEndpoint(HeCloudConstants.Region.getIamEndPoint(region))
     def regionId = new Region(region, "https://vpc." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
+    this.region = region
+    this.account = account
     client = VpcClient.newBuilder()
-        .withHttpConfig(config)
-        .withCredential(auth)
-        .withRegion(regionId)
-        .build()
+      .withHttpConfig(config)
+      .withCredential(auth)
+      .withRegion(regionId)
+      .build()
   }
 
   String createSecurityGroup(String groupName) {
-    try{
+    try {
       CreateSecurityGroupRequest req = new CreateSecurityGroupRequest()
       CreateSecurityGroupRequestBody body = new CreateSecurityGroupRequestBody()
       CreateSecurityGroupOption securityGroupbody = new CreateSecurityGroupOption()
@@ -44,12 +48,12 @@ class HeCloudVirtualPrivateCloudClient {
   }
 
   String createSecurityGroupRule(String groupId, HeCloudSecurityGroupRule inRule) {
-    try{
+    try {
       CreateSecurityGroupRuleRequest req = new CreateSecurityGroupRuleRequest()
       CreateSecurityGroupRuleRequestBody body = new CreateSecurityGroupRuleRequestBody()
       CreateSecurityGroupRuleOption securityGroupRulebody = new CreateSecurityGroupRuleOption()
       securityGroupRulebody.withSecurityGroupId(groupId)
-          .withDirection("ingress");
+        .withDirection("ingress");
 
       if (inRule.getIpProtocol() != null) {
         securityGroupRulebody.setProtocol(inRule.getIpProtocol());
@@ -77,7 +81,7 @@ class HeCloudVirtualPrivateCloudClient {
   }
 
   String deleteSecurityGroupInRule(String ruleId) {
-    try{
+    try {
       DeleteSecurityGroupRuleRequest req = new DeleteSecurityGroupRuleRequest()
       req.setSecurityGroupRuleId(ruleId)
       client.deleteSecurityGroupRule(request);
@@ -90,29 +94,37 @@ class HeCloudVirtualPrivateCloudClient {
   List<SecurityGroup> getSecurityGroupsAll() {
     def marker = ""
     List<SecurityGroup> securityGroupAll = []
-    try{
-      while(true) {
-        def req = new ListSecurityGroupsRequest()
-        req.setLimit(DEFAULT_LIMIT)
-        if (marker) {
-          req.setMarker(marker)
-        }
-        def resp = client.listSecurityGroups(req)
-        if(resp == null || resp.getSecurityGroups() == null || resp.getSecurityGroups().size() == 0) {
-          break
-        }
-        def sgs = resp.getSecurityGroups()
-        securityGroupAll.addAll(sgs)
-        marker = sgs[sgs.size() - 1].getId()
+    while (true) {
+      def req = new ListSecurityGroupsRequest()
+      req.setLimit(DEFAULT_LIMIT)
+      if (marker) {
+        req.setMarker(marker)
       }
-      return securityGroupAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      def resp
+      try {
+        resp = client.listSecurityGroups(req)
+      } catch (ServiceResponseException e) {
+        log.error(
+          "Unable to listSecurityGroups (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
+          region,
+          account,
+          e
+        )
+      }
+      if (resp == null || resp.getSecurityGroups() == null || resp.getSecurityGroups().size() == 0) {
+        break
+      }
+      def sgs = resp.getSecurityGroups()
+      securityGroupAll.addAll(sgs)
+      marker = sgs[sgs.size() - 1].getId()
     }
+    return securityGroupAll
   }
 
   List<SecurityGroup> getSecurityGroupById(String securityGroupId) {
-    try{
+    try {
       ShowSecurityGroupRequest req = new ShowSecurityGroupRequest()
       req.setSecurityGroupId(securityGroupId)
       ShowSecurityGroupResponse resp = client.showSecurityGroup(req)
@@ -123,7 +135,7 @@ class HeCloudVirtualPrivateCloudClient {
   }
 
   void deleteSecurityGroup(String securityGroupId) {
-    try{
+    try {
       DeleteSecurityGroupRequest req = new DeleteSecurityGroupRequest()
       req.setSecurityGroupId(securityGroupId)
       client.DeleteSecurityGroup(req)
@@ -134,54 +146,71 @@ class HeCloudVirtualPrivateCloudClient {
 
   List<Vpc> getNetworksAll() {
     def marker = ""
-    List<Vpc> networkAll =[]
-    try{
-      while(true) {
-        def req = new ListVpcsRequest().withLimit(DEFAULT_LIMIT)
-        if (marker) {
-          req.setMarker(marker)
-        }
-        def  resp = client.listVpcs(req)
-        if(resp == null || resp.getVpcs() == null || resp.getVpcs().size() == 0) {
-          break
-        }
-        def vpcs = resp.getVpcs()
-        networkAll.addAll(vpcs)
-        marker = vpcs[vpcs.size() - 1].getId()
+    List<Vpc> networkAll = []
+    while (true) {
+      def req = new ListVpcsRequest().withLimit(DEFAULT_LIMIT)
+      if (marker) {
+        req.setMarker(marker)
       }
-      return networkAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      def resp
+      try {
+        resp = client.listVpcs(req)
+      } catch (ServiceResponseException e) {
+        log.error(
+          "Unable to listVpcs (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
+          region,
+          account,
+          e
+        )
+      }
+      if (resp == null || resp.getVpcs() == null || resp.getVpcs().size() == 0) {
+        break
+      }
+      def vpcs = resp.getVpcs()
+      networkAll.addAll(vpcs)
+      marker = vpcs[vpcs.size() - 1].getId()
+
     }
+    return networkAll
   }
 
   List<Subnet> getSubnetsAll() {
     def marker = ""
     List<Subnet> subnetAll = []
-    try{
-      while(true) {
-        def req = new ListSubnetsRequest()
-        req.setLimit(DEFAULT_LIMIT)
-        if (marker) {
-          req.setMarker(marker)
-        }
-        def resp = client.listSubnets(req)
-        if(resp == null || resp.getSubnets() == null || resp.getSubnets().size() == 0) {
-          break
-        }
-        def subnets = resp.getSubnets()
-        subnetAll.addAll(subnets)
-        marker = subnets[subnets.size() - 1].getId()
+    while (true) {
+      def req = new ListSubnetsRequest()
+      req.setLimit(DEFAULT_LIMIT)
+      if (marker) {
+        req.setMarker(marker)
       }
-      return subnetAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      def resp
+      try {
+        resp = client.listSubnets(req)
+      } catch (ServiceResponseException e) {
+        log.error(
+          "Unable to listSubnets (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
+          region,
+          account,
+          e
+        )
+      }
+      if (resp == null || resp.getSubnets() == null || resp.getSubnets().size() == 0) {
+        break
+      }
+      def subnets = resp.getSubnets()
+      subnetAll.addAll(subnets)
+      marker = subnets[subnets.size() - 1].getId()
     }
+    return subnetAll
   }
 
   Subnet getSubnet(String subnetId) {
     def req = new ShowSubnetRequest().withSubnetId(subnetId)
-    try{
+    try {
       def resp = client.showSubnet(req)
       return resp.getSubnet()
     } catch (ServiceResponseException e) {
@@ -191,7 +220,7 @@ class HeCloudVirtualPrivateCloudClient {
 
   Port getPort(String portId) {
     def req = new ShowPortRequest().withPortId(portId)
-    try{
+    try {
       def resp = client.showPort(req)
       return resp.getPort()
     } catch (ServiceResponseException e) {
@@ -202,24 +231,31 @@ class HeCloudVirtualPrivateCloudClient {
   List<Port> getAllPorts() {
     def marker = ""
     List<Port> portAll = []
-    try{
-      while(true) {
-        def req = new ListPortsRequest().withLimit(DEFAULT_LIMIT)
-        if (marker) {
-          req.setMarker(marker)
-        }
-        def resp = client.listPorts(req)
-        if(resp == null || resp.getPorts() == null || resp.getPorts().size() == 0) {
-          break
-        }
-        def ports = resp.getPorts()
-        portAll.addAll(ports)
-        marker = ports[ports.size() - 1].getId()
+    while (true) {
+      def req = new ListPortsRequest().withLimit(DEFAULT_LIMIT)
+      if (marker) {
+        req.setMarker(marker)
       }
-      return portAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      def resp
+      try {
+        resp = client.listPorts(req)
+      } catch (ServiceResponseException e) {
+        log.error(
+          "Unable to listPorts (limit: {}, marker: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          req.getMarker()?.toString(),
+          region,
+          account,
+          e
+        )
+      }
+      if (resp == null || resp.getPorts() == null || resp.getPorts().size() == 0) {
+        break
+      }
+      def ports = resp.getPorts()
+      portAll.addAll(ports)
+      marker = ports[ports.size() - 1].getId()
     }
+    return portAll
   }
-
 }

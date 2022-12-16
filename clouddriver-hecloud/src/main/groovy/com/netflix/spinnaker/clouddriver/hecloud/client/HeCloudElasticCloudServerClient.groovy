@@ -18,17 +18,21 @@ import java.time.temporal.TemporalAccessor
 @Slf4j
 class HeCloudElasticCloudServerClient {
   private final DEFAULT_LIMIT = 100
+  String region
+  String account
   EcsClient client
 
-  HeCloudElasticCloudServerClient(String accessKeyId, String accessSecretKey, String region){
+  HeCloudElasticCloudServerClient(String accessKeyId, String accessSecretKey, String region, String account) {
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey).withIamEndpoint(HeCloudConstants.Region.getIamEndPoint(region))
     def regionId = new Region(region, "https://ecs." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
+    this.region = region
+    this.account = account
     client = EcsClient.newBuilder()
-        .withHttpConfig(config)
-        .withCredential(auth)
-        .withRegion(regionId)
-        .build()
+      .withHttpConfig(config)
+      .withCredential(auth)
+      .withRegion(regionId)
+      .build()
   }
 
   def terminateInstances(List<String> instanceIds) {
@@ -37,7 +41,7 @@ class HeCloudElasticCloudServerClient {
       def body = new BatchStopServersRequestBody()
       def ops = new BatchStopServersOption()
       ops.setType(BatchStopServersOption.TypeEnum.SOFT)
-      def servers = instanceIds.collect{
+      def servers = instanceIds.collect {
         def server = new ServerId().withId(it)
         server
       }
@@ -56,7 +60,7 @@ class HeCloudElasticCloudServerClient {
       def body = new BatchRebootServersRequestBody()
       def ops = new BatchRebootSeversOption()
       ops.setType(BatchRebootSeversOption.TypeEnum.SOFT)
-      def servers = instanceIds.collect{
+      def servers = instanceIds.collect {
         def server = new ServerId().withId(it)
         server
       }
@@ -92,40 +96,57 @@ class HeCloudElasticCloudServerClient {
   def getInstances() {
     def startNumber = 0
     List<ServerDetail> instanceAll = []
-    try {
-      while(true) {
-        def req = new ListServersDetailsRequest().withLimit(DEFAULT_LIMIT).withOffset(startNumber)
-        def resp = client.listServersDetails(req)
-        if(resp == null || resp.getServers() == null || resp.getServers().size() == 0) {
-          break
-        }
-        instanceAll.addAll(resp.getServers())
-        startNumber += DEFAULT_LIMIT
+    while (true) {
+      def req = new ListServersDetailsRequest().withLimit(DEFAULT_LIMIT).withOffset(startNumber)
+      def resp
+      try {
+        resp = client.listServersDetails(req)
+      } catch (ServiceResponseException e) {
+        log.error(
+          "Unable to listServersDetails (limit: {}, startNumber: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          String.valueOf(startNumber),
+          region,
+          account,
+          e
+        )
       }
-      return instanceAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      if (resp == null || resp.getServers() == null || resp.getServers().size() == 0) {
+        break
+      }
+      instanceAll.addAll(resp.getServers())
+      startNumber += DEFAULT_LIMIT
+
     }
+    return instanceAll
   }
 
 
-  def getInstancesByIp(String ip){
+  def getInstancesByIp(String ip) {
     def startNumber = 0
     List<ServerDetail> instanceAll = []
-    try {
-      while(true) {
-        def req = new ListServersDetailsRequest().withIp(ip).withLimit(DEFAULT_LIMIT).withOffset(startNumber)
-        def resp = client.listServersDetails(req)
-        if(resp == null || resp.getServers() == null || resp.getServers().size() == 0) {
-          break
-        }
-        instanceAll.addAll(resp.getServers())
-        startNumber += DEFAULT_LIMIT
+    while (true) {
+      def req = new ListServersDetailsRequest().withIp(ip).withLimit(DEFAULT_LIMIT).withOffset(startNumber)
+      def resp
+      try {
+        resp = client.listServersDetails(req)
+      } catch (ServiceResponseException e) {
+        log.error(
+          "Unable to listServersDetails (limit: {}, startNumber: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          String.valueOf(startNumber),
+          region,
+          account,
+          e
+        )
       }
-      return instanceAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      if (resp == null || resp.getServers() == null || resp.getServers().size() == 0) {
+        break
+      }
+      instanceAll.addAll(resp.getServers())
+      startNumber += DEFAULT_LIMIT
     }
+    return instanceAll
   }
 
   def getInstanceTags(String instanceId) {
@@ -147,10 +168,10 @@ class HeCloudElasticCloudServerClient {
     } catch (Exception e) {
       log.warn "convert string time error ${e.toString()}"
     }
-    if (date == null){
+    if (date == null) {
       try {
-        isoDateTime = isoDateTime.substring(0,11).replaceAll("\\.","");
-        date = new Date(Long.valueOf(isoDateTime)*1000);
+        isoDateTime = isoDateTime.substring(0, 11).replaceAll("\\.", "");
+        date = new Date(Long.valueOf(isoDateTime) * 1000);
       } catch (Exception e) {
         log.warn "convert timeStamp time error ${e.toString()}"
       }

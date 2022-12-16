@@ -62,7 +62,8 @@ class HeCloudDeployHandler implements DeployHandler<HeCloudDeployDescription> {
     HeCloudAutoScalingClient autoScalingClient = new HeCloudAutoScalingClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     if (description?.source?.useSourceCapacity) {
@@ -122,7 +123,8 @@ class HeCloudDeployHandler implements DeployHandler<HeCloudDeployDescription> {
     HeCloudAutoScalingClient autoScalingClient = new HeCloudAutoScalingClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      sourceRegion
+      sourceRegion,
+      accountName
     )
 
     String newServerGroupName = deployResult.serverGroupNameByRegion[sourceRegion]
@@ -136,6 +138,9 @@ class HeCloudDeployHandler implements DeployHandler<HeCloudDeployDescription> {
       } catch (HeCloudOperationException e) {
         // something bad happened during creation, log the error and continue
         log.warn "create notification error $e"
+        autoScalingClient.deleteAutoScalingGroup(newAsgId)
+        log.error "delete scaling group ${newAsgId} due to copyNotification failed in region: ${sourceRegion}, account: ${accountName} "
+        throw e
       }
     }
   }
@@ -159,7 +164,8 @@ class HeCloudDeployHandler implements DeployHandler<HeCloudDeployDescription> {
     HeCloudAutoScalingClient autoScalingClient = new HeCloudAutoScalingClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      sourceRegion
+      sourceRegion,
+      accountName
     )
 
     String newServerGroupName = deployResult.serverGroupNameByRegion[sourceRegion]
@@ -173,6 +179,9 @@ class HeCloudDeployHandler implements DeployHandler<HeCloudDeployDescription> {
       } catch (HeCloudOperationException e) {
         // something bad happened during creation, log the error and continue
         log.warn "create hook error $e"
+        autoScalingClient.deleteAutoScalingGroup(newAsgId)
+        log.error "delete scaling group ${newAsgId} due to copyLifeCycleHook failed in region: ${sourceRegion}, account: ${accountName} "
+        throw e
       }
     }
   }
@@ -198,7 +207,8 @@ class HeCloudDeployHandler implements DeployHandler<HeCloudDeployDescription> {
     HeCloudAutoScalingClient autoScalingClient = new HeCloudAutoScalingClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      sourceRegion
+      sourceRegion,
+      accountName
     )
 
     HeCloudEyeClient cloudEyeClient = new HeCloudEyeClient(
@@ -225,6 +235,9 @@ class HeCloudDeployHandler implements DeployHandler<HeCloudDeployDescription> {
       } catch (HeCloudOperationException e) {
         // something bad happened during creation, log the error and continue
         log.warn "create scaling policy error $e"
+        autoScalingClient.deleteAutoScalingGroup(newAsgId)
+        log.error "delete scaling group ${newAsgId} due to copyScalingPolicy failed in region: ${sourceRegion}, account: ${accountName} "
+        throw e
       }
     }
   }

@@ -70,11 +70,11 @@ class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, Heal
     Collection<String> evictions = providerCache.filterIdentifiers(HEALTH_CHECKS.ns, Keys.getTargetHealthKey('*', '*',
       '*', '*', accountName, region))
 
-    List<CacheData> data = targetHealths.collect() { HeCloudLoadBalancerTargetHealth targetHealth ->
+    List<CacheData> data = targetHealths?.collect() { HeCloudLoadBalancerTargetHealth targetHealth ->
       Map<String, Object> attributes = ["targetHealth": targetHealth]
       def targetHealthKey = Keys.getTargetHealthKey(targetHealth.loadBalancerId, targetHealth.listenerId,
         targetHealth.poolId, targetHealth.instanceId, accountName, region)
-      def keepKey = evictions.find {
+      def keepKey = evictions?.find {
         it.equals(targetHealthKey)
       }
       if (keepKey) {
@@ -92,11 +92,12 @@ class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, Heal
     HeCloudLoadBalancerClient client = new HeCloudLoadBalancerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
     HeCloudElasticCloudServerClient ecsClient = new HeCloudElasticCloudServerClient(credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region)
+      region,accountName)
 
     def poolSet = client.getAllPools()
     def memberHealths = client.getAllMembers()
@@ -119,7 +120,7 @@ class HeCloudLoadBalancerInstanceStateCachingAgent implements CachingAgent, Heal
         if (memberHealth.getPoolId() != poolId) {
           continue
         }
-        def healthStatus = memberHealth.getOperatingStatus().equals("ONLINE")
+        def healthStatus = memberHealth.getOperatingStatus()?.equals("ONLINE")
         def port = memberHealth.getProtocolPort()
 
         //通过实例ip地址获取实例id，memberId不是实例id

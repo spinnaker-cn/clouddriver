@@ -55,7 +55,7 @@ class HeCloudInstanceProvider implements InstanceProvider<HeCloudInstance, Strin
     def asgInfo = serverGroupCache?.attributes?.asg as Map
     // Scaling instance states
     def asgInstances = asgInfo?.get("instances") as List
-    def asgInstance = asgInstances.find {
+    def asgInstance = asgInstances?.find {
       it["instance_id"] = instance.name
     }
     // LB targets states
@@ -83,7 +83,7 @@ class HeCloudInstanceProvider implements InstanceProvider<HeCloudInstance, Strin
           instance.targetHealths.add(new HeCloudTargetHealth())
         }
       }
-    } else if (asgInstance && asgInstance["life_cycle_state"].equals("INSERVICE") && asgInstance["health_status"].equals("NORMAL")) {
+    } else if (asgInstance && asgInstance["life_cycle_state"]?.equals("INSERVICE") && asgInstance["health_status"]?.equals("NORMAL")) {
       instance.instanceHealth = new HeCloudInstanceHealth(instanceStatus: "NORMAL")
     }
     instance
