@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.clouddriver.huaweicloud.client
 
+import com.google.common.collect.Lists
+import com.netflix.spinnaker.clouddriver.huaweicloud.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.huaweicloud.model.loadbalance.HuaweiCloudLoadBalancerListener
 import com.netflix.spinnaker.clouddriver.huaweicloud.model.loadbalance.HuaweiCloudLoadBalancerRule
 import com.netflix.spinnaker.clouddriver.huaweicloud.model.loadbalance.HuaweiCloudLoadBalancerTarget
@@ -11,12 +13,13 @@ import com.huaweicloud.sdk.core.http.HttpConfig
 import com.huaweicloud.sdk.core.region.Region
 import com.huaweicloud.sdk.elb.v3.ElbClient
 import com.huaweicloud.sdk.elb.v3.model.*
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import groovy.util.logging.Slf4j
 import org.springframework.stereotype.Component
 
 @Slf4j
 class HuaweiLoadBalancerClient {
-  private final DEFAULT_LIMIT = 100
+  private final DEFAULT_LIMIT = 50
   ElbClient client
 
   HuaweiLoadBalancerClient(String accessKeyId, String accessSecretKey, String region){
@@ -45,6 +48,7 @@ class HuaweiLoadBalancerClient {
       }
       return loadBalancerAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -65,6 +69,7 @@ class HuaweiLoadBalancerClient {
       def resp = client.listLoadBalancers(req);
       return resp.getLoadbalancers()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -81,24 +86,28 @@ class HuaweiLoadBalancerClient {
 
   List<Listener> getAllLBListener(List<String> loadbalancerId) {
     List<Listener> listenerAll = []
-    try {
-      def req = new ListListenersRequest().withLimit(DEFAULT_LIMIT)
-      if (loadbalancerId.size() > 0) {
-        req.setLoadbalancerId(loadbalancerId)
-      }
-      def resp = client.listListeners(req)
-      def listeners = resp.getListeners()
-      listenerAll.addAll(listeners)
-      while (resp.getPageInfo().getNextMarker()) {
-        req.setMarker(resp.getPageInfo().getNextMarker())
-        resp = client.listListeners(req)
-        listeners = resp.getListeners()
+    def part_loadBalancerIds = Lists.partition(loadbalancerId, DEFAULT_LIMIT)
+    part_loadBalancerIds.each {
+      try {
+        def req = new ListListenersRequest().withLimit(DEFAULT_LIMIT)
+        if (it.size() > 0) {
+          req.setLoadbalancerId(it)
+        }
+        def resp = client.listListeners(req)
+        def listeners = resp.getListeners()
         listenerAll.addAll(listeners)
+        while (resp.getPageInfo().getNextMarker()) {
+          req.setMarker(resp.getPageInfo().getNextMarker())
+          resp = client.listListeners(req)
+          listeners = resp.getListeners()
+          listenerAll.addAll(listeners)
+        }
+      } catch (ServiceResponseException e) {
+        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
+        throw new HuaweiCloudOperationException(e.getErrorMsg())
       }
-      return listenerAll
-    } catch (ServiceResponseException e) {
-      throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
+     listenerAll
   }
 
   List<L7Policy> getAllL7policies(List<String> listenerId) {
@@ -119,6 +128,7 @@ class HuaweiLoadBalancerClient {
       }
       return l7policiesAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -135,24 +145,28 @@ class HuaweiLoadBalancerClient {
 
   List<Pool> getAllPools(List<String> loadbalancerId) {
     List<Pool> poolsAll = []
-    try {
-      def req = new ListPoolsRequest().withLimit(DEFAULT_LIMIT)
-      if (loadbalancerId.size() > 0) {
-        req.setLoadbalancerId(loadbalancerId)
-      }
-      def resp = client.listPools(req)
-      def pools = resp.getPools()
-      poolsAll.addAll(pools)
-      while (resp.getPageInfo().getNextMarker()) {
-        req.setMarker(resp.getPageInfo().getNextMarker())
-        resp = client.listPools(req)
-        pools = resp.getPools()
+    def part_loadBalancerIds = Lists.partition(loadbalancerId, DEFAULT_LIMIT)
+    part_loadBalancerIds.each {
+      try {
+        def req = new ListPoolsRequest().withLimit(DEFAULT_LIMIT)
+        if (it.size() > 0) {
+          req.setLoadbalancerId(it)
+        }
+        def resp = client.listPools(req)
+        def pools = resp.getPools()
         poolsAll.addAll(pools)
+        while (resp.getPageInfo().getNextMarker()) {
+          req.setMarker(resp.getPageInfo().getNextMarker())
+          resp = client.listPools(req)
+          pools = resp.getPools()
+          poolsAll.addAll(pools)
+        }
+      } catch (ServiceResponseException e) {
+        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
+        throw new HuaweiCloudOperationException(e.getErrorMsg())
       }
-      return poolsAll
-    } catch (ServiceResponseException e) {
-      throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
+    poolsAll
   }
 
   Pool getPool(String poolId) {
@@ -161,6 +175,7 @@ class HuaweiLoadBalancerClient {
       def resp = client.showPool(req);
       return resp.getPool()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -190,6 +205,7 @@ class HuaweiLoadBalancerClient {
       }
       return healthMonitorsAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -209,6 +225,7 @@ class HuaweiLoadBalancerClient {
       }
       return membersAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -228,6 +245,7 @@ class HuaweiLoadBalancerClient {
       }
       return poolsAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }

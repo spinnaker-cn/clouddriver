@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.huaweicloud.client
 
+import com.netflix.spinnaker.clouddriver.huaweicloud.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.huaweicloud.exception.HuaweiCloudOperationException
 import com.netflix.spinnaker.clouddriver.huaweicloud.model.HuaweiCloudSecurityGroupRule
 
@@ -9,6 +10,7 @@ import com.huaweicloud.sdk.core.http.HttpConfig
 import com.huaweicloud.sdk.core.region.Region
 import com.huaweicloud.sdk.vpc.v2.VpcClient
 import com.huaweicloud.sdk.vpc.v2.model.*
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import groovy.util.logging.Slf4j
 import org.springframework.stereotype.Component
 
@@ -107,6 +109,7 @@ class HuaweiVirtualPrivateCloudClient {
       }
       return securityGroupAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -118,6 +121,7 @@ class HuaweiVirtualPrivateCloudClient {
       ShowSecurityGroupResponse resp = client.showSecurityGroup(req)
       return resp.getSecurityGroup()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -151,6 +155,7 @@ class HuaweiVirtualPrivateCloudClient {
       }
       return networkAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -175,6 +180,7 @@ class HuaweiVirtualPrivateCloudClient {
       }
       return subnetAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }

@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.huaweicloud.client
 
+import com.netflix.spinnaker.clouddriver.huaweicloud.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.huaweicloud.exception.HuaweiCloudOperationException
 
 import com.huaweicloud.sdk.core.auth.BasicCredentials
@@ -9,7 +10,8 @@ import com.huaweicloud.sdk.core.region.Region
 import com.huaweicloud.sdk.ims.v2.ImsClient
 import com.huaweicloud.sdk.ims.v2.model.ImageInfo
 import com.huaweicloud.sdk.ims.v2.model.ListImagesRequest;
-import com.huaweicloud.sdk.ims.v2.model.ListImagesResponse;
+import com.huaweicloud.sdk.ims.v2.model.ListImagesResponse
+import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import groovy.util.logging.Slf4j
 import org.springframework.stereotype.Component
 
@@ -51,6 +53,7 @@ class HuaweiImageClient {
       }
       return imageAll
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }

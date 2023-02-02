@@ -6,7 +6,7 @@ ext {
 }
 
 repositories {
-  maven { url 'http://maven.aliyun.com/nexus/content/groups/public' }
+  maven { url "http://spinnaker.maven.cn:8000//repository/spinnaker-public/"}
 //  maven { url 'https://dl.bintray.com/netflixoss' }
 }
 
