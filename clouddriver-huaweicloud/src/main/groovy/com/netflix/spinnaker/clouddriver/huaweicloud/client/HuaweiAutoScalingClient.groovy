@@ -22,15 +22,15 @@ class HuaweiAutoScalingClient {
   static String defaultServerGroupTagKey = "spinnaker-server-group-name"
   AsClient client
 
-  HuaweiAutoScalingClient(String accessKeyId, String accessSecretKey, String region){
+  HuaweiAutoScalingClient(String accessKeyId, String accessSecretKey, String region) {
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey)
     def regionId = new Region(region, "https://as." + region + ".myhuaweicloud.com")
     def config = HttpConfig.getDefaultHttpConfig()
     client = AsClient.newBuilder()
-        .withHttpConfig(config)
-        .withCredential(auth)
-        .withRegion(regionId)
-        .build()
+      .withHttpConfig(config)
+      .withCredential(auth)
+      .withRegion(regionId)
+      .build()
   }
 
   String deploy(HuaweiCloudDeployDescription description) {
@@ -55,7 +55,7 @@ class HuaweiAutoScalingClient {
         tags.add(spinnakerTag)
         if (description.instanceTags) {
           tags.addAll description.instanceTags.collect {
-              new TagsSingleValue().withKey(it.key).withValue(it.value)
+            new TagsSingleValue().withKey(it.key).withValue(it.value)
           }
         }
         createScalingTagsRequestBody.setTags(tags)
@@ -74,9 +74,11 @@ class HuaweiAutoScalingClient {
         def request = new DeleteScalingConfigRequest()
         request.setScalingConfigurationId(launchConfigurationId)
         client.deleteScalingConfig(request)
+        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
         throw e
       }
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
@@ -245,10 +247,10 @@ class HuaweiAutoScalingClient {
     def startNumber = 0
     List<ScalingGroups> scalingGroupAll = []
     try {
-      while(true) {
+      while (true) {
         def req = new ListScalingGroupsRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
         def resp = client.listScalingGroups(req)
-        if(resp == null || resp.getScalingGroups() == null || resp.getScalingGroups().size() == 0) {
+        if (resp == null || resp.getScalingGroups() == null || resp.getScalingGroups().size() == 0) {
           break
         }
         scalingGroupAll.addAll(resp.getScalingGroups())
@@ -277,10 +279,10 @@ class HuaweiAutoScalingClient {
     def startNumber = 0
     List<ScalingConfiguration> scalingConfigAll = []
     try {
-      while(true) {
+      while (true) {
         def req = new ListScalingConfigsRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
         def resp = client.listScalingConfigs(req)
-        if(resp == null || resp.getScalingConfigurations() == null || resp.getScalingConfigurations().size() == 0) {
+        if (resp == null || resp.getScalingConfigurations() == null || resp.getScalingConfigurations().size() == 0) {
           break
         }
         scalingConfigAll.addAll(resp.getScalingConfigurations())
@@ -293,20 +295,30 @@ class HuaweiAutoScalingClient {
     }
   }
 
-  List<ScalingGroupInstance> getAutoScalingInstances(String asgId=null) {
-    try {
-      def req = new ListScalingInstancesRequest()
-      if (asgId) {
-        req.setScalingGroupId(asgId)
+  List<ScalingGroupInstance> getAutoScalingInstances(String asgId = null) {
+    def startNumber = 0
+    List<ScalingGroupInstance> scalingGroupInstances = []
+    while (true) {
+      try {
+        def req = new ListScalingInstancesRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
+        if (asgId) {
+          req.setScalingGroupId(asgId)
+        }
+        def resp = client.listScalingInstances req
+        if (resp == null || resp.getScalingGroupInstances() == null || resp.getScalingGroupInstances().size() == 0) {
+          break
+        }
+        startNumber += DEFAULT_LIMIT
+        scalingGroupInstances.addAll(resp.getScalingGroupInstances())
+      } catch (ServiceResponseException e) {
+        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
+        throw new HuaweiCloudOperationException(e.getErrorMsg())
       }
-      def resp = client.listScalingInstances req
-      resp.getScalingGroupInstances()
-    } catch (ServiceResponseException e) {
-      throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
+    scalingGroupInstances
   }
 
-  def getAutoScalingActivitiesByAsgId(String asgId, maxActivityNum=100) {
+  def getAutoScalingActivitiesByAsgId(String asgId, maxActivityNum = 100) {
     try {
       def req = new ListScalingActivityLogsRequest()
       req.setScalingGroupId(asgId)
@@ -314,6 +326,7 @@ class HuaweiAutoScalingClient {
       def resp = client.listScalingActivityLogs req
       resp.getScalingActivityLog()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -326,11 +339,12 @@ class HuaweiAutoScalingClient {
       def resp = client.listScalingTagInfosByResourceId req
       resp.getTags()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
 
-  List<ScalingPolicyDetail> getScalingPolicies(String asgId=null) {
+  List<ScalingPolicyDetail> getScalingPolicies(String asgId = null) {
     try {
       def req = new ListScalingPoliciesRequest()
       if (asgId) {
@@ -339,6 +353,7 @@ class HuaweiAutoScalingClient {
       def resp = client.listScalingPolicies req
       resp.getScalingPolicies()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -396,11 +411,12 @@ class HuaweiAutoScalingClient {
       def response = client.createScalingPolicy request
       response
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
 
-  List<Topics> getNotification(String asgId=null) {
+  List<Topics> getNotification(String asgId = null) {
     try {
       def req = new ListScalingNotificationsRequest()
       if (asgId) {
@@ -409,6 +425,7 @@ class HuaweiAutoScalingClient {
       def resp = client.listScalingNotifications req
       resp.getTopics()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -424,11 +441,12 @@ class HuaweiAutoScalingClient {
       def response = client.createScalingNotification request
       response
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
 
-  List<LifecycleHookList> getLifeCycleHook(String asgId=null) {
+  List<LifecycleHookList> getLifeCycleHook(String asgId = null) {
     try {
       def req = new ListLifeCycleHooksRequest()
       if (asgId) {
@@ -437,6 +455,7 @@ class HuaweiAutoScalingClient {
       def resp = client.listLifeCycleHooks req
       resp.getLifecycleHooks()
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.getErrorMsg())
     }
   }
@@ -469,6 +488,7 @@ class HuaweiAutoScalingClient {
       def response = client.createLifyCycleHook request
       response
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
@@ -485,6 +505,7 @@ class HuaweiAutoScalingClient {
 
       client.updateScalingGroup(request)
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
@@ -498,6 +519,7 @@ class HuaweiAutoScalingClient {
       request.setBody(body)
       client.enableOrDisableScalingGroup(request)
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
@@ -511,6 +533,7 @@ class HuaweiAutoScalingClient {
       request.setBody(body)
       client.enableOrDisableScalingGroup(request)
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
@@ -533,6 +556,7 @@ class HuaweiAutoScalingClient {
       if (e.getHttpStatusCode() == 404) {
         return "success"
       }
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
     return ""
@@ -544,6 +568,7 @@ class HuaweiAutoScalingClient {
       request.setScalingConfigurationId(ascId)
       client.deleteScalingConfig(request)
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
@@ -555,6 +580,7 @@ class HuaweiAutoScalingClient {
       request.setInstanceDelete(DeleteScalingInstanceRequest.InstanceDeleteEnum.YES)
       client.deleteScalingInstance(request)
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }

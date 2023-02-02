@@ -48,6 +48,7 @@ class HuaweiElasticCloudServerClient {
       request.setBody(body)
       client.batchStopServers(request)
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
@@ -67,6 +68,7 @@ class HuaweiElasticCloudServerClient {
       request.setBody(body)
       client.batchRebootServers(request)
     } catch (ServiceResponseException e) {
+      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2, e.getErrorCode());
       throw new HuaweiCloudOperationException(e.toString())
     }
   }
@@ -135,10 +137,8 @@ class HuaweiElasticCloudServerClient {
     }
     if (date == null){
       try {
-        isoDateTime = isoDateTime.substring(0,11).replaceAll("\\.","");
-        isoDateTime =  isoDateTime.substring(0,isoDateTime.length()-2);
-        BigDecimal dateTime = new BigDecimal(isoDateTime).multiply(new BigDecimal(1000000000));
-        date = new Date(dateTime.longValue()*1000);
+        def dateTime = new Double(isoDateTime)
+        date = new Date(dateTime.longValue())
       } catch (Exception e) {
         log.warn "convert timeStamp time error ${e.toString()}"
       }

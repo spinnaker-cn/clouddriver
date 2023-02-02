@@ -31,7 +31,7 @@ public class ExceptionUtils {
   public static void registerMetric(Exception e, AlarmLevelEnum alarmLevel, String code) {
     MonitorModel monitorModel = new MonitorModel();
     monitorModel.setCode(alarmLevel);
-    monitorModel.setCloudType(CloudTypeEnum.TENCENT);
+    monitorModel.setCloudType(CloudTypeEnum.HUAWEI);
     monitorModel.setApiCode(code);
     monitorModel.setLogId(UUID.randomUUID().toString().replace("-", ""));
     MonitorUtils.registerMetric(monitorModel, e);
@@ -40,7 +40,7 @@ public class ExceptionUtils {
   public static void registerMetric(Exception e, AlarmLevelEnum alarmLevel, Class<?> clazz) {
     MonitorModel monitorModel = new MonitorModel();
     monitorModel.setCode(alarmLevel);
-    monitorModel.setCloudType(CloudTypeEnum.TENCENT);
+    monitorModel.setCloudType(CloudTypeEnum.HUAWEI);
     monitorModel.setApiCode(clazz.getSimpleName());
     monitorModel.setLogId(UUID.randomUUID().toString().replace("-", ""));
     MonitorUtils.registerMetric(monitorModel, e);
