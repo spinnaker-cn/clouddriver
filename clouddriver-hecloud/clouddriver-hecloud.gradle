@@ -21,7 +21,8 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
   implementation "com.google.guava:guava"
-  
+  implementation "com.netflix.spinnaker.kork:kork-jedis"
+    
   implementation fileTree(dir:'lib',includes:['hecloud-sdk-elb-1.0.0.jar'])
   implementation fileTree(dir:'lib',includes:['hecloud-sdk-as-1.0.0.jar'])
   implementation "com.hecloud.sdk:hecloud-sdk-elb:1.0.0"
