@@ -23,8 +23,8 @@ dependencies {
   implementation "com.google.guava:guava"
   
   implementation fileTree(dir:'lib',includes:['hecloud-sdk-elb-1.0.0.jar'])
-  //implementation fileTree(dir:'lib',includes:['hecloud-sdk-elb-1.0.0.jar'])
-//  implementation "com.hecloud.sdk:hecloud-sdk-elb:1.0.0"
+  implementation fileTree(dir:'lib',includes:['hecloud-sdk-as-1.0.0.jar'])
+  implementation "com.hecloud.sdk:hecloud-sdk-elb:1.0.0"
   implementation "com.huaweicloud.sdk:huaweicloud-sdk-as:3.0.29-beta"
   implementation "com.huaweicloud.sdk:huaweicloud-sdk-ces:3.0.29-beta"
   implementation "com.huaweicloud.sdk:huaweicloud-sdk-core:3.0.29-beta"
