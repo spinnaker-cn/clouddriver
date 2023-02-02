@@ -82,12 +82,12 @@ class HeCloudLoadBalancerProvider implements LoadBalancerProvider<HeCloudLoadBal
   Set<HeCloudLoadBalancer> loadResults(Collection<String> identifiers) {
     log.info("Enter loadResults id = " + identifiers)
     def data = cacheView.getAll(Keys.Namespace.LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.none())
-    def transformed = data.collect(this.&fromCacheData)
+    def transformed = data?.collect(this.&fromCacheData)
     return transformed
   }
 
   private LoadBalancerServerGroup getLoadBalancerServerGroup(CacheData loadBalancerCache, HeCloudLoadBalancer loadBalancerDesc) {
-    def serverGroupKeys = loadBalancerCache.relationships[SERVER_GROUPS.ns]
+    def serverGroupKeys = loadBalancerCache?.relationships[SERVER_GROUPS.ns]
     if (serverGroupKeys) {
       def serverGroupKey = serverGroupKeys[0]
       if (serverGroupKey) {
@@ -100,7 +100,7 @@ class HeCloudLoadBalancerProvider implements LoadBalancerProvider<HeCloudLoadBal
           def lbInfo = asgInfo?.get("forwardLoadBalancerSet") as List
           def instances = []
           if (lbInfo) {
-            def lbId = loadBalancerDesc.loadBalancerId
+            def lbId = loadBalancerDesc?.loadBalancerId
             def lbHealthKey = Keys.getTargetHealthKey(
               lbId, "*", "*", "*", parts.account, parts.region)
             def identifiers = cacheView.filterIdentifiers(HEALTH_CHECKS.ns, lbHealthKey)
@@ -190,7 +190,7 @@ class HeCloudLoadBalancerProvider implements LoadBalancerProvider<HeCloudLoadBal
   private Map<String, HeCloudLoadBalancerSummary> getSummaryForLoadBalancers(Collection<String> loadBalancerKeys) {
     Map<String, HeCloudLoadBalancerSummary> map = [:]
     Collection<CacheData> loadBalancerData = cacheView.getAll(LOAD_BALANCERS.ns, loadBalancerKeys)
-    Map<String, CacheData> loadBalancers = loadBalancerData.collectEntries { [(it.id): it] }
+    Map<String, CacheData> loadBalancers = loadBalancerData?.collectEntries { [(it.id): it] }
 
     for (lb in loadBalancerKeys) {
       CacheData loadBalancerFromCache = loadBalancers[lb]

@@ -8,8 +8,8 @@ import com.huaweicloud.sdk.core.auth.BasicCredentials
 import com.huaweicloud.sdk.core.exception.ServiceResponseException
 import com.huaweicloud.sdk.core.http.HttpConfig
 import com.huaweicloud.sdk.core.region.Region
-import com.huaweicloud.sdk.as.v1.AsClient
-import com.huaweicloud.sdk.as.v1.model.*
+import com.hecloud.sdk.as.v1.AsClient
+import com.hecloud.sdk.as.v1.model.*
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -18,17 +18,21 @@ class HeCloudAutoScalingClient {
   private final MAX_TRY_COUNT = 60
   private final REQ_TRY_INTERVAL = 60 * 1000  //MillSeconds
   static String defaultServerGroupTagKey = "spinnaker-server-group-name"
+  String region
+  String account
   AsClient client
 
-  HeCloudAutoScalingClient(String accessKeyId, String accessSecretKey, String region){
+  HeCloudAutoScalingClient(String accessKeyId, String accessSecretKey, String region, String account){
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey).withIamEndpoint(HeCloudConstants.Region.getIamEndPoint(region))
     def regionId = new Region(region, "https://as." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
+    this.region = region
+    this.account = account
     client = AsClient.newBuilder()
-        .withHttpConfig(config)
-        .withCredential(auth)
-        .withRegion(regionId)
-        .build()
+      .withHttpConfig(config)
+      .withCredential(auth)
+      .withRegion(regionId)
+      .build()
   }
 
   String deploy(HeCloudDeployDescription description) {
@@ -196,6 +200,11 @@ class HeCloudAutoScalingClient {
       body.setAvailableZones(description.zones)
     }
 
+    // agency
+    if (description.agency) {
+      body.setIamAgencyName(description.agency)
+    }
+
     // loadbalancer
     if (description.forwardLoadBalancers) {
       def forwardLoadBalancers = description.forwardLoadBalancers.collect {
@@ -237,20 +246,29 @@ class HeCloudAutoScalingClient {
   List<ScalingGroups> getAllAutoScalingGroups() {
     def startNumber = 0
     List<ScalingGroups> scalingGroupAll = []
-    try {
-      while(true) {
-        def req = new ListScalingGroupsRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
-        def resp = client.listScalingGroups(req)
-        if(resp == null || resp.getScalingGroups() == null || resp.getScalingGroups().size() == 0) {
-          break
-        }
-        scalingGroupAll.addAll(resp.getScalingGroups())
-        startNumber += DEFAULT_LIMIT
+    while (true) {
+      def req = new ListScalingGroupsRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
+      def resp
+      try {
+        resp = client.listScalingGroups(req)
+      } catch (ServiceResponseException e) {
+        log.error(
+          "Unable to listScalingGroups (limit: {}, startNumber: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          String.valueOf(startNumber),
+          region,
+          account,
+          e
+        )
       }
-      return scalingGroupAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      if (resp == null || resp.getScalingGroups() == null || resp.getScalingGroups().size() == 0) {
+        break
+      }
+      scalingGroupAll.addAll(resp.getScalingGroups())
+      startNumber += DEFAULT_LIMIT
+
     }
+    return scalingGroupAll
   }
 
   List<ScalingGroups> getAutoScalingGroupsByName(String name) {
@@ -267,20 +285,29 @@ class HeCloudAutoScalingClient {
   List<ScalingConfiguration> getLaunchConfigurations() {
     def startNumber = 0
     List<ScalingConfiguration> scalingConfigAll = []
-    try {
-      while(true) {
-        def req = new ListScalingConfigsRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
-        def resp = client.listScalingConfigs(req)
-        if(resp == null || resp.getScalingConfigurations() == null || resp.getScalingConfigurations().size() == 0) {
-          break
-        }
-        scalingConfigAll.addAll(resp.getScalingConfigurations())
-        startNumber += DEFAULT_LIMIT
+    while (true) {
+      def req = new ListScalingConfigsRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
+      def resp
+      try {
+        resp = client.listScalingConfigs(req)
+      } catch (ServiceResponseException e) {
+        log.error(
+          "Unable to listScalingConfigs (limit: {}, startNumber: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          String.valueOf(startNumber),
+          region,
+          account,
+          e
+        )
       }
-      return scalingConfigAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      if (resp == null || resp.getScalingConfigurations() == null || resp.getScalingConfigurations().size() == 0) {
+        break
+      }
+      scalingConfigAll.addAll(resp.getScalingConfigurations())
+      startNumber += DEFAULT_LIMIT
+
     }
+    return scalingConfigAll
   }
 
   List<ScalingGroupInstance> getAutoScalingInstances(String asgId=null) {
@@ -533,7 +560,26 @@ class HeCloudAutoScalingClient {
       def request = new DeleteScalingConfigRequest()
       request.setScalingConfigurationId(ascId)
       client.deleteScalingConfig(request)
+
+      // wait for deleting successed
+      for (def i = 0; i < MAX_TRY_COUNT; i++) {
+        Thread.sleep(REQ_TRY_INTERVAL)
+        def getReq = new ShowScalingConfigRequest()
+        getReq.setScalingConfigurationId(ascId)
+        client.showScalingConfig(getReq)
+      }
     } catch (ServiceResponseException e) {
+      if (e.getHttpStatusCode() == 404) {
+        return
+      } else {
+        try {
+          def request = new DeleteScalingConfigRequest()
+          request.setScalingConfigurationId(ascId)
+          client.deleteScalingConfig(request)
+        } catch (ServiceResponseException e1) {
+          throw new HeCloudOperationException(e1.toString())
+        }
+      }
       throw new HeCloudOperationException(e.toString())
     }
   }

@@ -44,7 +44,8 @@ class HeCloudServerGroupController {
     def client = new HeCloudAutoScalingClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      account
     )
     def scalingActivities = client.getAutoScalingActivitiesByAsgId(autoScalingGroupId, MAX_SCALING_ACTIVITIES)
     return new ResponseEntity(scalingActivities, HttpStatus.OK)

@@ -15,43 +15,55 @@ import groovy.util.logging.Slf4j
 @Slf4j
 class HeCloudImageClient {
   private final DEFAULT_LIMIT = 100
+  String region
+  String account
   ImsClient client
 
-  HeCloudImageClient(String accessKeyId, String accessSecretKey, String region){
+  HeCloudImageClient(String accessKeyId, String accessSecretKey, String region, String account) {
     def auth = new BasicCredentials().withAk(accessKeyId).withSk(accessSecretKey).withIamEndpoint(HeCloudConstants.Region.getIamEndPoint(region))
     def regionId = new Region(region, "https://ims." + region + "." + HeCloudConstants.END_POINT_SUFFIX)
     def config = HttpConfig.getDefaultHttpConfig()
+    this.region = region
+    this.account = account
     client = ImsClient.newBuilder()
-        .withHttpConfig(config)
-        .withCredential(auth)
-        .withRegion(regionId)
-        .build()
+      .withHttpConfig(config)
+      .withCredential(auth)
+      .withRegion(regionId)
+      .build()
   }
 
   def getImages() {
     def marker = ""
     List<ImageInfo> imageAll = []
-    try {
-      while(true) {
-        def request = new ListImagesRequest()
-        request.setLimit(DEFAULT_LIMIT)
-        request.setImagetype(ListImagesRequest.ImagetypeEnum.PRIVATE)
-        request.setDiskFormat(ListImagesRequest.DiskFormatEnum.ZVHD2)
-        if (marker) {
-          request.setMarker(marker)
-        }
-        def resp = client.listImages(request)
-        if(resp == null || resp.getImages() == null || resp.getImages().size() == 0) {
-          break
-        }
-        def images = resp.getImages()
-        imageAll.addAll(images)
-        marker = images[images.size() - 1].getId()
+    while (true) {
+      def request = new ListImagesRequest()
+      request.setLimit(DEFAULT_LIMIT)
+      request.setImagetype(ListImagesRequest.ImagetypeEnum.PRIVATE)
+      request.setDiskFormat(ListImagesRequest.DiskFormatEnum.ZVHD2)
+      if (marker) {
+        request.setMarker(marker)
       }
-      return imageAll
-    } catch (ServiceResponseException e) {
-      throw new HeCloudOperationException(e.getErrorMsg())
+      def resp
+      try {
+        resp = client.listImages(request)
+      } catch (ServiceResponseException e) {
+        log.error(
+          "Unable to listImages (limit: {}, region: {}, account: {})",
+          String.valueOf(DEFAULT_LIMIT),
+          region,
+          account,
+          e
+        )
+      }
+      if (resp == null || resp.getImages() == null || resp.getImages().size() == 0) {
+        break
+      }
+      def images = resp.getImages()
+      imageAll.addAll(images)
+      marker = images[images.size() - 1].getId()
+
     }
+    return imageAll
   }
 
 }

@@ -37,24 +37,25 @@ class HeCloudInstanceTypeCachingAgent extends AbstractHeCloudCachingAgent {
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
       region,
+      accountName
     )
 
     def result = ecsClient.getInstanceTypes()
     result.each {
 
       def extraSpec = it.getOsExtraSpecs()
-      def flavorStatus = extraSpec.getCondOperationStatus();
+      def flavorStatus = extraSpec?.getCondOperationStatus();
 
       //不返回售罄的规格
+      // Remove abandon filter: InstanceCondOperationStatusEnum.ABANDON
       if(
-        InstanceCondOperationStatusEnum.ABANDON.name().toLowerCase() == flavorStatus ||
-          InstanceCondOperationStatusEnum.SELLOUT.name().toLowerCase() == flavorStatus ||
+        InstanceCondOperationStatusEnum.SELLOUT.name().toLowerCase() == flavorStatus ||
           InstanceCondOperationStatusEnum.OBT_SELLOUT.name().toLowerCase() == flavorStatus
       ){
         null
       }
       else {
-        def instanceFamily = extraSpec.getEcsPerformancetype()
+        def instanceFamily = extraSpec?.getEcsPerformancetype()
         def hecloudInstanceType = new HeCloudInstanceType(
           name: it.getName(),
           account: this.accountName,
@@ -81,5 +82,11 @@ class HeCloudInstanceTypeCachingAgent extends AbstractHeCloudCachingAgent {
     log.info "finish loads instance type data."
     log.info "Caching ${namespaceCache[INSTANCE_TYPES.ns].size()} items in $agentType"
     defaultCacheResult
+  }
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (INSTANCE_TYPES.ns): Keys.getInstanceTypeKey(accountName, region, "*"),
+    ]
   }
 }

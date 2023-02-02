@@ -7,10 +7,7 @@ import com.hecloud.sdk.elb.model.LBListener
 import com.hecloud.sdk.elb.model.Member
 import com.hecloud.sdk.elb.model.Pool
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.cats.agent.AccountAware
-import com.netflix.spinnaker.cats.agent.AgentDataType
-import com.netflix.spinnaker.cats.agent.CacheResult
-import com.netflix.spinnaker.cats.agent.CachingAgent
+import com.netflix.spinnaker.cats.agent.*
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
@@ -18,32 +15,23 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.hecloud.HeCloudProvider
 import com.netflix.spinnaker.clouddriver.hecloud.cache.Keys
-import com.netflix.spinnaker.clouddriver.hecloud.model.loadbalance.HeCloudLoadBalancer
-import com.netflix.spinnaker.clouddriver.hecloud.model.loadbalance.HeCloudLoadBalancerCertificate
-import com.netflix.spinnaker.clouddriver.hecloud.model.loadbalance.HeCloudLoadBalancerHealthCheck
-import com.netflix.spinnaker.clouddriver.hecloud.model.loadbalance.HeCloudLoadBalancerListener
-import com.netflix.spinnaker.clouddriver.hecloud.model.loadbalance.HeCloudLoadBalancerPool
-import com.netflix.spinnaker.clouddriver.hecloud.model.loadbalance.HeCloudLoadBalancerRule
-import com.netflix.spinnaker.clouddriver.hecloud.model.loadbalance.HeCloudLoadBalancerTarget
+import com.netflix.spinnaker.clouddriver.hecloud.client.HeCloudLoadBalancerClient
+import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudBasicResource
+import com.netflix.spinnaker.clouddriver.hecloud.model.loadbalance.*
 import com.netflix.spinnaker.clouddriver.hecloud.provider.HeCloudInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.hecloud.provider.view.MutableCacheData
 import com.netflix.spinnaker.clouddriver.hecloud.security.HeCloudNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
-import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudBasicResource
 import com.netflix.spinnaker.moniker.Moniker
 import com.netflix.spinnaker.moniker.Namer
-import com.netflix.spinnaker.clouddriver.hecloud.client.HeCloudLoadBalancerClient
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import groovy.util.logging.Slf4j
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
-import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.APPLICATIONS
-import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.INSTANCES
-import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.LOAD_BALANCERS
-import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.ON_DEMAND
+import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.*
 
 @Slf4j
-class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, AccountAware{
+class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, AccountAware {
   final String accountName
   final String region
   final ObjectMapper objectMapper
@@ -100,7 +88,8 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
     HeCloudLoadBalancerClient client = new HeCloudLoadBalancerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     def lbSet = []
@@ -110,7 +99,7 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
     } else {
       lbSet = client.getAllLoadBalancer()
     }
-    lbSet.each {
+    lbSet?.each {
       lbIds.add(it.getId())
     }
 
@@ -135,11 +124,12 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
     }*/
 
     def poolSet = client.getAllPools(lbIds)
-    def listenerSet = client.getAllLBListener(lbIds)
-    def healthMonitorSet = client.getAllHealthMonitors()
-    List<Member> membersSet = client.getAllMembers()
+    def poolMap = poolSet?.collectEntries({ [(it.id): it] })
+    def listenerMap = client.getAllLBListener(lbIds)?.collectEntries({ [(it.id): it] })
+    def healthMonitorMap = client.getAllHealthMonitors()?.collectEntries({ [(it.id): it] })
+    def membersMap = client.getAllMembers()?.groupBy { it.poolId }
 
-    def loadBanancerList =  lbSet.collect {
+    def loadBanancerList = lbSet?.collect {
       HeCloudLoadBalancer loadBalancer = new HeCloudLoadBalancer()
       loadBalancer.region = region
       loadBalancer.accountName = accountName
@@ -155,9 +145,7 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
       List<Pool> queryPools = []
       it.getPools().each {
         def poolId = it.getId()
-        def pool = poolSet.find {
-          it.getId() == poolId
-        }
+        def pool = poolMap?.get(poolId)
         if (pool) {
           queryPools.add(pool)
         }
@@ -173,9 +161,7 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
       List<LBListener> queryListeners = []
       it.getListeners().each {
         def listenerId = it.getId()
-        def listener = listenerSet.find {
-          it.getId() == listenerId
-        }
+        def listener = listenerMap?.get listenerId
         if (listener) {
           queryListeners.add(listener)
         }
@@ -216,9 +202,7 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
               def pool = pools[i]
               listener.poolId = pool.getId()
               if (pool.getHealthmonitorId()) {
-                def healthMonitor = healthMonitorSet.find {
-                  it.getId() == pool.getHealthmonitorId()
-                }
+                def healthMonitor = healthMonitorMap?.get pool.getHealthmonitorId()
                 if (healthMonitor) {
                   listener.healthCheck = new HeCloudLoadBalancerHealthCheck()
                   listener.healthCheck.timeOut = healthMonitor.getTimeout()
@@ -228,14 +212,8 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
                   listener.healthCheck.httpCheckDomain = healthMonitor.getDomainName()
                 }
               }
-
-              List<Member> members = []
-              membersSet.each {
-                if (it.getPoolId() == listener.poolId) {
-                  members.add(it)
-                }
-              }
-              listener.targets = members.collect {
+              List<Member> members = membersMap?.get(listener.poolId)
+              listener.targets = members?.collect {
                 def target = new HeCloudLoadBalancerTarget()
                 target.instanceId = it.getId()
                 target.port = it.getProtocolPort()
@@ -255,16 +233,14 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
             policies.add(it)
           }
         }
-        def rules = policies.collect() {
+        def rules = policies?.collect() {
           def rule = new HeCloudLoadBalancerRule()
           rule.policyId = it.getId()
           rule.poolId = it.getRedirectPoolId()
           if (rule.poolId) {
             def pool = client.getPool(rule.poolId)
             if (pool.getHealthmonitorId()) {
-              def healthMonitor = healthMonitorSet.find {
-                it.getId() == pool.getHealthmonitorId()
-              }
+              def healthMonitor = healthMonitorMap.get pool.getHealthmonitorId()
               if (healthMonitor) {
                 rule.healthCheck = new HeCloudLoadBalancerHealthCheck()
                 rule.healthCheck.timeOut = healthMonitor.getTimeout()
@@ -275,13 +251,8 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
               }
             }
 
-            List<Member> members = []
-            membersSet.each {
-              if (it.getPoolId() == listener.poolId) {
-                members.add(it)
-              }
-            }
-            rule.targets = members.collect {
+            List<Member> members = membersMap?.get(listener.poolId)
+            rule.targets = members?.collect {
               def target = new HeCloudLoadBalancerTarget()
               target.instanceId = it.getId()
               target.port = it.getProtocolPort()
@@ -289,17 +260,6 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
               target
             }
           }
-
-          // Comment this to reduce API calls
-          /*
-          def l7Rules = client.getAllL7rules(it.getId())
-          rule.domain = l7Rules.find {
-            it.getType() == "HOST_NAME"
-          }?.getValue()
-          rule.url = l7Rules.find {
-            it.getType() == "PATH"
-          }?.getValue()
-          */
           rule
         }
 
@@ -322,13 +282,13 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
     log.info("Enter handle, data = ${data}")
     if (!data.containsKey("loadBalancerId") ||
       !data.containsKey("account") ||
-      !data.containsKey("region")  ||
+      !data.containsKey("region") ||
       accountName != data.account ||
       region != data.region) {
       return null
     }
 
-    def loadBalancer =  metricsSupport.readData {
+    def loadBalancer = metricsSupport.readData {
       loadLoadBalancerData(data.loadBalancerId as String)[0]
     }
     if (!loadBalancer) {
@@ -386,8 +346,8 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
 
     def pendingOnDemandRequestKeys = providerCache
       .filterIdentifiers(
-      ON_DEMAND.ns,
-      Keys.getLoadBalancerKey("*", credentials.name, region))
+        ON_DEMAND.ns,
+        Keys.getLoadBalancerKey("*", credentials.name, region))
       .findAll { loadBalancerKeys.contains(it) }
 
     def pendingOnDemandRequestsForloadBalancer = providerCache.getAll(ON_DEMAND.ns, pendingOnDemandRequestKeys)
@@ -406,13 +366,6 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
       it.attributes.processedCount = (it.attributes.processedCount ?: 0) + 1
     }
 
-    /*
-    result.cacheResults.each { String namespace, Collection<CacheData> caches->
-      log.info "namespace $namespace"
-      caches.each{
-        log.info "attributes: $it.attributes, relationships: $it.relationships"
-      }
-    }*/
     return result
   }
 
@@ -422,32 +375,27 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
     log.info "Start build cache for $agentType"
 
     Map<String, Collection<CacheData>> cacheResults = [:]
-    Map<String, Collection<String>> evictions = toEvictOnDemandCacheData ? [(ON_DEMAND.ns):toEvictOnDemandCacheData*.id] : [:]
+    Map<String, Collection<String>> evictions = toEvictOnDemandCacheData ? [(ON_DEMAND.ns): toEvictOnDemandCacheData*.id] : [:]
 
     Map<String, Map<String, CacheData>> namespaceCache = [:].withDefault {
-      namespace->[:].withDefault {id->new MutableCacheData(id as String)}
+      namespace -> [:].withDefault { id -> new MutableCacheData(id as String) }
     }
 
-    loadBalancerSet.each {
+    loadBalancerSet?.each {
       Moniker moniker = namer.deriveMoniker it
       def applicationName = moniker.app
       if (applicationName == null) {
-        return  //=continue
+        return
       }
 
       def loadBalancerKey = Keys.getLoadBalancerKey(it.id, accountName, region)
       def appKey = Keys.getApplicationKey(applicationName)
-      //List<String> instanceKeys = []
 
       // application
       def applications = namespaceCache[APPLICATIONS.ns]
       applications[appKey].attributes.name = applicationName
       applications[appKey].relationships[LOAD_BALANCERS.ns].add(loadBalancerKey)
-
       // compare onDemand
-      //def onDemandLoadBalancerCache = toKeepOnDemandCacheData.find {
-      //  it.id == loadBalancerKey
-      //}
       def onDemandLoadBalancerCache = false
       if (onDemandLoadBalancerCache) {
         //mergeOnDemandCache(onDemandLoadBalancerCache, namespaceCache)
@@ -479,11 +427,13 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
       }
     }
 
-    namespaceCache.each {String namespace, Map<String, CacheData> cacheDataMap ->
+    namespaceCache.each { String namespace, Map<String, CacheData> cacheDataMap ->
       cacheResults[namespace] = cacheDataMap.values()
     }
     cacheResults[ON_DEMAND.ns] = toKeepOnDemandCacheData
-
+    if (cacheResults[LOAD_BALANCERS.ns] == null) {
+      cacheResults[LOAD_BALANCERS.ns] = []
+    }
     CacheResult result = new DefaultCacheResult(
       cacheResults, evictions
     )
@@ -517,4 +467,10 @@ class HeCloudLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
     return []
   }
 
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+           (LOAD_BALANCERS.ns): Keys.getLoadBalancerKey("*", accountName, region),
+    ]
+  }
 }

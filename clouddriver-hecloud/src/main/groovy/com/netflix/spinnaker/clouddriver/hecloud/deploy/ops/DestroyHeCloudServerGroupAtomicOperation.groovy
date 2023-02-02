@@ -35,7 +35,8 @@ class DestroyHeCloudServerGroupAtomicOperation implements AtomicOperation<Void> 
     def client = new HeCloudAutoScalingClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     task.updateStatus(BASE_PHASE, "Start destroy server group $serverGroupName")

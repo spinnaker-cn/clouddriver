@@ -29,13 +29,15 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
     def client = new HeCloudAutoScalingClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      region
+      region,
+      description.accountName
     )
 
     def ecsClient = new HeCloudElasticCloudServerClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      region
+      region,
+      description.accountName
     )
 
     // find auto scaling group

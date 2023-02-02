@@ -36,7 +36,8 @@ class HeCloudServerGroupNameResolver extends AbstractServerGroupNameResolver{
     this.autoScalingClient = new HeCloudAutoScalingClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
   }
 
