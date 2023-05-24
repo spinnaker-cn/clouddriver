@@ -42,32 +42,38 @@ class HeCloudInstanceCachingAgent extends AbstractHeCloudCachingAgent {
     HeCloudElasticCloudServerClient ecsClient = new HeCloudElasticCloudServerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     HeCloudLoadBalancerClient elbClient = new HeCloudLoadBalancerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
 
     def memberHealths = elbClient.getAllMembers()
-    Map<String,Boolean> memberHealthMap = [:]
-    memberHealths.each {
-      if(!memberHealthMap.containsKey(it.getAddress())){
-        memberHealthMap.put(it.getAddress(),it.getOperatingStatus().equals("ONLINE"))
+    Map<String, Boolean> memberHealthMap = [:]
+    memberHealths?.each {
+      if (!memberHealthMap.containsKey(it.getAddress())) {
+        memberHealthMap.put(it.getAddress(), it.getOperatingStatus().equals("ONLINE"))
+      } else {
+        Boolean health = it.getOperatingStatus().equals("ONLINE")
+        Boolean memberHealth = memberHealthMap.get(it.getAddress())
+        memberHealthMap.put(it.getAddress(), health & memberHealth)
       }
     }
 
     def result = ecsClient.getInstances()
-    result.each {
+    result?.each {
       def tags = ecsClient.getInstanceTags(it.getId())
-      def serverGroupName = tags.find {
+      def serverGroupName = tags?.find {
         it.getKey() == HeCloudAutoScalingClient.defaultServerGroupTagKey
       }?.getValue()
 
       // security groups
-      def sgIds = it.getSecurityGroups().collect{
+      def sgIds = it.getSecurityGroups().collect {
         it.getId()
       }
 
@@ -75,18 +81,18 @@ class HeCloudInstanceCachingAgent extends AbstractHeCloudCachingAgent {
       def vpcId = ""
       def privateIps = []
       def publicIps = []
-      def vpcSet = it.getAddresses().keySet() as String[]
+      def vpcSet = it.getAddresses()?.keySet() as String[]
       if (vpcSet.size() > 0) {
         vpcId = vpcSet[0]
         // address
         def addresses = it.getAddresses()[vpcId]
-        def privateIp = addresses.find {
+        def privateIp = addresses?.find {
           it.getOsEXTIPSType().toString() == "fixed"
         }?.getAddr()
         if (privateIp) {
           privateIps.add(privateIp)
         }
-        def publicIp = addresses.find {
+        def publicIp = addresses?.find {
           it.getOsEXTIPSType().toString() == "floating"
         }?.getAddr()
         if (publicIp) {
@@ -101,19 +107,21 @@ class HeCloudInstanceCachingAgent extends AbstractHeCloudCachingAgent {
 
       //status
       boolean elbBound = false
-      it.getAddresses().each{k,v ->
-        v.each{ address ->
-          if(memberHealthMap.containsKey(address.getAddr()) &&
-            memberHealthMap.get(address.getAddr())
-          ){
-            it.setStatus(HeCloudInstanceHealth.Status.NORMAL.name())
+      it.getAddresses().each { k, v ->
+        v.each { address ->
+          if (memberHealthMap.containsKey(address.getAddr())
+          ) {
+            if (memberHealthMap.get(address.getAddr())) {
+              it.setStatus(HeCloudInstanceHealth.Status.NORMAL.name())
+            }
             elbBound = true
           }
         }
       }
 
-      if(!elbBound){
-        if(HeCloudInstanceHealth.Status.ACTIVE.name() == it.getStatus()){
+      //没有绑定elb的主机使用主机运行状态判定主机状态
+      if (!elbBound) {
+        if (HeCloudInstanceHealth.Status.ACTIVE.name() == it.getStatus()) {
           it.setStatus(HeCloudInstanceHealth.Status.NORMAL.name())
         }
       }
@@ -138,7 +146,7 @@ class HeCloudInstanceCachingAgent extends AbstractHeCloudCachingAgent {
       )
 
       if (tags) {
-        tags.each { tag->
+        tags.each { tag ->
           hecloudInstance.tags.add(["key": tag.getKey(), "value": tag.getValue()])
         }
       }
@@ -161,9 +169,19 @@ class HeCloudInstanceCachingAgent extends AbstractHeCloudCachingAgent {
       cacheResults[namespace] = cacheDataMap.values()
     }
 
+    if (cacheResults[INSTANCES.ns] == null) {
+      cacheResults[INSTANCES.ns] = []
+    }
     CacheResult defaultCacheResult = new DefaultCacheResult(cacheResults)
     log.info 'finish loads instance data.'
     log.info "Caching ${namespaceCache[INSTANCES.ns].size()} items in $agentType"
     defaultCacheResult
+  }
+
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (INSTANCES.ns): Keys.getInstanceKey('*', accountName, region),
+    ]
   }
 }

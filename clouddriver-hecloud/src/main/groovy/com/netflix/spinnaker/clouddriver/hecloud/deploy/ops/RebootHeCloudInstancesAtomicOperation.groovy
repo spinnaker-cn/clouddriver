@@ -33,7 +33,8 @@ class RebootHeCloudInstancesAtomicOperation implements AtomicOperation<Void> {
     def client = new HeCloudElasticCloudServerClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      region
+      region,
+      description.accountName
     )
     client.rebootInstances(instanceIds)
     task.updateStatus BASE_PHASE, "Complete reboot of instance."

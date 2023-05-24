@@ -118,7 +118,7 @@ class HeCloudClusterProvider implements ClusterProvider<HeCloudCluster> {
     String serverGroupKey = Keys.getServerGroupKey name, account, region
     CacheData serverGroupData = cacheView.get SERVER_GROUPS.ns, serverGroupKey
     if (serverGroupData) {
-      String imageId = serverGroupData.attributes.launchConfig["imageId"]
+      String imageId = serverGroupData?.attributes?.launchConfig["imageId"]
       CacheData imageConfig = imageId ? cacheView.get(
         IMAGES.ns,
         Keys.getImageKey(imageId, account, region)

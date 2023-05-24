@@ -3,14 +3,15 @@ package com.netflix.spinnaker.clouddriver.hecloud.provider.agent
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.cats.agent.*
+import com.netflix.spinnaker.cats.agent.AgentDataType
+import com.netflix.spinnaker.cats.agent.CacheResult
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
-import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.clouddriver.hecloud.HeCloudProvider
 import com.netflix.spinnaker.clouddriver.hecloud.cache.Keys
 import com.netflix.spinnaker.clouddriver.hecloud.client.HeCloudAutoScalingClient
@@ -20,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudInstance
 import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudServerGroup
 import com.netflix.spinnaker.clouddriver.hecloud.provider.view.MutableCacheData
 import com.netflix.spinnaker.clouddriver.hecloud.security.HeCloudNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.moniker.Moniker
 import com.netflix.spinnaker.moniker.Namer
 import groovy.util.logging.Slf4j
@@ -67,21 +69,34 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     HeCloudAutoScalingClient client = new HeCloudAutoScalingClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
+    // 当前地域缓存的serverGroup数据
+    Collection<CacheData> cacheServerGroup = providerCache.getAll(SERVER_GROUPS.ns, providerCache.filterIdentifiers(SERVER_GROUPS.ns, Keys.getServerGroupKey('*', '*', accountName, region)))
+
+    // 关联的applications
+    Collection<String> evitableApplications = cacheServerGroup.stream()
+      .flatMap({ cacheData -> cacheData.getRelationships().get(APPLICATIONS.ns).stream() })
+      .collect()
+    // 关联的cluster
+    Collection<String> evitableCluster = cacheServerGroup.stream()
+      .flatMap({ cacheData -> cacheData.getRelationships().get(CLUSTERS.ns).stream() })
+      .collect()
+
 
     def serverGroups = loadAsgAsServerGroup(client)
     def toEvictOnDemandCacheData = [] as List<CacheData>
     def toKeepOnDemandCacheData = [] as List<CacheData>
 
-    def serverGroupKeys = serverGroups.collect {
+    def serverGroupKeys = serverGroups?.collect {
       Keys.getServerGroupKey(it.name, credentials.name, region)
     } as Set<String>
 
     def pendingOnDemandRequestKeys = providerCache
       .filterIdentifiers(
-      ON_DEMAND.ns,
-      Keys.getServerGroupKey("*", "*", credentials.name, region))
+        ON_DEMAND.ns,
+        Keys.getServerGroupKey("*", "*", credentials.name, region))
       .findAll { serverGroupKeys.contains(it) }
 
     def pendingOnDemandRequestsForServerGroups = providerCache.getAll(ON_DEMAND.ns, pendingOnDemandRequestKeys)
@@ -94,25 +109,32 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     }
 
     CacheResult result = buildCacheResult(
-      serverGroups, toKeepOnDemandCacheData, toEvictOnDemandCacheData)
+      serverGroups, toKeepOnDemandCacheData, toEvictOnDemandCacheData, [
+      (CLUSTERS.ns)    : evitableCluster,
+      (APPLICATIONS.ns): evitableApplications
+    ])
 
     result.cacheResults[ON_DEMAND.ns].each {
       it.attributes.processedTime = System.currentTimeMillis()
       it.attributes.processedCount = (it.attributes.processedCount ?: 0) + 1
+    }
+    if (result.cacheResults[SERVER_GROUPS.ns] == null) {
+      result.cacheResults[SERVER_GROUPS.ns] = []
     }
     result
   }
 
   private CacheResult buildCacheResult(Collection<HeCloudServerGroup> serverGroups,
                                        Collection<CacheData> toKeepOnDemandCacheData,
-                                       Collection<CacheData> toEvictOnDemandCacheData) {
+                                       Collection<CacheData> toEvictOnDemandCacheData, Map<String, Collection<String>> extEvictions) {
     log.info "Start build cache for $agentType"
 
     Map<String, Collection<CacheData>> cacheResults = [:]
-    Map<String, Collection<String>> evictions = [(ON_DEMAND.ns):toEvictOnDemandCacheData*.id]
+    Map<String, Collection<String>> evictions = [(ON_DEMAND.ns): toEvictOnDemandCacheData*.id]
+    if (extEvictions != null) evictions.putAll(extEvictions)
 
     Map<String, Map<String, CacheData>> namespaceCache = [:].withDefault {
-      namespace->[:].withDefault {id->new MutableCacheData(id as String)}
+      namespace -> [:].withDefault { id -> new MutableCacheData(id as String) }
     }
 
     serverGroups.each {
@@ -131,7 +153,7 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
       List<String> loadBalancerKeys = []
 
       Set<HeCloudInstance> instances = it.instances
-      instances.each {instance ->
+      instances.each { instance ->
         instanceKeys.add Keys.getInstanceKey(instance.name as String, accountName, region)
       }
 
@@ -147,6 +169,9 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
       applications[appKey].relationships[SERVER_GROUPS.ns].add serverGroupKey
       applications[appKey].relationships[LOAD_BALANCERS.ns].addAll loadBalancerKeys
 
+      // 删除未关联的application
+      evictions.get(APPLICATIONS.ns).removeIf({ e -> e.equals(appKey) })
+
       // cluster
       namespaceCache[CLUSTERS.ns][clusterKey].attributes.name = clusterName
       namespaceCache[CLUSTERS.ns][clusterKey].attributes.accountName = accountName
@@ -154,6 +179,9 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
       namespaceCache[CLUSTERS.ns][clusterKey].relationships[SERVER_GROUPS.ns].add serverGroupKey
       namespaceCache[CLUSTERS.ns][clusterKey].relationships[INSTANCES.ns].addAll instanceKeys
       namespaceCache[CLUSTERS.ns][clusterKey].relationships[LOAD_BALANCERS.ns].addAll loadBalancerKeys
+
+      // 删除未关联的cluster
+      evictions.get(CLUSTERS.ns).removeIf({ e -> e.equals(clusterKey) })
 
       // loadBalancer
       loadBalancerKeys.each { lbKey ->
@@ -182,7 +210,7 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
       }
     }
 
-    namespaceCache.each {String namespace, Map<String, CacheData> cacheDataMap ->
+    namespaceCache.each { String namespace, Map<String, CacheData> cacheDataMap ->
       cacheResults[namespace] = cacheDataMap.values()
     }
     cacheResults[ON_DEMAND.ns] = toKeepOnDemandCacheData
@@ -194,7 +222,7 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     result
   }
 
-  def mergeOnDemandCache(CacheData onDemandServerGroupCache, Map<String, Map<String, CacheData>>  namespaceCache) {
+  def mergeOnDemandCache(CacheData onDemandServerGroupCache, Map<String, Map<String, CacheData>> namespaceCache) {
     Map<String, List<MutableCacheData>> onDemandCache = objectMapper.readValue(
       onDemandServerGroupCache.attributes.cacheResults as String,
       new TypeReference<Map<String, List<MutableCacheData>>>() {})
@@ -220,7 +248,8 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     HeCloudLoadBalancerClient lbClient = new HeCloudLoadBalancerClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
     def asgs
     if (serverGroupName) {
@@ -232,7 +261,7 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     def launchConfigurations = client.getLaunchConfigurations()
     def pools = lbClient.getAllPools()
 
-    return asgs.collect {
+    return asgs?.collect {
       def autoScalingGroupId = it.getScalingGroupId()
       def autoScalingGroupName = it.getScalingGroupName()
       def disabled = it.getScalingGroupStatus().toString() != 'INSERVICE'
@@ -260,65 +289,66 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
         }
 
         def targetAttr = [
-          port: it.getProtocolPort(),
+          port  : it.getProtocolPort(),
           weight: it.getWeight()
         ]
         def lbMap = [
-          loadBalancerId: loadBalancerId,
-          listenerId: listenerId,
-          poolId: poolId,
+          loadBalancerId  : loadBalancerId,
+          listenerId      : listenerId,
+          poolId          : poolId,
           targetAttributes: [targetAttr]
         ]
         lbMap
       }
-      def subnetIds = it.getNetworks().collect{
+      def subnetIds = it.getNetworks().collect {
         it.getId()
       }
 
       String launchConfigurationId = it.getScalingConfigurationId()
       serverGroup.asg = [
-        autoScalingGroupId: autoScalingGroupId,
-        launchConfigurationId: launchConfigurationId,
-        autoScalingGroupName: autoScalingGroupName,
-        zoneSet: it.getAvailableZones(),
-        vpcId: it.getVpcId(),
-        subnetIdSet: subnetIds,
-        minSize: it.getMinInstanceNumber(),
-        maxSize: it.getMaxInstanceNumber(),
-        desiredCapacity: it.getDesireInstanceNumber(),
-        instanceCount: it.getCurrentInstanceNumber(),
-        defaultCooldown: it.getCoolDownTime(),
-        createdTime: it.getCreateTime(),
+        autoScalingGroupId    : autoScalingGroupId,
+        launchConfigurationId : launchConfigurationId,
+        autoScalingGroupName  : autoScalingGroupName,
+        zoneSet               : it.getAvailableZones(),
+        vpcId                 : it.getVpcId(),
+        agency                : it.getIamAgencyName(),
+        subnetIdSet           : subnetIds,
+        minSize               : it.getMinInstanceNumber(),
+        maxSize               : it.getMaxInstanceNumber(),
+        desiredCapacity       : it.getDesireInstanceNumber(),
+        instanceCount         : it.getCurrentInstanceNumber(),
+        defaultCooldown       : it.getCoolDownTime(),
+        createdTime           : it.getCreateTime(),
         forwardLoadBalancerSet: forwardLBSet,
-        healthAuditMethod: it.getHealthPeriodicAuditMethod().getValue(),
-        healthPeriodicTime: it.getHealthPeriodicAuditTime().getValue(),
-        healthGracePeriod: it.getHealthPeriodicAuditGracePeriod(),
-        terminationPolicySet: [it.getInstanceTerminatePolicy().toString()]
+        healthAuditMethod     : it.getHealthPeriodicAuditMethod().getValue(),
+        healthPeriodicTime    : it.getHealthPeriodicAuditTime().getValue(),
+        healthGracePeriod     : it.getHealthPeriodicAuditGracePeriod(),
+        terminationPolicySet  : [it.getInstanceTerminatePolicy().toString()]
       ]
 
-      def asc = launchConfigurations.find {
+      def asc = launchConfigurations?.find {
         it.getScalingConfigurationId() == launchConfigurationId
       }
-      def isc = asc.getInstanceConfig()
-      def sgIds = isc.getSecurityGroups().collect{
+      def isc = asc?.getInstanceConfig()
+      def sgIds = isc?.getSecurityGroups().collect {
         it.getId()
       }
-      def tags = client.getAutoScalingTags(autoScalingGroupId).collect{
+      def tags = client.getAutoScalingTags(autoScalingGroupId).collect {
         [key: it.getKey(), value: it.getValue()]
       }
 
       // public IP
       def publicIP = isc.getPublicIp()
       def internetAccessible = [
-        publicIpAssigned: false,
+        publicIpAssigned       : false,
         internetMaxBandwidthOut: 0,
-        internetChargeType: "TRAFFIC_POSTPAID_BY_HOUR"
+        internetChargeType     : "TRAFFIC_POSTPAID_BY_HOUR"
       ]
 
       if (publicIP) {
         internetAccessible.publicIpAssigned = true
-        internetAccessible.internetMaxBandwidthOut = publicIP.getEip().getBandwidth().getSize()
-        def chargingMode = publicIP.getEip().getBandwidth().getChargingMode().toString()
+        internetAccessible.internetMaxBandwidthOut = publicIP.getEip()?.getBandwidth()?.getSize()
+        def chargingMode = publicIP.getEip()?.getBandwidth()?.getChargingMode()?.toString()
         if (chargingMode == "bandwidth") {
           internetAccessible.internetChargeType = "BANDWIDTH_POSTPAID_BY_HOUR"
         }
@@ -331,13 +361,13 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
       ]
       def dataDisks = []
       disks.each {
-        if (it.getDiskType().toString() == "SYS") {
+        if (it.getDiskType()?.toString() == "SYS") {
           systemDisk.diskSize = it.getSize()
-          systemDisk.diskType = it.getVolumeType().toString()
-        } else if (it.getDiskType().toString() == "DATA") {
+          systemDisk.diskType = it.getVolumeType()?.toString()
+        } else if (it.getDiskType()?.toString() == "DATA") {
           def dataDisk = [
             diskSize: it.getSize(),
-            diskType: it.getVolumeType().toString()
+            diskType: it.getVolumeType()?.toString()
           ]
           dataDisks.add(dataDisk)
         }
@@ -345,15 +375,15 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
 
       serverGroup.launchConfig = [
         launchConfigurationName: asc.getScalingConfigurationName(),
-        instanceType: isc.getFlavorRef(),
-        imageId: isc.getImageRef(),
-        keyName: isc.getKeyName(),
-        userData: isc.getUserData(),
-        securityGroupIds: sgIds,
-        instanceTags: tags,
-        internetAccessible: internetAccessible,
-        systemDisk: systemDisk,
-        dataDisks: dataDisks
+        instanceType           : isc.getFlavorRef(),
+        imageId                : isc.getImageRef(),
+        keyName                : isc.getKeyName(),
+        userData               : isc.getUserData(),
+        securityGroupIds       : sgIds,
+        instanceTags           : tags,
+        internetAccessible     : internetAccessible,
+        systemDisk             : systemDisk,
+        dataDisks              : dataDisks
       ]
 
       // serverGroup.scalingPolicies = loadScalingPolicies(client, autoScalingGroupId)
@@ -382,7 +412,7 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
   }
   */
 
-  private List<Map> loadAutoScalingInstances(HeCloudAutoScalingClient client, String autoScalingGroupId=null) {
+  private List<Map> loadAutoScalingInstances(HeCloudAutoScalingClient client, String autoScalingGroupId = null) {
     def autoScalingInstances = client.getAutoScalingInstances autoScalingGroupId
     autoScalingInstances.collect {
       Map<String, Object> asi = objectMapper.convertValue it, ATTRIBUTES
@@ -399,7 +429,8 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     HeCloudAutoScalingClient client = new HeCloudAutoScalingClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
     HeCloudServerGroup serverGroup = metricsSupport.readData {
       loadAsgAsServerGroup(client, data.serverGroupName as String)[0]
@@ -410,7 +441,7 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
     }
 
     def cacheResult = metricsSupport.transformData {
-      buildCacheResult([serverGroup], null, null)
+      buildCacheResult([serverGroup], null, null, null)
     }
 
     def cacheResultAsJson = objectMapper.writeValueAsString cacheResult.cacheResults
@@ -474,5 +505,12 @@ class HeCloudServerGroupCachingAgent extends AbstractHeCloudCachingAgent impleme
         processedTime : it.attributes.processedTime
       ]
     }
+  }
+
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (SERVER_GROUPS.ns): Keys.getServerGroupKey("*", "*", accountName, region),
+    ]
   }
 }

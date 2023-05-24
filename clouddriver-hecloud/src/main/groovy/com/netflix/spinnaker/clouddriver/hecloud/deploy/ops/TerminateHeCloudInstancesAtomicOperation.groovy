@@ -34,7 +34,8 @@ class TerminateHeCloudInstancesAtomicOperation implements AtomicOperation<Void> 
     def client = new HeCloudElasticCloudServerClient(
       description.credentials.credentials.accessKeyId,
       description.credentials.credentials.accessSecretKey,
-      region
+      region,
+      description.accountName
     )
     client.terminateInstances(instanceIds)
 

@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.hecloud.provider.agent
 
+import com.huaweicloud.sdk.ims.v2.model.ImageInfo
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult
@@ -8,6 +9,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.hecloud.cache.Keys
 import com.netflix.spinnaker.clouddriver.hecloud.client.HeCloudImageClient
 import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudImage
+import com.netflix.spinnaker.clouddriver.hecloud.model.HeCloudModelUtil
 import com.netflix.spinnaker.clouddriver.hecloud.provider.view.MutableCacheData
 import groovy.transform.InheritConstructors
 import groovy.util.logging.Slf4j
@@ -21,6 +23,7 @@ import static com.netflix.spinnaker.clouddriver.hecloud.cache.Keys.Namespace.NAM
 class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
 
   final Set<AgentDataType> providedDataTypes = [
+    AUTHORITATIVE.forType(IMAGES.ns),
     AUTHORITATIVE.forType(IMAGES.ns)
   ] as Set
 
@@ -39,12 +42,32 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
     HeCloudImageClient imsClient = new HeCloudImageClient(
       credentials.credentials.accessKeyId,
       credentials.credentials.accessSecretKey,
-      region
+      region,
+      accountName
     )
+
+    // 当前地域缓存的image数据
+    Collection<String> evictableNamedImage = providerCache.getAll(IMAGES.ns, providerCache.filterIdentifiers(IMAGES.ns, Keys.getImageKey('*', accountName, region))).stream()
+      .flatMap({ cacheData -> cacheData.getRelationships().get(NAMED_IMAGES.ns).stream() })
+      .collect()
 
     def result = imsClient.getImages()
 
-    result.each {
+    // 云上有两个同名的镜像，那么spinnaker中应该取最新的镜像
+    HashMap<String, ImageInfo> instanceMap = []
+    result?.each {
+      if (!instanceMap.containsKey(it.getName())) {
+        instanceMap.put(it.getName(), it)
+      } else {
+        if (HeCloudModelUtil.translateTime(it.getCreatedAt()) >
+          HeCloudModelUtil.translateTime(instanceMap.get(it.getName()).getCreatedAt())) {
+          instanceMap.put(it.getName(), it)
+        }
+      }
+    }
+    def refinedImages = instanceMap.values()
+
+    refinedImages?.each {
       def hecloudImage = new HeCloudImage(
         region: this.region,
         name: it.getName(),
@@ -60,6 +83,7 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
       def namedImageKey = Keys.getNamedImageKey hecloudImage.name, this.accountName
       images[imageKey].attributes.image = hecloudImage
       images[imageKey].relationships[NAMED_IMAGES.ns].add namedImageKey
+      evictableNamedImage.removeIf({e -> e.equals(namedImageKey)})
 
       def originImageCache = providerCache.get(IMAGES.ns, imageKey)
       if (originImageCache) {
@@ -85,7 +109,14 @@ class HeCloudImageCachingAgent extends AbstractHeCloudCachingAgent {
     CacheResult defaultCacheResult = new DefaultCacheResult(cacheResults, evictions)
     log.info 'finish loads image data.'
     log.info "Caching ${namespaceCache[IMAGES.ns].size()} items in $agentType"
+    defaultCacheResult.evictions[NAMED_IMAGES.ns] = evictableNamedImage
     defaultCacheResult
+  }
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (IMAGES.ns): Keys.getImageKey('*', accountName, region)
+    ]
   }
 }
 
