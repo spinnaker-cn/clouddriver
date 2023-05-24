@@ -311,13 +311,22 @@ class HeCloudAutoScalingClient {
   }
 
   List<ScalingGroupInstance> getAutoScalingInstances(String asgId=null) {
+    def startNumber = 0
+    List<ScalingGroupInstance> scalingGroupInstanceAll = []
     try {
-      def req = new ListScalingInstancesRequest()
-      if (asgId) {
-        req.setScalingGroupId(asgId)
+      while(true) {
+        def req = new ListScalingInstancesRequest().withLimit(DEFAULT_LIMIT).withStartNumber(startNumber)
+        if (asgId) {
+          req.setScalingGroupId(asgId)
+        }
+        def resp = client.listScalingInstances req
+        if(resp == null || resp.getScalingGroupInstances() == null || resp.getScalingGroupInstances().size() == 0) {
+          break
+        }
+        scalingGroupInstanceAll.addAll(resp.getScalingGroupInstances())
+        startNumber += DEFAULT_LIMIT
       }
-      def resp = client.listScalingInstances req
-      resp.getScalingGroupInstances()
+      return scalingGroupInstanceAll
     } catch (ServiceResponseException e) {
       throw new HeCloudOperationException(e.getErrorMsg())
     }
