@@ -30,17 +30,14 @@ import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 @Component
 public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliCloudLoadBalancer> {
@@ -51,12 +48,22 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
 
   private final AliCloudProvider provider;
 
+  @Value("${alicloud.share.application:}")
+  private String shareApplication;
+
+  private static List<String> shareApplications;
+
   @Autowired
   public AliCloudLoadBalancerProvider(
       ObjectMapper objectMapper, Cache cacheView, AliCloudProvider provider) {
     this.objectMapper = objectMapper;
     this.cacheView = cacheView;
     this.provider = provider;
+  }
+
+  @PostConstruct
+  private void init() {
+    shareApplications = Arrays.asList(shareApplication.split(","));
   }
 
   private static final String SURVIVE_STATUS = "Active";
@@ -75,6 +82,16 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
             .filter(tab -> applicationMatcher(tab, applicationName))
             .collect(Collectors.toList());
     loadBalancerKeys.addAll(loadBalancerKeyMatches);
+    if (!CollectionUtils.isEmpty(shareApplications)) {
+      shareApplications.forEach(
+          app -> {
+            Collection<String> shareLoadBalancerKeyMatches =
+                allLoadBalancerKeys.stream()
+                    .filter(tab -> applicationMatcher(tab, app))
+                    .collect(Collectors.toList());
+            loadBalancerKeys.addAll(shareLoadBalancerKeyMatches);
+          });
+    }
     Collection<CacheData> loadBalancerData =
         cacheView.getAll(LOAD_BALANCERS.ns, loadBalancerKeys, null);
     for (CacheData cacheData : loadBalancerData) {
@@ -106,11 +123,25 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
   @Override
   public List<ResultDetails> byAccountAndRegionAndName(String account, String region, String name) {
     List<ResultDetails> results = new ArrayList<>();
+    Set<String> meragLoadBalancerKeys = new HashSet<>();
     String searchKey = Keys.getLoadBalancerKey(name, account, region, null) + "*";
     Collection<String> allLoadBalancerKeys =
         cacheView.filterIdentifiers(LOAD_BALANCERS.ns, searchKey);
+    if (!CollectionUtils.isEmpty(allLoadBalancerKeys)) {
+      meragLoadBalancerKeys.addAll(allLoadBalancerKeys);
+    }
+    // share application
+    shareApplications.forEach(
+        app -> {
+          String shareSearchKey = Keys.getLoadBalancerKey(app, account, region, null) + "*";
+          Collection<String> shareLoadBalancerKeys =
+              cacheView.filterIdentifiers(LOAD_BALANCERS.ns, shareSearchKey);
+          if (!CollectionUtils.isEmpty(allLoadBalancerKeys)) {
+            meragLoadBalancerKeys.addAll(shareLoadBalancerKeys);
+          }
+        });
     Collection<CacheData> loadBalancers =
-        cacheView.getAll(LOAD_BALANCERS.ns, allLoadBalancerKeys, null);
+        cacheView.getAll(LOAD_BALANCERS.ns, meragLoadBalancerKeys, null);
     Collection<String> allHealthyKeys = cacheView.getIdentifiers(HEALTH.ns);
     for (CacheData loadBalancer : loadBalancers) {
       ResultDetails resultDetails = new ResultDetails();
