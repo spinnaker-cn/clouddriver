@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,25 +115,34 @@ public class AliCloudClusterProvider
   private List<AliCloudCluster> translateClusters(
       Collection<CacheData> clusterData, boolean includeDetails) {
     List<AliCloudCluster> set = new ArrayList<>();
-    Collection<String> allHealthyKeys = cacheView.getIdentifiers(HEALTH.ns);
-    for (CacheData clusterCache : clusterData) {
-      String name = (String) clusterCache.getAttributes().get("name");
-      Map<String, Collection<String>> relationships = clusterCache.getRelationships();
-      Collection<String> serverGroupKeys = relationships.get(SERVER_GROUPS.ns);
-      Set<AliCloudServerGroup> serverGroups = new HashSet<>();
-      Set<AliCloudLoadBalancer> loadBalancers = new HashSet<>();
-      String accountName = "";
-      for (String serverGroupKey : serverGroupKeys) {
-        CacheData serverGroupCache = cacheView.get(SERVER_GROUPS.ns, serverGroupKey);
-        Map<String, Object> attributes = serverGroupCache.getAttributes();
-        accountName = String.valueOf(attributes.get("account"));
-        serverGroups.add(bulidServerGroup(allHealthyKeys, serverGroupCache));
-      }
-      AliCloudCluster cluster =
-          new AliCloudCluster(name, AliCloudProvider.ID, accountName, serverGroups, loadBalancers);
-      set.add(cluster);
-      log.info("muyi view cluster, name:{} ,serverGroups size:{}", name, serverGroups.size());
-    }
+    Collection<CacheData> healthDatas = cacheView.getAll(HEALTH.ns);
+    clusterData
+        .parallelStream()
+        .forEach(
+            clusterCache -> {
+              String name = (String) clusterCache.getAttributes().get("name");
+              Map<String, Collection<String>> relationships = clusterCache.getRelationships();
+              Collection<String> serverGroupKeys = relationships.get(SERVER_GROUPS.ns);
+              Set<AliCloudServerGroup> serverGroups = new HashSet<>();
+              Set<AliCloudLoadBalancer> loadBalancers = new HashSet<>();
+              AtomicReference<String> accountName = new AtomicReference<>("");
+              Collection<CacheData> serverGroupCaches =
+                  cacheView.getAll(SERVER_GROUPS.ns, serverGroupKeys);
+              serverGroupCaches.forEach(
+                  serverGroupCache -> {
+                    serverGroups.add(bulidServerGroup(healthDatas, serverGroupCache));
+                  });
+              serverGroupCaches.stream()
+                  .findFirst()
+                  .ifPresent(
+                      it -> accountName.set(String.valueOf(it.getAttributes().get("account"))));
+              AliCloudCluster cluster =
+                  new AliCloudCluster(
+                      name, AliCloudProvider.ID, accountName.get(), serverGroups, loadBalancers);
+              set.add(cluster);
+              log.info(
+                  "muyi view cluster, name:{} ,serverGroups size:{}", name, serverGroups.size());
+            });
     return set;
   }
 
@@ -146,16 +156,16 @@ public class AliCloudClusterProvider
             + serverGroupKey
             + " "
             + serverGroupData);
-    Collection<String> allHealthyKeys = cacheView.getIdentifiers(HEALTH.ns);
-    log.info("yejingtao bug log getServerGroup allHealthyKeys " + allHealthyKeys.size());
+    Collection<CacheData> healthDatas = cacheView.getAll(HEALTH.ns);
+    log.info("yejingtao bug log getServerGroup allHealthyDatas " + healthDatas.size());
     if (serverGroupData == null) {
       return null;
     }
-    return bulidServerGroup(allHealthyKeys, serverGroupData);
+    return bulidServerGroup(healthDatas, serverGroupData);
   }
 
   private AliCloudServerGroup bulidServerGroup(
-      Collection<String> allHealthyKeys, CacheData serverGroupCache) {
+      Collection<CacheData> healthDatas, CacheData serverGroupCache) {
     Map<String, Object> attributes = serverGroupCache.getAttributes();
 
     AliCloudServerGroup serverGroup = new AliCloudServerGroup();
@@ -190,6 +200,7 @@ public class AliCloudClusterProvider
     List<Map> instances = (List<Map>) attributes.get("instances");
     List<String> loadBalancerIds = (List<String>) scalingGroup.get("loadBalancerIds");
     ArrayList<Map> vServerGroups = (ArrayList<Map>) scalingGroup.get("vserverGroups");
+
     if (vServerGroups != null) {
       for (Map vServerGroup : vServerGroups) {
         String loadBalancerId = vServerGroup.get("loadBalancerId").toString();
@@ -198,36 +209,45 @@ public class AliCloudClusterProvider
         }
       }
     }
-    for (Map instance : instances) {
-      Object id = instance.get("instanceId");
-      if (id != null) {
-        String healthStatus = (String) instance.get("healthStatus");
-        boolean flag = "Healthy".equals(healthStatus);
+    instances
+        .parallelStream()
+        .forEach(
+            instance -> {
+              Object id = instance.get("instanceId");
+              if (id != null) {
+                String healthStatus = (String) instance.get("healthStatus");
+                boolean flag = "Healthy".equals(healthStatus);
 
-        List<Map<String, Object>> health = new ArrayList<>();
-        Map<String, Object> m = new HashMap<>();
-        m.put("type", provider.getDisplayName());
-        m.put("healthClass", "platform");
-        HealthState healthState =
-            !"Active".equals(lifecycleState)
-                ? HealthState.Down
-                : !flag
-                    ? HealthState.Down
-                    : HealthHelper.judgeInstanceHealthyState(
-                        allHealthyKeys, loadBalancerIds, id.toString(), cacheView);
-        if (healthState.equals(HealthState.Unknown)) {
-          m.put("state", HealthState.Down);
-        } else {
-          m.put("state", healthState);
-        }
-        health.add(m);
-        String zone = (String) instance.get("creationType");
-        AliCloudInstance i =
-            new AliCloudInstance(
-                String.valueOf(id), null, zone, null, AliCloudProvider.ID, healthState, health);
-        s.add(i);
-      }
-    }
+                List<Map<String, Object>> health = new ArrayList<>();
+                Map<String, Object> m = new HashMap<>();
+                m.put("type", provider.getDisplayName());
+                m.put("healthClass", "platform");
+                HealthState healthState =
+                    !"Active".equals(lifecycleState)
+                        ? HealthState.Down
+                        : !flag
+                            ? HealthState.Down
+                            : HealthHelper.judgeInstanceHealthyState(
+                                healthDatas, loadBalancerIds, id.toString());
+                if (healthState.equals(HealthState.Unknown)) {
+                  m.put("state", HealthState.Down);
+                } else {
+                  m.put("state", healthState);
+                }
+                health.add(m);
+                String zone = (String) instance.get("creationType");
+                AliCloudInstance i =
+                    new AliCloudInstance(
+                        String.valueOf(id),
+                        null,
+                        zone,
+                        null,
+                        AliCloudProvider.ID,
+                        healthState,
+                        health);
+                s.add(i);
+              }
+            });
     serverGroup.setInstances(s);
 
     // build capacity
@@ -288,11 +308,11 @@ public class AliCloudClusterProvider
   public ServerGroup getServerGroup(String account, String region, String name) {
     String serverGroupKey = Keys.getServerGroupKey(name, account, region);
     CacheData serverGroupData = cacheView.get(SERVER_GROUPS.ns, serverGroupKey);
-    Collection<String> allHealthyKeys = cacheView.getIdentifiers(HEALTH.ns);
+    Collection<CacheData> healthDatas = cacheView.getAll(HEALTH.ns);
     if (serverGroupData == null) {
       return null;
     }
-    return bulidServerGroup(allHealthyKeys, serverGroupData);
+    return bulidServerGroup(healthDatas, serverGroupData);
   }
 
   @Override
