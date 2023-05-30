@@ -16,9 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.alicloud.common;
 
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH;
-
-import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
@@ -42,33 +39,30 @@ public class HealthHelper {
   }
 
   public static HealthState judgeInstanceHealthyState(
-      Collection<String> allHealthyKeys,
-      List<String> loadBalancerIds,
-      String instanceId,
-      Cache cacheView) {
-    Set<String> healthyKeys = new HashSet<>();
+      Collection<CacheData> allHealthyCaches, List<String> loadBalancerIds, String instanceId) {
+    Set<CacheData> healthyDatas = new HashSet<>();
     if (loadBalancerIds != null) {
       for (String loadBalancerId : loadBalancerIds) {
-        List<String> collect =
-            allHealthyKeys.stream()
-                .filter(tab -> HealthHelper.healthyStateMatcher(tab, loadBalancerId, instanceId))
+        List<CacheData> healthData =
+            allHealthyCaches.stream()
+                .filter(
+                    tab ->
+                        HealthHelper.healthyStateMatcher(tab.getId(), loadBalancerId, instanceId))
                 .collect(Collectors.toList());
-        Collection<CacheData> healthData = cacheView.getAll(HEALTH.ns, collect, null);
         if (CollectionUtils.isEmpty(healthData)) {
           return HealthState.Unknown;
         }
-        healthyKeys.addAll(collect);
+        healthyDatas.addAll(healthData);
       }
     } else {
-      List<String> collect =
-          allHealthyKeys.stream()
-              .filter(tab -> HealthHelper.healthyStateMatcher(tab, null, instanceId))
+      List<CacheData> collect =
+          allHealthyCaches.stream()
+              .filter(tab -> HealthHelper.healthyStateMatcher(tab.getId(), null, instanceId))
               .collect(Collectors.toList());
-      healthyKeys.addAll(collect);
+      healthyDatas.addAll(collect);
     }
-    Collection<CacheData> healthData = cacheView.getAll(HEALTH.ns, healthyKeys, null);
     Map<String, Integer> healthMap = new HashMap<>(16);
-    for (CacheData cacheData : healthData) {
+    for (CacheData cacheData : healthyDatas) {
       String serverHealthStatus = cacheData.getAttributes().get("serverHealthStatus").toString();
       healthMap.put(serverHealthStatus, healthMap.getOrDefault(serverHealthStatus, 0) + 1);
     }

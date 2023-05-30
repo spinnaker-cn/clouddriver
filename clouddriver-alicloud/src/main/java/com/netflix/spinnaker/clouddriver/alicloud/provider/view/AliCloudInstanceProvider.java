@@ -48,11 +48,11 @@ public class AliCloudInstanceProvider implements InstanceProvider<AliCloudInstan
 
   @Override
   public AliCloudInstance getInstance(String account, String region, String id) {
-    Collection<String> allHealthyKeys = cacheView.getIdentifiers(HEALTH.ns);
     CacheData instanceEntry = cacheView.get(INSTANCES.ns, Keys.getInstanceKey(id, account, region));
     if (instanceEntry == null) {
       return null;
     }
+    Collection<CacheData> healthDatas = cacheView.getAll(HEALTH.ns);
 
     Map<String, Object> attributes = instanceEntry.getAttributes();
 
@@ -66,7 +66,7 @@ public class AliCloudInstanceProvider implements InstanceProvider<AliCloudInstan
       m.put("type", provider.getDisplayName());
       m.put("healthClass", "platform");
       HealthState healthState =
-          HealthHelper.judgeInstanceHealthyState(allHealthyKeys, null, instanceId, cacheView);
+          HealthHelper.judgeInstanceHealthyState(healthDatas, null, instanceId);
       m.put("state", !flag ? HealthState.Down : healthState);
       health.add(m);
       String zone = (String) attributes.get("zoneId");
