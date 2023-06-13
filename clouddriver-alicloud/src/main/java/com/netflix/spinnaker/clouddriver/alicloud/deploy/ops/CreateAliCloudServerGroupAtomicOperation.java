@@ -54,6 +54,8 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
 
   private final ClientFactory clientFactory;
 
+  private final List<String> envs = Arrays.asList("base", "cana", "gray");
+
   public CreateAliCloudServerGroupAtomicOperation(
       BasicAliCloudDeployDescription description,
       ObjectMapper objectMapper,
@@ -239,6 +241,11 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
     String region = description.getRegion();
 
     String asgName = description.getSource().getAsgName();
+    for (String env : envs) {
+      if (asgName.toLowerCase().contains(env.toLowerCase())) {
+        asgName = asgName.substring(0, asgName.lastIndexOf("-")).replace(env, "prod");
+      }
+    }
     DescribeScalingGroupsRequest describeScalingGroupsRequest = new DescribeScalingGroupsRequest();
     describeScalingGroupsRequest.setScalingGroupName(asgName);
     DescribeScalingGroupsResponse describeScalingGroupsResponse;
