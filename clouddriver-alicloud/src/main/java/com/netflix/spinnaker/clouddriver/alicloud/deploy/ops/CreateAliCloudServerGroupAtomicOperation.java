@@ -54,6 +54,8 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
 
   private final ClientFactory clientFactory;
 
+  private final List<String> envs = Arrays.asList("base", "cana", "gray");
+
   public CreateAliCloudServerGroupAtomicOperation(
       BasicAliCloudDeployDescription description,
       ObjectMapper objectMapper,
@@ -239,6 +241,7 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
     String region = description.getRegion();
 
     String asgName = description.getSource().getAsgName();
+
     DescribeScalingGroupsRequest describeScalingGroupsRequest = new DescribeScalingGroupsRequest();
     describeScalingGroupsRequest.setScalingGroupName(asgName);
     DescribeScalingGroupsResponse describeScalingGroupsResponse;
@@ -440,6 +443,23 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
         alarmPageNumber = alarmPageNumber + 1;
         describeAlarmsRequest.setPageNumber(alarmPageNumber);
         describeAlarmsResponse = client.getAcsResponse(describeAlarmsRequest);
+      }
+
+      // copy lifecycle hooks from prod
+      String scalingGroupName = description.getScalingGroupName();
+      for (String env : envs) {
+        if (scalingGroupName.toLowerCase().contains(env.toLowerCase())) {
+          scalingGroupName =
+              scalingGroupName.substring(0, scalingGroupName.lastIndexOf("-")).replace(env, "prod");
+          DescribeScalingGroupsRequest request = new DescribeScalingGroupsRequest();
+          request.setScalingGroupName(scalingGroupName);
+          DescribeScalingGroupsResponse response = client.getAcsResponse(request);
+          if (response == null || CollectionUtils.isEmpty(response.getScalingGroups())) {
+            log.info("Old server group is does not exist");
+            return;
+          }
+          sourceScalingGroupId = response.getScalingGroups().get(0).getScalingGroupId();
+        }
       }
 
       // lifecycle hooks
