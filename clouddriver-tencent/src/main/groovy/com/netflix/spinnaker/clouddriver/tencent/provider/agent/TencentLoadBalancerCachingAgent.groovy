@@ -2,6 +2,7 @@ package com.netflix.spinnaker.clouddriver.tencent.provider.agent
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.common.collect.Lists
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AccountAware
 import com.netflix.spinnaker.cats.agent.AgentDataType
@@ -135,7 +136,16 @@ class TencentLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
       //all listener's targets
       def lbTargetList = []
       if (listenerIdList.size() > 0) {
-        lbTargetList = client.getLBTargetList(loadBalancer.id, listenerIdList)
+        def partition = Lists.partition(listenerIdList, 20)
+        partition.forEach({ lid ->
+          try {
+            def list = client.getLBTargetList(loadBalancer.id, lid)
+            lbTargetList.addAll(list)
+          }catch(Exception e){
+            log.error("crawl listener failed,loadBalanceId:{}",loadBalancer.id)
+            e.printStackTrace()
+          }
+        })
       }
 
       def listeners = queryListeners.collect {
