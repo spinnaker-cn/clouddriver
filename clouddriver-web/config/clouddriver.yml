@@ -297,6 +297,14 @@ tencent:
       secretId: ${TENCENTCLOUD_SECRET_ID}
       secretKey: ${TENCENTCLOUD_SECRET_KEY}
       regions: ["ap-guangzhou","ap-shanghai"]
+ctyun:
+  enabled: true
+  accounts:
+    - name: myCtyunName
+      project: myCtyunProject
+      accessKey: 6f4992caea9048f192f4077d1600b59e
+      securityKey: 8158e147442a43829fc80a007d507c02
+      regions: ["bb9fdb42056f11eda1610242ac110002" ]
 
 hecloud:
   enabled: ${HE_ENABLED:false}

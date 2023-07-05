@@ -8,5 +8,6 @@ public enum CloudTypeEnum {
   ALIYUN,
   TENCENT,
   HUAWEI,
+  CTYUN,
   HE;
 }

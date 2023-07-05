@@ -1,0 +1,41 @@
+sourceSets.main.java.srcDirs = ['src/main/java']
+dependencies {
+  implementation project(":cats:cats-core")
+  implementation project(":clouddriver-core")
+  implementation project(":clouddriver-eureka")
+  implementation project(":clouddriver-security")
+  implementation project(":clouddriver-monitor")
+
+  compileOnly "org.projectlombok:lombok"
+  testCompile "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spectator:spectator-api"
+  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
+  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.netflix.spinnaker.kork:kork-core"
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
+  implementation "com.netflix.spinnaker.kork:kork-security"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+  implementation "com.google.guava:guava"
+  implementation "com.tencentcloudapi:tencentcloud-sdk-java:3.1.51"
+  implementation fileTree(dir: 'lib', include: ['*.jar'])
+  implementation files('libs/ctapi_sdk-1.0-SNAPSHOT.jar')
+  implementation files('libs/fastjson-1.2.83.jar')
+  implementation "org.apache.httpcomponents:httpmime:4.5.1"
+
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "org.assertj:assertj-core"
+  testImplementation "org.junit.jupiter:junit-jupiter"
+  testImplementation "org.mockito:mockito-core"
+  testImplementation "org.objenesis:objenesis"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "org.springframework:spring-test"
+}
