@@ -12,7 +12,7 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.ctyun.CtyunCloudProvider
 import com.netflix.spinnaker.clouddriver.ctyun.cache.Keys
-import com.netflix.spinnaker.clouddriver.ctyun.client.LoadBalancerClient
+import com.netflix.spinnaker.clouddriver.ctyun.client.CtyunLoadBalancerClient
 import com.netflix.spinnaker.clouddriver.ctyun.model.CtyunBasicResource
 import com.netflix.spinnaker.clouddriver.ctyun.model.loadbalance.*
 import com.netflix.spinnaker.clouddriver.ctyun.provider.CtyunInfrastructureProvider
@@ -82,7 +82,7 @@ class CtyunLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Acco
   }
 
   List<CtyunLoadBalancer> loadLoadBalancerData(String loadBalancerId = null) {
-    LoadBalancerClient client = new LoadBalancerClient(
+    CtyunLoadBalancerClient client = new CtyunLoadBalancerClient(
       credentials.credentials.accessKey,
       credentials.credentials.securityKey,
       region

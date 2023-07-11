@@ -3,7 +3,7 @@ package com.netflix.spinnaker.clouddriver.ctyun.deploy.ops
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
-import com.netflix.spinnaker.clouddriver.ctyun.client.LoadBalancerClient
+import com.netflix.spinnaker.clouddriver.ctyun.client.CtyunLoadBalancerClient
 import com.netflix.spinnaker.clouddriver.ctyun.deploy.description.DeleteCtyunLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.ctyun.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.ctyun.model.loadbalance.CtyunLoadBalancerRule
@@ -74,7 +74,7 @@ class DeleteCtyunLoadBalancerAtomicOperation implements AtomicOperation<Void> {
 
   private void deleteLoadBalancer(String loadBalancerId) {
     task.updateStatus(BASE_PHASE, "Start delete loadBalancer ${loadBalancerId} ...")
-    def lbClient = new LoadBalancerClient(
+    def lbClient = new CtyunLoadBalancerClient(
       description.credentials.credentials.accessKey,
       description.credentials.credentials.securityKey,
       description.region
@@ -85,7 +85,7 @@ class DeleteCtyunLoadBalancerAtomicOperation implements AtomicOperation<Void> {
 
   private void deleteListener(String loadBalancerId, String listenerId) {
     task.updateStatus(BASE_PHASE, "Start delete Listener ${listenerId} ...")
-    def lbClient = new LoadBalancerClient(
+    def lbClient = new CtyunLoadBalancerClient(
       description.credentials.credentials.accessKey,
       description.credentials.credentials.securityKey,
       description.region
@@ -96,7 +96,7 @@ class DeleteCtyunLoadBalancerAtomicOperation implements AtomicOperation<Void> {
 
   private void deleteListenerTargets(String loadBalancerId, String listenerId, List<CtyunLoadBalancerTarget> targets) {
     task.updateStatus(BASE_PHASE, "Start delete Listener ${listenerId} targets ...")
-    def lbClient = new LoadBalancerClient(
+    def lbClient = new CtyunLoadBalancerClient(
       description.credentials.credentials.accessKey,
       description.credentials.credentials.securityKey,
       description.region
@@ -107,7 +107,7 @@ class DeleteCtyunLoadBalancerAtomicOperation implements AtomicOperation<Void> {
 
   private void deleteListenerRule(String loadBalancerId, String listenerId, CtyunLoadBalancerRule rule) {
     task.updateStatus(BASE_PHASE, "Start delete Listener ${listenerId} rules ...")
-    def lbClient = new LoadBalancerClient(
+    def lbClient = new CtyunLoadBalancerClient(
       description.credentials.credentials.accessKey,
       description.credentials.credentials.securityKey,
       description.region
@@ -119,7 +119,7 @@ class DeleteCtyunLoadBalancerAtomicOperation implements AtomicOperation<Void> {
 
   private void deleteRuleTargets(String loadBalancerId, String listenerId, String locationId, List<CtyunLoadBalancerTarget> targets) {
     task.updateStatus(BASE_PHASE, "Start delete Listener ${listenerId} rule ${locationId} targets ...")
-    def lbClient = new LoadBalancerClient(
+    def lbClient = new CtyunLoadBalancerClient(
       description.credentials.credentials.accessKey,
       description.credentials.credentials.securityKey,
       description.region

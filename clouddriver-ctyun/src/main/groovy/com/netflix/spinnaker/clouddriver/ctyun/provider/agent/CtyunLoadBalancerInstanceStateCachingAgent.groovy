@@ -8,7 +8,7 @@ import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.core.provider.agent.HealthProvidingCachingAgent
 import com.netflix.spinnaker.clouddriver.ctyun.cache.Keys
-import com.netflix.spinnaker.clouddriver.ctyun.client.LoadBalancerClient
+import com.netflix.spinnaker.clouddriver.ctyun.client.CtyunLoadBalancerClient
 import com.netflix.spinnaker.clouddriver.ctyun.model.loadbalance.CtyunLoadBalancer
 import com.netflix.spinnaker.clouddriver.ctyun.model.loadbalance.CtyunLoadBalancerTargetHealth
 import com.netflix.spinnaker.clouddriver.ctyun.provider.CtyunInfrastructureProvider

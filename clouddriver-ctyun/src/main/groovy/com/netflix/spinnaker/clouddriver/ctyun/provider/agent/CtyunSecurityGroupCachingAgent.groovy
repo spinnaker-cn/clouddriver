@@ -14,7 +14,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.ctyun.CtyunCloudProvider
-import com.netflix.spinnaker.clouddriver.ctyun.client.VirtualPrivateCloudClient
+import com.netflix.spinnaker.clouddriver.ctyun.client.CtyunVirtualPrivateCloudClient
 import com.netflix.spinnaker.clouddriver.ctyun.model.CtyunSecurityGroupDescription
 import com.netflix.spinnaker.clouddriver.ctyun.model.CtyunSecurityGroupRule
 import com.netflix.spinnaker.clouddriver.ctyun.provider.CtyunInfrastructureProvider
@@ -134,7 +134,7 @@ class CtyunSecurityGroupCachingAgent implements CachingAgent, OnDemandAgent, Acc
   }
 
   private Set<CtyunSecurityGroupDescription> loadSecurityGroupAll() {
-    VirtualPrivateCloudClient vpcClient = new VirtualPrivateCloudClient(
+    CtyunVirtualPrivateCloudClient vpcClient = new CtyunVirtualPrivateCloudClient(
       credentials.credentials.getAccessKey(),
       credentials.credentials.getSecurityKey(),
       region
@@ -179,7 +179,7 @@ class CtyunSecurityGroupCachingAgent implements CachingAgent, OnDemandAgent, Acc
   }
 
   private CtyunSecurityGroupDescription loadSecurityGroupById(String securityGroupId) {
-    VirtualPrivateCloudClient vpcClient = new VirtualPrivateCloudClient(
+    CtyunVirtualPrivateCloudClient vpcClient = new CtyunVirtualPrivateCloudClient(
       credentials.credentials.accessKey,
       credentials.credentials.securityKey,
       region

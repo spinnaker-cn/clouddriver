@@ -3,7 +3,7 @@ package com.netflix.spinnaker.clouddriver.ctyun.deploy.ops
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
-import com.netflix.spinnaker.clouddriver.ctyun.client.VirtualPrivateCloudClient
+import com.netflix.spinnaker.clouddriver.ctyun.client.CtyunVirtualPrivateCloudClient
 import com.netflix.spinnaker.clouddriver.ctyun.deploy.description.UpsertCtyunSecurityGroupDescription
 import com.netflix.spinnaker.clouddriver.ctyun.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.ctyun.model.CtyunSecurityGroupRule
@@ -45,7 +45,7 @@ class UpsertCtyunSecurityGroupAtomicOperation implements AtomicOperation<Map> {
   private String updateSecurityGroup(UpsertCtyunSecurityGroupDescription description) {
     task.updateStatus(BASE_PHASE, "Start update securityGroup ${description.securityGroupName} ${description.securityGroupId} ...")
     def securityGroupId = description.securityGroupId
-    def vpcClient = new VirtualPrivateCloudClient(
+    def vpcClient = new CtyunVirtualPrivateCloudClient(
       description.credentials.credentials.getAccessKey(),
       description.credentials.credentials.getSecurityKey(),
       description.region
@@ -93,7 +93,7 @@ class UpsertCtyunSecurityGroupAtomicOperation implements AtomicOperation<Map> {
   private String insertSecurityGroup(UpsertCtyunSecurityGroupDescription description) {
     task.updateStatus(BASE_PHASE, "Start create new securityGroup ${description.securityGroupName} ...")
 
-    def vpcClient = new VirtualPrivateCloudClient(
+    def vpcClient = new CtyunVirtualPrivateCloudClient(
       description.credentials.credentials.getAccessKey(),
       description.credentials.credentials.getSecurityKey(),
       description.region
