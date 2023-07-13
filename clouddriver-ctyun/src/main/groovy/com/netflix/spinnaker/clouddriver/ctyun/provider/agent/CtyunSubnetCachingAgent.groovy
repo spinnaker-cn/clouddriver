@@ -11,7 +11,7 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.ctyun.cache.Keys
 import com.netflix.spinnaker.clouddriver.ctyun.client.CloudVirtualMachineClient
-import com.netflix.spinnaker.clouddriver.ctyun.client.VirtualPrivateCloudClient
+import com.netflix.spinnaker.clouddriver.ctyun.client.CtyunVirtualPrivateCloudClient
 import com.netflix.spinnaker.clouddriver.ctyun.model.CtyunSubnetDescription
 import com.netflix.spinnaker.clouddriver.ctyun.provider.CtyunInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.ctyun.security.CtyunNamedAccountCredentials
@@ -67,7 +67,7 @@ class CtyunSubnetCachingAgent implements CachingAgent, AccountAware {
   }
 
   private Set<CtyunSubnetDescription> loadSubnetsAll() {
-    VirtualPrivateCloudClient vpcClient = new VirtualPrivateCloudClient(
+    CtyunVirtualPrivateCloudClient vpcClient = new CtyunVirtualPrivateCloudClient(
       credentials.credentials.accessKey,
       credentials.credentials.securityKey,
       region
@@ -98,7 +98,7 @@ class CtyunSubnetCachingAgent implements CachingAgent, AccountAware {
 
     def eips=[]
     try{
-      def client = new VirtualPrivateCloudClient(
+      def client = new CtyunVirtualPrivateCloudClient(
         credentials.credentials.accessKey,
         credentials.credentials.securityKey,
         region

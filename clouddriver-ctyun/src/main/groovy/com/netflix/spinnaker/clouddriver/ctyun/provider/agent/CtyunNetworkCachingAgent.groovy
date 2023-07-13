@@ -9,7 +9,7 @@ import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
-import com.netflix.spinnaker.clouddriver.ctyun.client.VirtualPrivateCloudClient
+import com.netflix.spinnaker.clouddriver.ctyun.client.CtyunVirtualPrivateCloudClient
 import com.netflix.spinnaker.clouddriver.ctyun.model.CtyunNetworkDescription
 import com.netflix.spinnaker.clouddriver.ctyun.provider.CtyunInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.ctyun.security.CtyunNamedAccountCredentials
@@ -64,7 +64,7 @@ class CtyunNetworkCachingAgent implements CachingAgent, AccountAware{
   }
 
   private Set<CtyunNetworkDescription> loadNetworksAll() {
-    VirtualPrivateCloudClient vpcClient = new VirtualPrivateCloudClient(
+    CtyunVirtualPrivateCloudClient vpcClient = new CtyunVirtualPrivateCloudClient(
       credentials.credentials.accessKey,
       credentials.credentials.securityKey,
       region

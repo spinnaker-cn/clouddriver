@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.clouddriver.ctyun.controllers
 
 import com.netflix.spinnaker.clouddriver.ctyun.client.CloudVirtualMachineClient
-import com.netflix.spinnaker.clouddriver.ctyun.client.VirtualPrivateCloudClient
+import com.netflix.spinnaker.clouddriver.ctyun.client.CtyunVirtualPrivateCloudClient
 import com.netflix.spinnaker.clouddriver.ctyun.provider.view.CtyunZoneProvider
 import com.netflix.spinnaker.clouddriver.ctyun.security.CtyunNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -38,7 +38,7 @@ class CtyunEipController {
         HttpStatus.BAD_REQUEST
       )
     }
-    def client = new VirtualPrivateCloudClient(
+    def client = new CtyunVirtualPrivateCloudClient(
       credentials.credentials.accessKey,
       credentials.credentials.securityKey,
       region

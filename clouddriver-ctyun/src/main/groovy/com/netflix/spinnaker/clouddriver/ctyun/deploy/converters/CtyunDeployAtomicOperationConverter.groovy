@@ -9,7 +9,7 @@ import com.netflix.spinnaker.clouddriver.ctyun.deploy.description.CtyunDeployDes
 import org.springframework.stereotype.Component
 
 @CtyunOperation(AtomicOperations.CREATE_SERVER_GROUP)
-@Component("tencentDeployDescription")
+@Component("ctyunDeployDescription")
 class CtyunDeployAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport{
   AtomicOperation convertOperation(Map input) {
     new DeployAtomicOperation(convertDescription(input))

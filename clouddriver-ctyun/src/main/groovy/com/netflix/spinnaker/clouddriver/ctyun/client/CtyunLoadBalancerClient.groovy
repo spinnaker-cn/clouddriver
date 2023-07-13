@@ -64,7 +64,7 @@ import org.springframework.stereotype.Component
 
 @Component
 @Slf4j
-class LoadBalancerClient {
+class CtyunLoadBalancerClient {
   private final DEFAULT_LIMIT = 100
   private final MAX_TRY_COUNT = 20
   private final MAX_RULE_TRY_COUNT = 40
@@ -75,7 +75,7 @@ class LoadBalancerClient {
   CtelbClient client
   private String regionId
 
-  LoadBalancerClient(String accessKey, String securityKey, String region){
+  CtyunLoadBalancerClient(String accessKey, String securityKey, String region){
     cred = new Credential().withAk(accessKey).withSk(securityKey);
     client = new CtelbClient();
     client.init(cred, endingPoint);

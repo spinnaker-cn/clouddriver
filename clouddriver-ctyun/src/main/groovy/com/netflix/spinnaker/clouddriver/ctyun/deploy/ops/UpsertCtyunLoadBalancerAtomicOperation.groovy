@@ -10,7 +10,7 @@ import com.netflix.spinnaker.clouddriver.ctyun.model.loadbalance.CtyunLoadBalanc
 import com.netflix.spinnaker.clouddriver.ctyun.model.loadbalance.CtyunLoadBalancerRule
 import com.netflix.spinnaker.clouddriver.ctyun.model.loadbalance.CtyunLoadBalancerTarget
 import com.netflix.spinnaker.clouddriver.ctyun.provider.view.CtyunLoadBalancerProvider
-import com.netflix.spinnaker.clouddriver.ctyun.client.LoadBalancerClient
+import com.netflix.spinnaker.clouddriver.ctyun.client.CtyunLoadBalancerClient
 import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import com.tencentcloudapi.clb.v20180317.models.HealthCheck
 import com.tencentcloudapi.clb.v20180317.models.ListenerBackend
@@ -60,7 +60,7 @@ class UpsertCtyunLoadBalancerAtomicOperation implements AtomicOperation<Map> {
   private String insertLoadBalancer(UpsertCtyunLoadBalancerDescription description) {
     task.updateStatus(BASE_PHASE, "Start create new loadBalancer ${description.loadBalancerName} ...")
 
-    def lbClient = new LoadBalancerClient(
+    def lbClient = new CtyunLoadBalancerClient(
       description.credentials.credentials.accessKey,
       description.credentials.credentials.securityKey,
       description.region
@@ -96,7 +96,7 @@ class UpsertCtyunLoadBalancerAtomicOperation implements AtomicOperation<Map> {
   private String updateLoadBalancer(UpsertCtyunLoadBalancerDescription description) {
     task.updateStatus(BASE_PHASE, "Start update loadBalancer ${description.loadBalancerId} ...")
 
-    def lbClient = new LoadBalancerClient(
+    def lbClient = new CtyunLoadBalancerClient(
       description.credentials.credentials.accessKey,
       description.credentials.credentials.securityKey,
       description.region
@@ -178,7 +178,7 @@ class UpsertCtyunLoadBalancerAtomicOperation implements AtomicOperation<Map> {
   }
 
 
-  private String insertListener(LoadBalancerClient lbClient, String loadBalancerId, CtyunLoadBalancerListener listener,String vpcId) {
+  private String insertListener(CtyunLoadBalancerClient lbClient, String loadBalancerId, CtyunLoadBalancerListener listener,String vpcId) {
     task.updateStatus(BASE_PHASE, "Start create new ${listener.protocol} listener in ${loadBalancerId} ...")
 
     def listenerId = lbClient.createLBListener(loadBalancerId, listener, vpcId)[0]
@@ -234,7 +234,7 @@ class UpsertCtyunLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     return true
   }
 
-  private String modifyListenerAttr(LoadBalancerClient lbClient, String loadBalancerId,
+  private String modifyListenerAttr(CtyunLoadBalancerClient lbClient, String loadBalancerId,
                                     CtyunLoadBalancerListener listener) {
     task.updateStatus(BASE_PHASE, "Start modify listener ${listener.listenerId} attr in ${loadBalancerId} ...")
     def ret = lbClient.modifyListener(loadBalancerId, listener)
@@ -242,7 +242,7 @@ class UpsertCtyunLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     return ""
   }
 
-  private String updateListener(LoadBalancerClient lbClient, String loadBalancerId, Listener oldListener,
+  private String updateListener(CtyunLoadBalancerClient lbClient, String loadBalancerId, Listener oldListener,
                                 CtyunLoadBalancerListener newListener, ListenerBackend targets) {
     task.updateStatus(BASE_PHASE, "Start update listener ${newListener.listenerId} in ${loadBalancerId} ...")
 
@@ -325,7 +325,7 @@ class UpsertCtyunLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     return true
   }
 
-  private modifyRuleAttr(LoadBalancerClient lbClient, String loadBalancerId,
+  private modifyRuleAttr(CtyunLoadBalancerClient lbClient, String loadBalancerId,
                          String listenerId, CtyunLoadBalancerRule newRule) {
     task.updateStatus(BASE_PHASE, "Start modify rule ${newRule.locationId} attr in ${loadBalancerId}.${listenerId} ...")
     def ret = lbClient.modifyLBListenerRule(loadBalancerId, listenerId, newRule)
@@ -333,7 +333,7 @@ class UpsertCtyunLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     return ""
   }
 
-  private String updateLBListenerRule(LoadBalancerClient lbClient, String loadBalancerId,
+  private String updateLBListenerRule(CtyunLoadBalancerClient lbClient, String loadBalancerId,
                                       String listenerId, RuleOutput oldRule,
                                       CtyunLoadBalancerRule newRule, RuleTargets targets) {
     task.updateStatus(BASE_PHASE, "Start update rule ${newRule.locationId} in ${loadBalancerId}.${listenerId} ...")
@@ -399,7 +399,7 @@ class UpsertCtyunLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     return sb.toString();
   }
 
-  private String insertLBListenerRule(LoadBalancerClient lbClient, String loadBalancerId,
+  private String insertLBListenerRule(CtyunLoadBalancerClient lbClient, String loadBalancerId,
                                       String listenerId, CtyunLoadBalancerRule rule,
                                       CtyunLoadBalancerListener listener,String vpcId) {
     task.updateStatus(BASE_PHASE, "Start create new rule ${rule.domain} ${rule.url} in ${listenerId}")

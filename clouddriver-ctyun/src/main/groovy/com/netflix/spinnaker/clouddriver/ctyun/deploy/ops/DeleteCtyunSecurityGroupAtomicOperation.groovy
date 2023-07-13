@@ -3,7 +3,7 @@ package com.netflix.spinnaker.clouddriver.ctyun.deploy.ops
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
-import com.netflix.spinnaker.clouddriver.ctyun.client.VirtualPrivateCloudClient
+import com.netflix.spinnaker.clouddriver.ctyun.client.CtyunVirtualPrivateCloudClient
 import com.netflix.spinnaker.clouddriver.ctyun.deploy.description.DeleteCtyunSecurityGroupDescription
 import com.netflix.spinnaker.clouddriver.ctyun.exception.ExceptionUtils
 import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
@@ -25,7 +25,7 @@ class DeleteCtyunSecurityGroupAtomicOperation implements AtomicOperation<Void> {
       "in ${description.region}...")
     def securityGroupId=""
     try {
-      def vpcClient = new VirtualPrivateCloudClient(
+      def vpcClient = new CtyunVirtualPrivateCloudClient(
         description.credentials.credentials.getAccessKey(),
         description.credentials.credentials.getSecurityKey(),
         description.region

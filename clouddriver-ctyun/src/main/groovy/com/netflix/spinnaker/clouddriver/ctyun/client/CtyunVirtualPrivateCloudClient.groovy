@@ -46,7 +46,7 @@ import org.springframework.stereotype.Component
 
 @Component
 @Slf4j
-class VirtualPrivateCloudClient {
+class CtyunVirtualPrivateCloudClient {
   private final DEFAULT_LIMIT = 50
   //private final String DEFAULT_LIMIT_STR = 50
   private Credential cred
@@ -54,7 +54,7 @@ class VirtualPrivateCloudClient {
   private final String endingPoint = "ctvpc-global.ctapi.ctyun.cn"
   private String regionId
 
-  VirtualPrivateCloudClient(String accessKey, String securityKey, String region){
+  CtyunVirtualPrivateCloudClient(String accessKey, String securityKey, String region){
     cred = new Credential().withAk(accessKey).withSk(securityKey);
     client = new CtvpcClient();
     client.init(cred, endingPoint);
