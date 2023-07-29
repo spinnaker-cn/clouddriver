@@ -53,9 +53,9 @@ class CtyunInstanceProvider implements InstanceProvider<CtyunInstance, String> {
     def serverGroupName = instance.serverGroupName
     def serverGroupCache = cacheView.get(SERVER_GROUPS.ns, Keys.getServerGroupKey(serverGroupName, account, region))
     def serverGroup = new CtyunServerGroup(serverGroupCache?.attributes)
-    def asgInfo = serverGroupCache?.attributes?.asg as Map
+    //def asgInfo = serverGroupCache?.attributes?.asg as Map
     //本参数表示健康检查方式。取值范围：1： 云服务器健康检查。 2： 弹性负载均衡健康检查。根据以上XXX取值范围XXX。
-    if(asgInfo.healthMode==2){
+   /* if(asgInfo.healthMode==2){*/
       def lbInfos = serverGroup?.loadBlanders
       if (lbInfos) {
         for (lbInfo in lbInfos) {
@@ -106,7 +106,7 @@ class CtyunInstanceProvider implements InstanceProvider<CtyunInstance, String> {
           }
         }
       }
-    }
+   /* }*/
 
     instance
   }

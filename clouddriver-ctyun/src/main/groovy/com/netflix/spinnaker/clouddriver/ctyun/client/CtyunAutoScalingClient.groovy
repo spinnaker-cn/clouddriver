@@ -263,7 +263,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     request
   }
 
-  //查询所有弹性伸缩组
+  //查询所有弹性伸缩组--缓存用
   List<ScalingGroup> getAllAutoScalingGroups() {
     log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--start")
     List<ScalingGroup> autoScalingGroupAll = []
@@ -272,7 +272,42 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        GroupListRequestBody requestBody = new GroupListRequestBody().withRegionID(regionId).withPage(pageNumber).withPageSize(DEFAULT_LIMIT);
+        GroupListRequestBody requestBody = new GroupListRequestBody().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
+        GroupListRequest request = new GroupListRequest().withBody(requestBody);
+        CTResponse<GroupListResponseData> response = client.groupList(request);
+        if(response.httpCode==200&&response.getData()!=null){
+          GroupListResponseData groupListResponseData=response.getData()
+          if(groupListResponseData.getStatusCode()==800){
+            if(groupListResponseData.getReturnObj().getScalingGroups().size()>0){
+              autoScalingGroupAll.addAll(groupListResponseData.getReturnObj().getScalingGroups())
+            }
+            pageNumber++;
+            getCount = groupListResponseData.getReturnObj().getScalingGroups().size();
+          }else{
+            log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--非800！pageNum={},错误码={}，错误信息={}",(pageNumber-1),groupListResponseData.getErrorCode(),groupListResponseData.getDescription())
+          }
+        }else{
+          log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--非200！{}",response)
+          //throw new CtyunOperationException(response.getDescription())
+        }
+      }
+      log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--end,size={}",autoScalingGroupAll.size())
+      return autoScalingGroupAll
+    } catch (Exception e) {
+      log.error("getAllAutoScalingGroups--查询所有弹性伸缩组--Exception",e)
+      throw new CtyunOperationException(e.toString())
+    }
+  }
+  //查询所有弹性伸缩组--其他接口遍历用
+  List<ScalingGroup> getAllAutoScalingGroups2() {
+    log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--start")
+    List<ScalingGroup> autoScalingGroupAll = []
+    try {
+      def pageNumber=1;
+      def totalCount = DEFAULT_LIMIT
+      def getCount = DEFAULT_LIMIT
+      while(totalCount==getCount){
+        GroupListRequestBody requestBody = new GroupListRequestBody().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
         GroupListRequest request = new GroupListRequest().withBody(requestBody);
         CTResponse<GroupListResponseData> response = client.groupList(request);
         if(response.httpCode==200&&response.getData()!=null){
@@ -358,7 +393,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
   List<ScalingGroup> getAutoScalingGroupsByName(String name) {
     log.info("getAutoScalingGroupsByName--通过伸缩组名称获取伸缩组--start--name--{}",name)
     try {
-      List<ScalingGroup> allAutoScalingGroups= this.getAllAutoScalingGroups()
+      List<ScalingGroup> allAutoScalingGroups= this.getAllAutoScalingGroups2()
       List<ScalingGroup> newAutoScalingGroups=allAutoScalingGroups.findAll {
         it.name == name
       }
@@ -380,10 +415,10 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
           GroupListConfigResponseData groupListConfigResponseData = response.getData()
           if (groupListConfigResponseData.getStatusCode() == 800) {
             GroupListConfigReturnObj obj=groupListConfigResponseData.getReturnObj()?.get(0);
-            ScalingGroup scalingGroup=this.getAutoScalingGroupByGroupId(groupId)
+            /*ScalingGroup scalingGroup=this.getAutoScalingGroupByGroupId(groupId)
             if(scalingGroup!=null&&scalingGroup.getSecurityGroupIDList()!=null){
               obj.setSecurityGroupList(Arrays.asList(scalingGroup.getSecurityGroupIDList()))
-            }
+            }*/
             log.info("getLaunchConfiguration--通过配置id集合获取配置信息--end")
             return obj;
           } else {
@@ -404,14 +439,19 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
   Map<String,Object> getAllAutoScalingInstances() {
     log.info("getAllAutoScalingInstances--获取所有伸缩组关联的主机--start")
     List<GroupListInstance> allList=new ArrayList<>();
-    List<String> groupNameList=new ArrayList<>();
+    List<Map<String,String>> groupNameList=new ArrayList<>();
     try {
-      List<ScalingGroup> allScalingGroupList=this.getAllAutoScalingGroups();
+      List<ScalingGroup> allScalingGroupList=this.getAllAutoScalingGroups2();
       for(ScalingGroup scalingGroup:allScalingGroupList){
         List<GroupListInstance> groupListInstanceList=this.getAutoScalingInstances(scalingGroup.getGroupID())
         for(GroupListInstance groupListInstance:groupListInstanceList){
-          groupNameList.add(scalingGroup.getName());
-          allList.add(groupListInstance);
+          if(groupListInstance.instanceID!=null){
+            Map<String,String> groupMap=new HashMap()
+            groupMap.put("groupName",scalingGroup.getName())
+            groupMap.put("instanceID",groupListInstance.getInstanceID())
+            groupNameList.add(groupMap)
+            allList.add(groupListInstance)
+          }
         }
       }
     } catch (Exception e) {
@@ -421,7 +461,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     Map<String,Object> map=new HashMap();
     map.put("groupNameList",groupNameList);
     map.put("groupListInstanceList",allList);
-    log.info("getAllAutoScalingInstances--获取所有伸缩组关联的主机--end")
+    log.info("getAllAutoScalingInstances--获取所有伸缩组关联的主机--end,groupNameList.size:{} groupListInstanceList.size:{}",groupNameList.size(),allList.size())
     return map;
   }
 //获取伸缩组实例，通过伸缩组id获取

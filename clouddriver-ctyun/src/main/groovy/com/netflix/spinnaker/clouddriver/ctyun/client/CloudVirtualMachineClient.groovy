@@ -71,7 +71,7 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        ListImageRequest request = new ListImageRequest().withRegionID(regionId).withPageNumber(pageNumber).withPageSize(DEFAULT_LIMIT).withVisibility(visibility);
+        ListImageRequest request = new ListImageRequest().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT).withVisibility(visibility);
         CTResponse<ListImageResponseData> response = imageClient.listImage(request);
         if(response.httpCode==200&&response.getData()!=null){
           ListImageResponseData listImageResponseData=response.getData()

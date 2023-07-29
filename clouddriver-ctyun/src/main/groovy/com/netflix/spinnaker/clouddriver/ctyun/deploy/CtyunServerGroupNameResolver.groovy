@@ -57,7 +57,7 @@ class CtyunServerGroupNameResolver extends AbstractServerGroupNameResolver{
       []
     }
     else {
-      def autoScalingGroups = ctyunAutoScalingClient.getAllAutoScalingGroups()
+      def autoScalingGroups = ctyunAutoScalingClient.getAllAutoScalingGroups2()
       def serverGroupsInCluster = autoScalingGroups.findAll {
         Names.parseName(it.name).cluster == clusterName
       }

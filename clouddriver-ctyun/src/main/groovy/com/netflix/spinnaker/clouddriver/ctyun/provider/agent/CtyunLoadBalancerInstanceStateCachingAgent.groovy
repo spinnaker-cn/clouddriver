@@ -105,6 +105,27 @@ class CtyunLoadBalancerInstanceStateCachingAgent implements CachingAgent, Health
         def listenerId = listenerHealth.listenerId
         def ruleHealths = listenerHealth.rules
         def protocol = listenerHealth.protocol
+        //获取监听的健康检查状态
+
+        def tgID1 = listenerHealth.targetGroupId
+        def locationId1 = tgID1
+        def instanceHealths1 = listenerHealth.targets
+        if(instanceHealths1!=null && instanceHealths1.size()>0){
+          instanceHealths1.each {instanceHealth1->
+            def targetId1 = instanceHealth1.targetId
+            def instanceId1 = instanceHealth1.instanceId
+            def healthStatus1 = false
+            if("active".equals(instanceHealth1.healthCheckStatus)){
+              healthStatus1 = true
+            }
+            def port1 = instanceHealth1.port
+            def healthListener = new CtyunLoadBalancerTargetHealth(instanceId:instanceId1,targetId:targetId1,
+              loadBalancerId:loadBalancerId, listenerId:listenerId, locationId:locationId1,
+              healthStatus:healthStatus1, port:port1,targetGroupID: tgID1 )
+            ctyunLBTargetHealths.add(healthListener)
+          }
+        }
+        //获取转发策略的健康检查状态
         if(ruleHealths!=null&&ruleHealths.size()>0){
           ruleHealths.each {ruleHealth->
             def locationId = ''

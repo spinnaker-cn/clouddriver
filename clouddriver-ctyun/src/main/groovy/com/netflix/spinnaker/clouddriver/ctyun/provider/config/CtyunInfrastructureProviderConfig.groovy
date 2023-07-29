@@ -65,11 +65,11 @@ class CtyunInfrastructureProviderConfig {
           region.name
         )
 
-        agents << new CtyunZoneCachingAgent(
+       /* agents << new CtyunZoneCachingAgent(
           credential,
           objectMapper,
           region.name
-        )
+        )*/
 
         agents << new CtyunImageCachingAgent(
           credential,
