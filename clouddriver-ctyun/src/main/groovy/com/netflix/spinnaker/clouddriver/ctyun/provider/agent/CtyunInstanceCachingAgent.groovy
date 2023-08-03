@@ -51,7 +51,7 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
       region
     )
     def asgInstancesMap=asClient.getAllAutoScalingInstances();
-    def groupNameList=asgInstancesMap.groupNameList as List<String>;
+    def groupNameList=asgInstancesMap.groupNameList as List<Map<String,String>>;
     def asgInstances=  asgInstancesMap.groupListInstanceList as List<GroupListInstance>;
     def asgInstanceIds = asgInstances.collect {
       it.instanceID
@@ -72,11 +72,13 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
     def i=0
     result.each {
       def launchTime = CloudVirtualMachineClient.ConvertIsoDateTime it.createdTime
-      def launchConfigurationName = asgInstances.find { asgIns ->
+      /*def launchConfigurationName = asgInstances.find { asgIns ->
         asgIns.instanceID == it.instanceID
-      }?.configName
+      }?.configName*/
       def securityGroupIds=it.secGroupList.collect({ sss -> sss.securityGroupID })
-      def serverGroupName=groupNameList.size()>0?groupNameList.get(i++):null
+      def serverGroupName=groupNameList.find { group ->
+        group.instanceID == it.instanceID
+      }?.groupName
       def idInteger=asgInstances.find { asgIns ->
         asgIns.instanceID == it.instanceID
       }?.id
@@ -90,13 +92,13 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
         zone: it.azName,
         vpcId: it.vpcID,
         subnetId: it.subnetIDList?:it.subnetIDList.get(0),
-        privateIpAddresses: it.fixedIP,
-        publicIpAddresses: it.floatingIP?.split(","),
+        privateIpAddresses: (it.privateIP==null?[]:it.privateIP.split(",")),//it.fixedIPList,
+        publicIpAddresses: it.floatingIP==null?[]:it.floatingIP.split(","),
         imageId: it.image?.imageID,
         instanceType: it.displayName,
         securityGroupIds: securityGroupIds,
         instanceHealth: new CtyunInstanceHealth(instanceStatus: status[it.instanceStatus]),
-        serverGroupName: serverGroupName?:launchConfigurationName
+        serverGroupName: serverGroupName
         // if default tag is invalid, use launchConfigurationName
         // launchConfigurationName is the same with autoScalingGroupName
       )

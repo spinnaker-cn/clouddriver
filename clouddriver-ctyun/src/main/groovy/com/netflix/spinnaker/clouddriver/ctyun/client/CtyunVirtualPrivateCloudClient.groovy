@@ -60,24 +60,24 @@ class CtyunVirtualPrivateCloudClient {
     client.init(cred, endingPoint);
     regionId=region
   }
-  List<ReturnObj> getSecurityGroupsAll() {
+  List<ReturnObj.SecurityGroups> getSecurityGroupsAll() {
     log.info("getSecurityGroupsAll--获取所有安全组数据--start")
-    List<ReturnObj> securityGroupAll = []
+    List<ReturnObj.SecurityGroups> securityGroupAll = []
     try {
       def pageNumber=1;
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        ListSecurityGroupRequest request = new ListSecurityGroupRequest().withRegionID(regionId).withPageNumber(pageNumber).withPageSize(DEFAULT_LIMIT);
+        ListSecurityGroupRequest request = new ListSecurityGroupRequest().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
         CTResponse<ListSecurityGroupResponseData> response = client.listSecurityGroup(request);
         if(response.httpCode==200&&response.getData()!=null){
           ListSecurityGroupResponseData listSecurityGroupResponseData=response.getData()
           if(listSecurityGroupResponseData.getStatusCode()==800){
-            if(listSecurityGroupResponseData.getReturnObj().size()>0){
-              securityGroupAll.addAll(listSecurityGroupResponseData.getReturnObj())
+            if(listSecurityGroupResponseData.getReturnObj().getSecurityGroups().size()>0){
+              securityGroupAll.addAll(listSecurityGroupResponseData.getReturnObj().getSecurityGroups())
             }
             pageNumber++;
-            getCount = listSecurityGroupResponseData.getReturnObj().size();
+            getCount = listSecurityGroupResponseData.getReturnObj().getSecurityGroups().size();
           }else{
             log.info("getSecurityGroupsAll--获取所有安全组数据--非800！pageNum={},错误码={}，错误信息={}",(pageNumber-1),listSecurityGroupResponseData.getErrCode(),listSecurityGroupResponseData.getMessage())
           }
@@ -307,7 +307,7 @@ class CtyunVirtualPrivateCloudClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        ListVpcRequest request = new ListVpcRequest().withRegionID(regionId).withPageNumber(pageNumber).withPageSize(DEFAULT_LIMIT);
+        ListVpcRequest request = new ListVpcRequest().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
         CTResponse<ListVpcResponseData> response = client.listVpc(request);
         if(response.httpCode==200&&response.getData()!=null){
           ListVpcResponseData listVpcResponseData=response.getData()
@@ -341,7 +341,7 @@ class CtyunVirtualPrivateCloudClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        ListSubNetRequest request = new ListSubNetRequest().withRegionID(regionId).withVpcID(vpcId).withPageNumber(pageNumber).withPageSize(DEFAULT_LIMIT);
+        ListSubNetRequest request = new ListSubNetRequest().withRegionID(regionId).withVpcID(vpcId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
         CTResponse<ListSubNetResponseData> response = client.listSubnet(request);
         if(response.httpCode==200&&response.getData()!=null){
           ListSubNetResponseData listSubNetResponseData=response.getData()

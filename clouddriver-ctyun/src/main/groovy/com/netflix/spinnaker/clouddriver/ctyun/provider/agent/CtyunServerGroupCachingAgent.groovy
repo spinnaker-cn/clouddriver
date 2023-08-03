@@ -232,100 +232,112 @@ class CtyunServerGroupCachingAgent extends AbstractCtyunCachingAgent implements 
     } else {
       asgs = client.getAllAutoScalingGroups()
     }
+    List<CtyunServerGroup> serverGroupList=new ArrayList<>();
+    int i=1
+    asgs.each {
+      log.info("=========================================伸缩组数据处理第{}次--start！",i)
+      try{
 
-    return asgs.collect {
-      def autoScalingGroupId = it.groupID
-      def autoScalingGroupName = it.name
-      def disabled = it.status == 2//1是启用，2是停用
-      CtyunServerGroup serverGroup = new CtyunServerGroup().with {
-        it.accountName = this.accountName
-        it.region = this.region
-        it.name = autoScalingGroupName
-        it.disabled = disabled
-        it
-      }
-      Map<String, Object> asg = objectMapper.convertValue it, ATTRIBUTES
-      serverGroup.asg = asg
-
-
-      def getLaunchConfiguration=client.getLaunchConfiguration(it.configID,it.groupID)
-      Map<String, Object> asc = objectMapper.convertValue getLaunchConfiguration, ATTRIBUTES
-      serverGroup.launchConfig = asc
-
-      //def keyIds=cvmClient.keyPairs
-      //serverGroup.launchConfig.loginSettings.keyIds=
-      List<Map<String, Object>> systemDisk=new ArrayList<>()
-      asc.volumes.each {ss->
-        if(ss.flag==1){
-          def lb = new HashMap()
-          lb.diskSize = ss.volumeSize
-          lb.diskType = ss.volumeType
-          systemDisk.add(lb)
+        def autoScalingGroupId = it.groupID
+        def autoScalingGroupName = it.name
+        def disabled = it.status == 2//1是启用，2是停用
+        CtyunServerGroup serverGroup = new CtyunServerGroup().with {
+          it.accountName = this.accountName
+          it.region = this.region
+          it.name = autoScalingGroupName
+          it.disabled = disabled
+          it
         }
-      }
-      serverGroup.launchConfig.systemDisk = systemDisk[0]
+        Map<String, Object> asg = objectMapper.convertValue it, ATTRIBUTES
+        serverGroup.asg = asg
 
-      List<Map<String, Object>> dataDisks=new ArrayList<>()
-      asc.volumes.each {ss->
-        if(ss.flag==2){
-          def lb = new HashMap()
-          lb.diskSize = ss.volumeSize
-          lb.diskType = ss.volumeType
-          dataDisks.add(lb)
-        }
-      }
-      serverGroup.launchConfig.dataDisks=dataDisks
-      List<Map<String,Object>> mazInfoList=new ArrayList<>()
-      if(it.subnetList){
-        it.subnetList.each {Map<String,Object> ss->
-          Map<String,Object> map=new HashMap();
-          ss.keySet().each {sss->
-            map.azName=sss
-            String[] nets=ss.get(sss)
-            map.masterId=nets[0]
-            map.optionId=nets.findAll {zz->zz!=map.masterId}
-            mazInfoList.add(map)
+
+        def getLaunchConfiguration=client.getLaunchConfiguration(it.configID,it.groupID)
+        getLaunchConfiguration.setSecurityGroupList(Arrays.asList(it.getSecurityGroupIDList()))
+        Map<String, Object> asc = objectMapper.convertValue getLaunchConfiguration, ATTRIBUTES
+        serverGroup.launchConfig = asc
+
+        //def keyIds=cvmClient.keyPairs
+        //serverGroup.launchConfig.loginSettings.keyIds=
+        List<Map<String, Object>> systemDisk=new ArrayList<>()
+        asc.volumes.each {ss->
+          if(ss.flag==1){
+            def lb = new HashMap()
+            lb.diskSize = ss.volumeSize
+            lb.diskType = ss.volumeType
+            systemDisk.add(lb)
           }
         }
-      }
-      serverGroup.mazInfoList =mazInfoList
+        serverGroup.launchConfig.systemDisk = systemDisk[0]
+
+        List<Map<String, Object>> dataDisks=new ArrayList<>()
+        asc.volumes.each {ss->
+          if(ss.flag==2){
+            def lb = new HashMap()
+            lb.diskSize = ss.volumeSize
+            lb.diskType = ss.volumeType
+            dataDisks.add(lb)
+          }
+        }
+        serverGroup.launchConfig.dataDisks=dataDisks
+        List<Map<String,Object>> mazInfoList=new ArrayList<>()
+        if(it.subnetList){
+          it.subnetList.each {Map<String,Object> ss->
+            Map<String,Object> map=new HashMap();
+            ss.keySet().each {sss->
+              map.azName=sss
+              String[] nets=ss.get(sss)
+              map.masterId=nets[0]
+              map.optionId=nets.findAll {zz->zz!=map.masterId}
+              mazInfoList.add(map)
+            }
+          }
+        }
+        serverGroup.mazInfoList =mazInfoList
 
 
-      def getScalingPoliciesList=client.getScalingPolicies(it.groupID)
-      serverGroup.cooldown=getScalingPoliciesList.size()==0?300:getScalingPoliciesList.get(0).cooldown
-      serverGroup.scalingPolicies = getScalingPoliciesList.collect {
-        Map<String, Object> asp = objectMapper.convertValue it, ATTRIBUTES
-        return asp
-      }
-      def getScalingActivitesList=client.getScheduledAction(it.groupID)
-      serverGroup.scheduledActions = getScalingActivitesList.collect {
-        Map<String, Object> asp = objectMapper.convertValue it, ATTRIBUTES
-        return asp
-      }
-
-      def instances = client.getAutoScalingInstances autoScalingGroupId
-      instances.each {
-        def instance = new CtyunInstance()
-        instance.name = it.instanceID
-        instance.instanceId=it.instanceID
-        instance.id=it.id
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        instance.launchTime = it.joinDate!=null?sdf.parse(it.joinDate).time:null
-        def instanceItem=cvmClient.getInstanceById(it.instanceID)
-        instance.zone = instanceItem?.getAzName()
-        serverGroup.instances.add(instance)
-      }
-      //serverGroup.asg.desiredCapacity=instances!=null?instances.size():0
-      if(asg.useLb==1){
-        def getLoadBalancerListByGroupId=client.getLoadBalancerListByGroupId autoScalingGroupId
-        serverGroup.loadBlanders = getLoadBalancerListByGroupId.collect {
+        def getScalingPoliciesList=client.getScalingPolicies(it.groupID)
+        serverGroup.cooldown=getScalingPoliciesList.size()==0?300:getScalingPoliciesList.get(0).cooldown
+        serverGroup.scalingPolicies = getScalingPoliciesList.collect {
           Map<String, Object> asp = objectMapper.convertValue it, ATTRIBUTES
           return asp
         }
-      }
+        def getScalingActivitesList=client.getScheduledAction(it.groupID)
+        serverGroup.scheduledActions = getScalingActivitesList.collect {
+          Map<String, Object> asp = objectMapper.convertValue it, ATTRIBUTES
+          return asp
+        }
 
-      serverGroup
+        def instances = client.getAutoScalingInstances autoScalingGroupId
+        instances.each {
+          def instance = new CtyunInstance()
+          instance.name = it.instanceID
+          instance.instanceId=it.instanceID
+          instance.id=it.id
+          SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+          instance.launchTime = it.joinDate!=null?sdf.parse(it.joinDate).time:null
+          /*def instanceItem=cvmClient.getInstanceById(it.instanceID)
+          instance.zone = instanceItem?.getAzName()*/
+          serverGroup.instances.add(instance)
+        }
+        //serverGroup.asg.desiredCapacity=instances!=null?instances.size():0
+        if(asg.useLb==1){
+          def getLoadBalancerListByGroupId=client.getLoadBalancerListByGroupId autoScalingGroupId
+          serverGroup.loadBlanders = getLoadBalancerListByGroupId.collect {
+            Map<String, Object> asp = objectMapper.convertValue it, ATTRIBUTES
+            return asp
+          }
+        }
+        /*if(i==32){
+          log.info("伸缩组数据处理第{}次！",i)
+        }*/
+        i++
+        serverGroupList.add(serverGroup)
+      }catch(Exception e){
+        log.error("伸缩组数据处理异常！e:{}",e)
+      }
     }
+    return serverGroupList
   }
 
 
