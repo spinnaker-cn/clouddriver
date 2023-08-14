@@ -15,6 +15,7 @@ configurations.all {
 }
 
 repositories {
+  maven { url "http://spinnaker.maven.cn:8000/repository/spinnaker-public/"}
   maven { url "https://adxsnapshots.azurewebsites.net" }
 }
 

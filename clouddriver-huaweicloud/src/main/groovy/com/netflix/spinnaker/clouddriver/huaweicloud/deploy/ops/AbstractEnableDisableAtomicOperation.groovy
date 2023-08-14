@@ -53,7 +53,8 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
         return null
       }
       if (inServiceInstanceIds.size() > 0) {
-        ecsClient.terminateInstances(inServiceInstanceIds)
+          client.batchRemoveInstanceFromServerGroup(asgId)
+//        ecsClient.terminateInstances(inServiceInstanceIds)
       }
     }
 

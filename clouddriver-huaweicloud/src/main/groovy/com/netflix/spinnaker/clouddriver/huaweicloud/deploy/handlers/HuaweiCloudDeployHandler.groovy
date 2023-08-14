@@ -1,5 +1,9 @@
 package com.netflix.spinnaker.clouddriver.huaweicloud.deploy.handlers
 
+import com.alibaba.fastjson2.JSONArray
+import com.alibaba.fastjson2.JSONObject
+import com.cloud.apigateway.sdk.utils.Client
+import com.cloud.apigateway.sdk.utils.Request
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
@@ -11,10 +15,17 @@ import com.netflix.spinnaker.clouddriver.huaweicloud.exception.HuaweiCloudOperat
 import com.netflix.spinnaker.clouddriver.huaweicloud.provider.view.HuaweiCloudClusterProvider
 import com.netflix.spinnaker.clouddriver.huaweicloud.client.HuaweiAutoScalingClient
 import com.netflix.spinnaker.clouddriver.huaweicloud.client.HuaweiCloudEyeClient
+import com.netflix.spinnaker.clouddriver.huaweicloud.util.HuaweiConfigUtil
 import groovy.util.logging.Slf4j
+import org.apache.http.HttpEntity
+import org.apache.http.client.methods.CloseableHttpResponse
+import org.apache.http.client.methods.HttpRequestBase
+import org.apache.http.impl.client.CloseableHttpClient
+import org.apache.http.impl.client.HttpClients
+import org.apache.http.util.EntityUtils
 import org.springframework.beans.factory.annotation.Autowired
+
 import org.springframework.stereotype.Component
-import groovy.time.TimeCategory
 
 /*
 curl -X POST \
@@ -100,6 +111,7 @@ class HuaweiCloudDeployHandler implements DeployHandler<HuaweiCloudDeployDescrip
       copyScalingPolicy(description, deploymentResult)
       copyNotification(description, deploymentResult)  // copy notification by the way
       copyLifeCycleHook(description, deploymentResult)
+      copySheduledTasks(description, deploymentResult)
     }
     return deploymentResult
   }
@@ -168,6 +180,7 @@ class HuaweiCloudDeployHandler implements DeployHandler<HuaweiCloudDeployDescrip
     String newAsgId = newAsg.getScalingGroupId()
 
     def hooks = autoScalingClient.getLifeCycleHook(sourceAsgId)
+
     for (hook in hooks) {
       try {
         autoScalingClient.createLifeCycleHook(newAsgId, hook)
@@ -227,6 +240,74 @@ class HuaweiCloudDeployHandler implements DeployHandler<HuaweiCloudDeployDescrip
         // something bad happened during creation, log the error and continue
         log.warn "create scaling policy error $e"
       }
+    }
+  }
+
+  private def copySheduledTasks(HuaweiCloudDeployDescription description, DeploymentResult deployResult) {
+    task.updateStatus BASE_PHASE, "Enter copySheduledTasks."
+
+    String sourceServerGroupName = description?.source?.serverGroupName
+    String sourceRegion = description?.source?.region
+    String accountName = description?.accountName
+    def sourceServerGroup = huaweicloudClusterProvider.getServerGroup(accountName, sourceRegion, sourceServerGroupName)
+
+    if (!sourceServerGroup) {
+      log.warn("description is $description")
+      log.warn("source server group not found, account $accountName, region $sourceRegion, source sg name $sourceServerGroupName")
+      return
+    }
+
+    String sourceAsgId = sourceServerGroup.asg.autoScalingGroupId
+
+    task.updateStatus BASE_PHASE, "Initializing copy sheduled tasks from $sourceAsgId."
+    CloseableHttpClient client = HttpClients.custom().build();
+    try {
+      Request request = new Request();
+      request.setKey(description.credentials.credentials.accessKeyId);
+      request.setSecret(description.credentials.credentials.accessSecretKey);
+      request.setMethod("GET");
+      def projectId = HuaweiConfigUtil.getProjectId(description.credentials.credentials.accessKeyId, sourceRegion)
+      def queryAsgUrl = "https://as.cn-north-4.myhuaweicloud.com/autoscaling-api/v1/$projectId/scaling-groups/$sourceAsgId/scheduled-tasks";
+      task.updateStatus BASE_PHASE, "Query task url: $queryAsgUrl"
+      request.setUrl(queryAsgUrl);
+      request.addHeader("Content-Type", "application/json");
+      HttpRequestBase sign = Client.sign(request);
+      CloseableHttpResponse response = client.execute(sign);
+      HttpEntity entity = response.getEntity();
+      String content = EntityUtils.toString(entity, "UTF-8");
+
+      def jsonObject = JSONObject.parseObject(content);
+      def scheduleds = (JSONArray) jsonObject.get("scheduled_tasks");
+      HuaweiAutoScalingClient autoScalingClient = new HuaweiAutoScalingClient(
+        description.credentials.credentials.accessKeyId,
+        description.credentials.credentials.accessSecretKey,
+        sourceRegion
+      )
+
+      String newServerGroupName = deployResult.serverGroupNameByRegion[sourceRegion]
+      def newAsg = autoScalingClient.getAutoScalingGroupsByName(newServerGroupName)[0]
+      String newAsgId = newAsg.getScalingGroupId()
+
+      request.setMethod("POST");
+      String postUrl = "https://as.cn-north-4.myhuaweicloud.com/autoscaling-api/v1/$projectId/scaling-groups/$newAsgId/scheduled-tasks";
+      task.updateStatus BASE_PHASE, "Create task url: $postUrl"
+      scheduleds.forEach({ scheduled ->
+        request.setBody(String.valueOf(scheduled));
+        try {
+          request.setUrl(postUrl);
+          HttpRequestBase postSign = Client.sign(request);
+          CloseableHttpResponse execute = client.execute(postSign);
+          String s = EntityUtils.toString(execute.getEntity());
+        } catch (Exception e) {
+          log.error("create scheduled task error asgId: $newAsg")
+          e.printStackTrace();
+        }
+      });
+    } catch (Exception e) {
+      log.error("create scheduled task error: $sourceAsgId")
+      e.printStackTrace();
+    } finally {
+      client.close()
     }
   }
 }
