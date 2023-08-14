@@ -594,12 +594,11 @@ class HuaweiAutoScalingClient {
     }
   }
 
-  void batchRemoveInstanceFromServerGroup(def asgId) {
+  void batchRemoveInstanceFromServerGroup(def asgId,def region) {
     def jsonBody = "{\"serverGroupId\":\"$asgId\"}";
     def accessKeyId = client?.hcClient?.credential?.getAt("ak") as String
     def secret = client?.hcClient?.credential?.getAt("sk") as String
     Request request = new Request();
-    def region = "cn-north-4";
     request.setKey(accessKeyId);
     request.setSecret(secret);
     request.setMethod("POST");
