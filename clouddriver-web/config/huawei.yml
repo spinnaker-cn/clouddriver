@@ -1,0 +1,6 @@
+huaweiExtConfig:
+  - accessKeyId: xxxxxxxx
+    projectId: xxxxxxxxx
+    account: xxxxxxxx
+    serverLessUrl: xxxxxxxx
+    region: cn-north-4

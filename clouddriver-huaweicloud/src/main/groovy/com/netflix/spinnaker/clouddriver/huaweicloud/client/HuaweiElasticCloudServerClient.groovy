@@ -106,7 +106,7 @@ class HuaweiElasticCloudServerClient {
           break
         }
         instanceAll.addAll(resp.getServers())
-        startNumber += DEFAULT_LIMIT
+        startNumber ++
       }
       return instanceAll
     } catch (ServiceResponseException e) {

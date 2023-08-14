@@ -1,4 +1,9 @@
 sourceSets.main.java.srcDirs = ['src/main/java']
+
+repositories {
+  maven { url "http://spinnaker.maven.cn:8000/repository/spinnaker-public/"}
+}
+
 dependencies {
   implementation project(":cats:cats-core")
   implementation project(":clouddriver-core")
@@ -30,7 +35,16 @@ dependencies {
   implementation "com.huaweicloud.sdk:huaweicloud-sdk-elb:3.0.36-rc"
   implementation "com.huaweicloud.sdk:huaweicloud-sdk-ims:3.0.29-beta"
   implementation "com.huaweicloud.sdk:huaweicloud-sdk-vpc:3.0.29-beta"
-
+  implementation 'com.alibaba.fastjson2:fastjson2:2.0.34'
+  implementation 'commons-codec:commons-codec:1.11'
+  implementation 'commons-logging:commons-logging:1.2'
+  implementation 'org.apache.httpcomponents:httpclient:4.5.13'
+  implementation 'org.apache.httpcomponents:httpcore:4.4.13'
+  implementation 'com.squareup.okhttp3:okhttp:3.14.9'
+  implementation 'com.squareup.okio:okio:1.17.2'
+  implementation 'com.huawei.apigateway:java-sdk-core:3.1.2'
+  implementation "org.yaml:snakeyaml"
+  
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit.jupiter:junit-jupiter"

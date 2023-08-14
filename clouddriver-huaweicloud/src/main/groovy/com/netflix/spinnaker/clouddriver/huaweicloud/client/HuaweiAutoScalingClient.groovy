@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.clouddriver.huaweicloud.client
 
+import com.cloud.apigateway.sdk.utils.Client
+import com.cloud.apigateway.sdk.utils.Request
 import com.netflix.spinnaker.clouddriver.huaweicloud.deploy.description.HuaweiCloudDeployDescription
 import com.netflix.spinnaker.clouddriver.huaweicloud.exception.ExceptionUtils
 import com.netflix.spinnaker.clouddriver.huaweicloud.exception.HuaweiCloudOperationException
@@ -10,9 +12,16 @@ import com.huaweicloud.sdk.core.http.HttpConfig
 import com.huaweicloud.sdk.core.region.Region
 import com.huaweicloud.sdk.as.v1.AsClient
 import com.huaweicloud.sdk.as.v1.model.*
+import com.netflix.spinnaker.clouddriver.huaweicloud.util.HuaweiConfigUtil
 import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum
 import groovy.util.logging.Slf4j
-import org.springframework.stereotype.Component
+import org.apache.http.HttpEntity
+import org.apache.http.client.methods.CloseableHttpResponse
+import org.apache.http.client.methods.HttpRequestBase
+import org.apache.http.impl.client.CloseableHttpClient
+import org.apache.http.impl.client.HttpClients
+import org.apache.http.util.EntityUtils
+
 
 @Slf4j
 class HuaweiAutoScalingClient {
@@ -585,4 +594,25 @@ class HuaweiAutoScalingClient {
     }
   }
 
+  void batchRemoveInstanceFromServerGroup(def asgId,def region) {
+    def jsonBody = "{\"serverGroupId\":\"$asgId\"}";
+    def accessKeyId = client?.hcClient?.credential?.getAt("ak") as String
+    def secret = client?.hcClient?.credential?.getAt("sk") as String
+    Request request = new Request();
+    request.setKey(accessKeyId);
+    request.setSecret(secret);
+    request.setMethod("POST");
+    def url = HuaweiConfigUtil.getAsServerLessUrl(accessKeyId,region)
+    request.setUrl(url);
+    request.setBody(jsonBody)
+    request.addHeader("Content-Type", "application/json");
+    HttpRequestBase sign = Client.sign(request);
+    CloseableHttpClient client = HttpClients.custom().build();
+    CloseableHttpResponse response = client.execute(sign);
+    if (response?.statusLine?.statusCode != 200){
+      HttpEntity entity = response.getEntity();
+      String content = EntityUtils.toString(entity, "UTF-8");
+      throw new HuaweiCloudOperationException(new String(content))
+    }
+  }
 }
