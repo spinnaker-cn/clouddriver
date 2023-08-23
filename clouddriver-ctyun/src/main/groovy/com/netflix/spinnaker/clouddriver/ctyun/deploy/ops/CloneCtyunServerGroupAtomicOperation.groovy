@@ -79,8 +79,8 @@ class CloneCtyunServerGroupAtomicOperation implements AtomicOperation<Deployment
 
     def sourceLaunchConfig = sourceServerGroup.launchConfig
     if (sourceLaunchConfig) {
-      //如果从界面输入配置相关信息，会有登录密码或者keyid相关信息，如果都没有就直接用现有服务configid创建新伸缩组
-      if(description.loginSettings==null|| StringUtils.isEmpty(description.loginSettings.password)|| StringUtils.isEmpty(description.loginSettings.keyIds)){
+      //如果从界面输入配置相关信息，会有keyid相关信息，如果都没有就直接用现有服务configid创建新伸缩组
+      if(description.loginSettings==null|| description.loginSettings.keyIds==null||StringUtils.isBlank(description.loginSettings.keyIds.toString())){
         newDescription.configId=sourceLaunchConfig.configID
         newDescription.securityGroupIds = description.securityGroupIds ?: sourceLaunchConfig.securityGroupList as List
       }else{
@@ -101,6 +101,18 @@ class CloneCtyunServerGroupAtomicOperation implements AtomicOperation<Deployment
         newDescription.instanceChargeType = description.instanceChargeType ?: sourceLaunchConfig.instanceChargeType
         newDescription.instanceMarketOptionsRequest = description.instanceMarketOptionsRequest ?: sourceLaunchConfig.instanceMarketOptionsRequest as Map
         newDescription.instanceTypesCheckPolicy = description.instanceTypesCheckPolicy ?: sourceLaunchConfig.instanceTypesCheckPolicy
+
+        if (description.instanceTags) {
+          newDescription.instanceTags = description.instanceTags
+        } else if (sourceLaunchConfig.tags) {
+          def cloneInstanceTags = []
+          for (tag in sourceLaunchConfig.tags) {
+            if (tag.key != CtyunAutoScalingClient.defaultServerGroupTagKey) {
+              cloneInstanceTags.add(tag)
+            }
+          }
+          newDescription.instanceTags = cloneInstanceTags
+        }
       }
     }
 

@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.clouddriver.ctyun.provider.agent
 
 import cn.ctyun.ctapi.scaling.grouplistinstance.GroupListInstance
+import cn.ctyun.ctapi.scaling.listlabel.LabelDTO
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult
@@ -39,12 +40,14 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
     Map<String, Map<String, CacheData>> namespaceCache = [:].withDefault {
       namespace -> [:].withDefault { id -> new MutableCacheData(id as String) }
     }
-
     CtyunAutoScalingClient asClient = new CtyunAutoScalingClient(
       credentials.credentials.accessKey,
       credentials.credentials.securityKey,
       region
     )
+    /*asClient.setAccountId(credentials.credentials.accountId)
+    asClient.setUserId(credentials.credentials.userId)*/
+
     CloudVirtualMachineClient cvmClient = new CloudVirtualMachineClient(
       credentials.credentials.accessKey,
       credentials.credentials.securityKey,
@@ -56,10 +59,16 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
     def asgInstanceIds = asgInstances.collect {
       it.instanceID
     }
+    //获取所有资源id，用来获取所有tags信息
+    /*def resourceIDs = groupNameList.collect {
+      it.resourceID
+    }*/
     log.info "loads ${asgInstanceIds.size()} auto scaling instances. "
 
     log.info "start load instances detail info."
     def result = cvmClient.getInstances asgInstanceIds
+    //def labels=null
+    def labels=asClient.getLabels asgInstanceIds
     /*
     backingup	备份中	restarting	重启中
     creating	创建中	running	运行中
@@ -91,7 +100,7 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
         launchTime: launchTime ? launchTime.time : 0,
         zone: it.azName,
         vpcId: it.vpcID,
-        subnetId: it.subnetIDList?:it.subnetIDList.get(0),
+        subnetId: (it.subnetIDList==null||it.subnetIDList.size()==0)?[]:it.subnetIDList.get(0),
         privateIpAddresses: (it.privateIP==null?[]:it.privateIP.split(",")),//it.fixedIPList,
         publicIpAddresses: it.floatingIP==null?[]:it.floatingIP.split(","),
         imageId: it.image?.imageID,
@@ -103,11 +112,20 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
         // launchConfigurationName is the same with autoScalingGroupName
       )
 
-      /*if (it.tags) {
-        it.tags.each { tag->
-          tencentInstance.tags.add(["key": tag.key, "value": tag.value])
+      if (labels) {
+        labels.each { tag ->
+          tag.getProdResourceIdList().each {dto ->
+            if(dto.baseResourceId==it.instanceID){
+              ctyunInstance.tags.add(["key": tag.key, "value": tag.value])
+            }
+          }
         }
-      }*/
+      }
+
+      /*测试用*/
+      /*ctyunInstance.tags.add(["key": "spinnaker:server-group-name", "value": serverGroupName])
+      ctyunInstance.tags.add(["key": "tag.key2", "value": "tag.value2"])
+      ctyunInstance.tags.add(["key": "tag.key3", "value": "tag.value3"])*/
 
       def instances = namespaceCache[INSTANCES.ns]
       def instanceKey = Keys.getInstanceKey it.instanceID, this.accountName, this.region

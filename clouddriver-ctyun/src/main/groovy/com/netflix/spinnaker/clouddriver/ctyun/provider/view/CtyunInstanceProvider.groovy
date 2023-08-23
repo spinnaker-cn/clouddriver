@@ -64,7 +64,7 @@ class CtyunInstanceProvider implements InstanceProvider<CtyunInstance, String> {
           CacheData loadBalancersData = cacheView.get LOAD_BALANCERS.ns, loadBalancerKey
           def listenerId = ''
           def locationId = ''
-          Map<String,Object> map=loadBalancersData.attributes.listeners.find {ss->
+          Map<String,Object> map=loadBalancersData?.attributes.listeners.find {ss->
             ss.targetGroupId==lbInfo.hostGroupID
           }
           if(map!=null&&map.get("listenerId")!=null&&String.valueOf(map.get("listenerId")).size()>0){
@@ -72,7 +72,7 @@ class CtyunInstanceProvider implements InstanceProvider<CtyunInstance, String> {
             locationId=lbInfo.hostGroupID
           }else {
             //查转发规则
-            Collection<Map> listeners = loadBalancersData.attributes.listeners.findAll { liss->
+            Collection<Map> listeners = loadBalancersData?.attributes.listeners.findAll { liss->
               liss.rules.size()>0
             }
             Map<String,Object> listenermap = listeners.find {li->

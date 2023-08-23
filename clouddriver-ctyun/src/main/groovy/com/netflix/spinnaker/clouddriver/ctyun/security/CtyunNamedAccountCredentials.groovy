@@ -35,11 +35,14 @@ class CtyunNamedAccountCredentials implements AccountCredentials<CtyunCredential
     String accessKey,
     String securityKey,
     List<String> regions,
+    /*String accountId,
+    String userId,*/
     String clouddriverUserAgentApplicationName
   ){
     this.name = name
     this.environment = environment
     this.accountType = accountType
+    //this.credentials = new CtyunCredentials(accessKey, securityKey,accountId,userId)
     this.credentials = new CtyunCredentials(accessKey, securityKey)
     this.regions = buildRegions(regions)
     NamerRegistry.lookup()

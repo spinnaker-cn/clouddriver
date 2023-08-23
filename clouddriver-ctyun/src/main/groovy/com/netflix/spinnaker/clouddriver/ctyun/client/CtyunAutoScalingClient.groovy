@@ -11,10 +11,14 @@ import cn.ctyun.ctapi.ctelb.deletetarget.DeleteTargetResponseData
 import cn.ctyun.ctapi.ctelb.listtarget.ListTargetRequest
 import cn.ctyun.ctapi.ctelb.listtarget.ListTargetResponseData
 import cn.ctyun.ctapi.scaling.ScalingClient
+import cn.ctyun.ctapi.scaling.configcreate.ConfigCreateRequest
+import cn.ctyun.ctapi.scaling.configcreate.ConfigCreateRequestBody
+import cn.ctyun.ctapi.scaling.configcreate.ConfigCreateResponseData
+import cn.ctyun.ctapi.scaling.configcreate.Tag
+import cn.ctyun.ctapi.scaling.configcreate.Volume
 import cn.ctyun.ctapi.scaling.configdelete.ConfigDeleteRequest
 import cn.ctyun.ctapi.scaling.configdelete.ConfigDeleteRequestBody
 import cn.ctyun.ctapi.scaling.configdelete.ConfigDeleteResponseData
-import cn.ctyun.ctapi.scaling.groupcreate.ConfigObj
 import cn.ctyun.ctapi.scaling.groupcreate.GroupCreateRequest
 import cn.ctyun.ctapi.scaling.groupcreate.GroupCreateRequestBody
 import cn.ctyun.ctapi.scaling.groupcreate.GroupCreateResponseData
@@ -58,6 +62,10 @@ import cn.ctyun.ctapi.scaling.instancemoveout.InstanceMoveOutResponseData
 import cn.ctyun.ctapi.scaling.instancemoveoutrelease.InstanceMoveOutReleaseRequest
 import cn.ctyun.ctapi.scaling.instancemoveoutrelease.InstanceMoveOutReleaseRequestBody
 import cn.ctyun.ctapi.scaling.instancemoveoutrelease.InstanceMoveOutReleaseResponseData
+import cn.ctyun.ctapi.scaling.listlabel.LabelDTO
+import cn.ctyun.ctapi.scaling.listlabel.ListLabelRequest
+import cn.ctyun.ctapi.scaling.listlabel.ListLabelRequestBody
+import cn.ctyun.ctapi.scaling.listlabel.ListLabelResponseData
 import cn.ctyun.ctapi.scaling.listloadbalancer.ListLoadBalancer
 import cn.ctyun.ctapi.scaling.listloadbalancer.ListLoadBalancerRequest
 import cn.ctyun.ctapi.scaling.listloadbalancer.ListLoadBalancerRequestBody
@@ -92,9 +100,6 @@ import cn.ctyun.ctapi.scaling.ruleupdate.RuleUpdateRequest
 import cn.ctyun.ctapi.scaling.ruleupdate.RuleUpdateRequestBody
 import cn.ctyun.ctapi.scaling.ruleupdate.RuleUpdateResponseData
 import cn.ctyun.ctapi.scaling.ruleupdate.TriggerInfo
-import cn.ctyun.ctapi.scaling.setInstancesProtection.SetInstancesProtectionBody
-import cn.ctyun.ctapi.scaling.setInstancesProtection.SetInstancesProtectionData
-import cn.ctyun.ctapi.scaling.setInstancesProtection.SetInstancesProtectionRequest
 import com.alibaba.fastjson.JSON
 import com.alibaba.fastjson.JSONObject
 import com.netflix.spinnaker.clouddriver.ctyun.deploy.description.CtyunDeployDescription
@@ -112,15 +117,20 @@ import java.util.stream.Collectors
 @Component
 @Slf4j
 class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
-
+  static String defaultServerGroupTagKey = "spinnaker:server-group-name"
   private ScalingClient client
+  private ScalingClient labelClient
   private CtelbClient clbClient // todo move to load balancer client ?
   private String regionId
+  /*private String accountId
+  private String userId*/
   private final String endingPointElb = "ctelb-global.ctapi.ctyun.cn"
+  private final String endingPointLabel = "bss-global.ctapi.ctyun.cn"
   @Override
   String getEndPoint() {
     return "scaling-global.ctapi.ctyun.cn"
   }
+
 
   CtyunAutoScalingClient(String accessKey, String securityKey, String regionId) {
     super(accessKey, securityKey)
@@ -129,8 +139,20 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
 
     client = new ScalingClient()
     client.init(cred, getEndPoint())
+
+    labelClient=new ScalingClient()
+    labelClient.init(cred,endingPointLabel)
+
     this.regionId = regionId
+
   }
+
+/*  void setAccountId(String accountId){
+    this.accountId=accountId
+  }
+  void setUserId(String userId){
+    this.userId=userId
+  }*/
 
   Integer deploy(CtyunDeployDescription description) {
     log.info("deploy--创建弹性伸缩组--start")
@@ -160,7 +182,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
   }
 
   //构建创建天翼云弹性伸缩请求体
-  private static def buildCtyunAutoScalingGroupRequest(CtyunDeployDescription description, String regionId) {
+  private def buildCtyunAutoScalingGroupRequest(CtyunDeployDescription description, String regionId) {
     //多可用区资源池的实例可用区及子网信息。mazInfo和subnetIDList 2个参数互斥，如果资源池为多可用区时使用mazInfo则不传subnetIDList 参数
     List<MazInfo> mazInfoList=null
     if(description.mazInfoList){
@@ -190,9 +212,9 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       }
     }
     //如果是没有页面进行的复制执行，天翼云要求的必要参数是有问题的，因此采用现有被复制源的伸缩配置id，进行创建
-    ConfigObj configObj =null
+    ConfigCreateRequestBody configObj =null
     if(description.configId==null){
-      List<Volumes> volumeList = new ArrayList<>()
+      List<Volume> volumeList = new ArrayList<>()
       if (description.systemDisk) {
         Volumes systemVolume = new Volumes()
         systemVolume.volumeSize = description.systemDisk.diskSize as Integer
@@ -209,18 +231,29 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
           dataVolume
         })
       }
+
+      List<Tag> tagList = new ArrayList<>()
+      if (description.instanceTags) {
+        tagList.addAll(description.instanceTags.collect {
+          Tag tag2 = new Tag()
+          tag2.key = it.key
+          tag2.value = it.value
+          tag2
+        })
+      }
       Integer useFloatings = description.internetAccessible.publicIpAssigned?2:1
       Integer loginMode = description.loginSettings.loginMode
       //2是按流量1是按带宽
       Integer billingMode=description.internetAccessible.internetChargeType
-      configObj=new ConfigObj().withName("c-"+description.serverGroupName)
+      configObj=new ConfigCreateRequestBody().withRegionID(regionId).withName("c-"+description.serverGroupName)
         .withSpecName(description.instanceType)
         .withImageID(description.imageId)
         .withUseFloatings(useFloatings)
         .withBillingMode(billingMode)
         .withBandWidth(description.internetAccessible.internetMaxBandwidthOut as Integer)
         .withLoginMode(loginMode)
-        .withVolumes(volumeList?.toArray(new Volumes[0]))
+        .withVolumes(volumeList)
+        .withTags(tagList)
       if (1 == loginMode) {
         configObj.withUsername(description.loginSettings.userName).withPassword(description.loginSettings.password)
       } else if(2 == loginMode){
@@ -230,6 +263,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       if(mazInfoList==null){
         configObj.withSecurityGroupIDList(description.securityGroupIds?.toArray(new String[0]))
       }
+      description.configId=this.createConfig(configObj)
     }else{
       log.info("buildCtyunAutoScalingGroupRequest 采用configId={}创建伸缩组",description.configId)
     }
@@ -245,7 +279,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       .withMaxCount(description.maxSize)
       .withExpectedCount(description.desiredCapacity)
       .withHealthPeriod(description.healthPeriod==null?300:description.healthPeriod)
-      .withConfigObj(configObj)
+      //.withConfigObj(configObj)
       //.withRuleList(ruleList)
       .withConfigID(description.configId)
     if (description.forwardLoadBalancers) {
@@ -261,6 +295,31 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     log.info("body={}",JSONObject.toJSONString(body))
     GroupCreateRequest request = new GroupCreateRequest().withBody(body)
     request
+  }
+
+  //创建配置信息
+  Integer createConfig(ConfigCreateRequestBody configObj) {
+    log.info("createConfig--resize弹性组--start--configObj--{}",JSONObject.toJSONString(configObj))
+    try {
+      ConfigCreateRequest request = new ConfigCreateRequest().withBody(configObj);
+      CTResponse<ConfigCreateResponseData> response= client.createConfig(request);
+      if (response.httpCode == 200 && response.getData() != null) {
+        ConfigCreateResponseData configCreateResponseData = response.getData()
+        if (configCreateResponseData.getStatusCode() == 800) {
+          log.info("createConfig--resize弹性组--成功--end--{}", JSONObject.toJSONString(configCreateResponseData.getReturnObj()))
+          return configCreateResponseData.getReturnObj().getId()
+        } else {
+          log.info("createConfig--resize弹性组--非800！错误码={}，错误信息={}",  configCreateResponseData.getErrorCode(), configCreateResponseData.getDescription())
+          throw new CtyunOperationException(configCreateResponseData.getDescription())
+        }
+      } else {
+        log.info("createConfig--resize弹性组--非200！{}",response)
+        throw new CtyunOperationException(response.getMessage())
+      }
+    } catch (Exception e) {
+      log.error("createConfig--resize弹性组--Exception",e)
+      throw new CtyunOperationException(e.toString())
+    }
   }
 
   //查询所有弹性伸缩组--缓存用
@@ -449,6 +508,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
             Map<String,String> groupMap=new HashMap()
             groupMap.put("groupName",scalingGroup.getName())
             groupMap.put("instanceID",groupListInstance.getInstanceID())
+            //groupMap.put("resourceID",groupListInstance.getResourceID())
             groupNameList.add(groupMap)
             allList.add(groupListInstance)
           }
@@ -489,8 +549,49 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     }
 
   }
+
+  //获取标签
+  List<LabelDTO> getLabels(List<String> asgInstanceIds) {
+    log.info("getLabels--标签--start asgInstanceIds={}",asgInstanceIds)
+    List<LabelDTO> labelAll = []
+    try {
+      def pageNumber=1;
+      def totalCount = DEFAULT_LIMIT
+      def getCount = DEFAULT_LIMIT
+      while(totalCount==getCount){
+        Map<String,Object> queryParam=new HashMap();
+        queryParam.put("pageNum",pageNumber);
+        queryParam.put("pageSize",DEFAULT_LIMIT);
+        ListLabelRequestBody body = new ListLabelRequestBody().withBaseResourceIds(asgInstanceIds);
+        ListLabelRequest request = new ListLabelRequest().withBody(body).withQueryParam(queryParam);
+        CTResponse<ListLabelResponseData> response = labelClient.listlabels(request);
+        if(response.httpCode==200&&response.getData()!=null){
+          ListLabelResponseData listLabelResponseData=response.getData()
+          if (listLabelResponseData.getList()!=null) {
+            if (listLabelResponseData.getList().size()>0) {
+              labelAll.addAll(listLabelResponseData.getList())
+            }
+            pageNumber++;
+            getCount = listLabelResponseData.getList().size();
+          } else {
+            log.info("getLabels--标签--无数据！listLabelResponseData.getList()={}", listLabelResponseData.getList())
+            break
+          }
+
+        }else{
+          log.info("getLabels--标签--非200！{}",response.getMessage())
+          //throw new CtyunOperationException(response.getMessage())
+        }
+      }
+      log.info("getLabels--标签--end,size={}",labelAll.size())
+      return labelAll
+    } catch (Exception e) {
+      log.error("getLabels--标签--Exception",e)
+      throw new CtyunOperationException(e.toString())
+    }
+  }
   //设置主机实例保护状态1保护2非保护
-  def setInstancesProtection(List<Integer> instanceIds,Integer groupId,Integer protectStatus) {
+  /*def setInstancesProtection(List<Integer> instanceIds,Integer groupId,Integer protectStatus) {
     log.info("setInstancesProtection--设置主机实例保护状态1保护2非保护--start--instanceIds={}",instanceIds)
     try {
       SetInstancesProtectionBody body = new SetInstancesProtectionBody().withRegionID(regionId).withGroupID(groupId).withProtectStatus(protectStatus).withInstanceIDList(instanceIds);
@@ -513,7 +614,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       log.error("setInstancesProtection--设置主机实例保护状态1保护2非保护--Exception",e)
       throw new CtyunOperationException(e.toString())
     }
-  }
+  }*/
   //获取伸缩组告警策略
   List<RuleInfo> getScalingPolicies(Integer asgId = null) {
     log.info("getScalingPolicies--获取伸缩组告警策略--start--asgId--{}",asgId)
