@@ -27,6 +27,8 @@ class CtyunCredentialsInitializer{
           managedAccount.accessKey,
           managedAccount.securityKey,
           managedAccount.regions,
+          /*managedAccount.accountId,
+          managedAccount.userId,*/
           clouddriverUserAgentApplicationName
         )
         CtyunAccounts << (accountCredentialsRepository.save(managedAccount.name, CtyunAccount)

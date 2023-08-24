@@ -125,7 +125,7 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
     }
   }
   //通过id获取实例
-  def getInstanceById(String instanceId){
+  /*def getInstanceById(String instanceId){
     log.info("getInstanceById--通过id获取实例--start--instanceId={}",instanceId)
     try {
         ListInstanceRequestBody requestBody = new ListInstanceRequestBody().withRegionID(regionId).withInstanceIDList(instanceId).withPageNo(1).withPageSize(1);
@@ -148,17 +148,32 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
       log.error("getInstanceById--通过id获取实例--Exception",e)
       throw new CtyunOperationException(e.toString())
     }
-  }
+  }*/
 //获取所有实例，如果有id列表，按照id列表获取
   def getInstances(List<String> instanceIds=[]) {
     log.info("getInstances--通过instanceIds获取实例--start--instanceIds={}",instanceIds)
+    if(instanceIds==null||instanceIds.size()==0){
+      log.info("getInstances--通过instanceIds获取实例--end--instanceIds={}",instanceIds)
+      return []
+    }
     List<ListInstance> instanceAll = []
     try {
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
-      while(totalCount==getCount){
-        ListInstanceRequestBody requestBody = new ListInstanceRequestBody().withRegionID(regionId).withInstanceIDList(instanceIds?.join(",")).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
+      //def pageNumber=1;
+      //def totalCount = DEFAULT_LIMIT
+      //def getCount = DEFAULT_LIMIT
+      int maxSize=10;//每批次最大值
+      int toIndex=maxSize;//截至数据序列号，list.subList截取数据是后用
+     /* while(totalCount==getCount){*/
+      for (int i = 0; i < instanceIds.size(); i += maxSize) {
+        if (i + maxSize > instanceIds.size()) {
+          // 如果下一个批次数据已经超出list范围，那就用数据总量-开始截取的序列号，获取最后数据量的序列号
+          toIndex = instanceIds.size();
+        }else{
+          toIndex=i + maxSize;
+        }
+        List newList = instanceIds.subList(i, toIndex);
+        ListInstanceRequestBody requestBody = new ListInstanceRequestBody().withRegionID(regionId).withInstanceIDList(newList?.join(","))//.withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
+
         ListInstanceRequest request = new ListInstanceRequest().withBody(requestBody);
         CTResponse<ListInstanceResponseData> response = scalingClient.listInstance(request);
         if(response.httpCode==200&&response.getData()!=null){
@@ -167,10 +182,10 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
             if(listInstanceResponseData.getReturnObj().getResults().size()>0){
               instanceAll.addAll(listInstanceResponseData.getReturnObj().getResults())
             }
-            pageNumber++;
-            getCount = listInstanceResponseData.getReturnObj().getResults().size();
+            //pageNumber++;
+            //getCount = listInstanceResponseData.getReturnObj().getResults().size();
           }else{
-            log.info("getInstances--通过instanceIds获取实例--非800！pageNum={},错误码={}，错误信息={}",(pageNumber-1),listInstanceResponseData.getErrorCode(),listInstanceResponseData.getMessage())
+            log.info("getInstances--通过instanceIds获取实例--非800！toIndex={},错误码={}，错误信息={}",toIndex,listInstanceResponseData.getErrorCode(),listInstanceResponseData.getMessage())
           }
         }else{
           log.info("getInstances--通过instanceIds获取实例--非200！{}",response.getMessage())

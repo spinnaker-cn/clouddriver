@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ctyun.provider.agent
 
+import cn.ctyun.ctapi.scaling.configcreate.Tag
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.Registry
@@ -254,31 +255,39 @@ class CtyunServerGroupCachingAgent extends AbstractCtyunCachingAgent implements 
 
         def getLaunchConfiguration=client.getLaunchConfiguration(it.configID,it.groupID)
         getLaunchConfiguration.setSecurityGroupList(Arrays.asList(it.getSecurityGroupIDList()))
+        /*测试用*/
+       /* List<Tag> tagList=new ArrayList<>()
+        Tag tag=new Tag()
+        tag.setKey("testKey")
+        tag.setValue("testValue")
+        tagList.add(tag)
+        Tag tag2=new Tag()
+        tag2.setKey("testKey2")
+        tag2.setValue("testValue2")
+        tagList.add(tag2)
+        getLaunchConfiguration.setTags(tagList)*/
+
         Map<String, Object> asc = objectMapper.convertValue getLaunchConfiguration, ATTRIBUTES
         serverGroup.launchConfig = asc
 
         //def keyIds=cvmClient.keyPairs
         //serverGroup.launchConfig.loginSettings.keyIds=
         List<Map<String, Object>> systemDisk=new ArrayList<>()
+        List<Map<String, Object>> dataDisks=new ArrayList<>()
         asc.volumes.each {ss->
           if(ss.flag==1){
             def lb = new HashMap()
             lb.diskSize = ss.volumeSize
             lb.diskType = ss.volumeType
             systemDisk.add(lb)
-          }
-        }
-        serverGroup.launchConfig.systemDisk = systemDisk[0]
-
-        List<Map<String, Object>> dataDisks=new ArrayList<>()
-        asc.volumes.each {ss->
-          if(ss.flag==2){
+          }else if(ss.flag==2){
             def lb = new HashMap()
             lb.diskSize = ss.volumeSize
             lb.diskType = ss.volumeType
             dataDisks.add(lb)
           }
         }
+        serverGroup.launchConfig.systemDisk = systemDisk[0]
         serverGroup.launchConfig.dataDisks=dataDisks
         List<Map<String,Object>> mazInfoList=new ArrayList<>()
         if(it.subnetList){

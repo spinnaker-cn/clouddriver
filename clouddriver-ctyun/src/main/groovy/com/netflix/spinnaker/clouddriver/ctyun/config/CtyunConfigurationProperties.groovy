@@ -13,6 +13,8 @@ class CtyunConfigurationProperties {
     String accessKey
     String securityKey
     List<String> regions
+  /*  String userId
+    String accountId*/
   }
 
   List<ManagedAccount> accounts = []
