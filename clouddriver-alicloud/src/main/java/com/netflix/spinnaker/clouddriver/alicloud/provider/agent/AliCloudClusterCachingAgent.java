@@ -25,9 +25,6 @@ import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.LO
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.SERVER_GROUPS;
 
 import com.aliyuncs.IAcsClient;
-import com.aliyuncs.ecs.model.v20140526.DescribeInstancesRequest;
-import com.aliyuncs.ecs.model.v20140526.DescribeInstancesResponse;
-import com.aliyuncs.ecs.model.v20140526.DescribeInstancesResponse.Instance;
 import com.aliyuncs.ecs.model.v20140526.DescribeSecurityGroupsRequest;
 import com.aliyuncs.ecs.model.v20140526.DescribeSecurityGroupsResponse;
 import com.aliyuncs.ecs.model.v20140526.DescribeSecurityGroupsResponse.SecurityGroup;
@@ -40,6 +37,7 @@ import com.aliyuncs.ess.model.v20140828.DescribeScalingGroupsResponse.ScalingGro
 import com.aliyuncs.ess.model.v20140828.DescribeScalingInstancesRequest;
 import com.aliyuncs.ess.model.v20140828.DescribeScalingInstancesResponse;
 import com.aliyuncs.ess.model.v20140828.DescribeScalingInstancesResponse.ScalingInstance;
+import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.slb.model.v20140515.DescribeLoadBalancerAttributeRequest;
 import com.aliyuncs.slb.model.v20140515.DescribeLoadBalancerAttributeResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -54,21 +52,16 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.alicloud.AliCloudProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.cache.Keys;
-import com.netflix.spinnaker.clouddriver.alicloud.exception.AliCloudException;
 import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.util.CollectionUtils;
 
 public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, OnDemandAgent {
@@ -101,176 +94,59 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    int pageNumber = 1;
-    int pageSize = 50;
-    DescribeScalingGroupsRequest describeScalingGroupsRequest = new DescribeScalingGroupsRequest();
-    DescribeScalingGroupsResponse describeScalingGroupsResponse;
-    CacheResult result = new DefaultCacheResult(new HashMap<>(16));
-    List<ScalingGroup> scalingGroups = new ArrayList<ScalingGroup>();
-    try {
-      while (true) {
-        describeScalingGroupsRequest.setPageSize(pageSize);
-        describeScalingGroupsRequest.setPageNumber(pageNumber);
-        logger.info(
-            "yejingtao bug log serverGroup loadData pageSize  pageNumber " + pageSize + pageNumber);
-        describeScalingGroupsResponse = client.getAcsResponse(describeScalingGroupsRequest);
-        if (!CollectionUtils.isEmpty(describeScalingGroupsResponse.getScalingGroups())) {
-          logger.info(
-              "yejingtao bug log serverGroup loadData describeScalingGroupsResponse "
-                  + describeScalingGroupsResponse.getScalingGroups().size());
-          pageNumber = pageNumber + 1;
-          scalingGroups.addAll(describeScalingGroupsResponse.getScalingGroups());
-          if (describeScalingGroupsResponse.getScalingGroups().size() < pageSize) {
-            break;
-          }
-        } else {
-          logger.info("yejingtao bug log serverGroup loadData break " + pageSize + pageNumber);
-          break;
-        }
-      }
-      logger.info(
-          "yejingtao bug log serverGroup loadData scalingGroups size " + scalingGroups.size());
-      result = buildCacheResult(scalingGroups, client);
-    } catch (Exception e) {
-      ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
-      logger.info(e.getMessage());
-      e.printStackTrace();
-    }
+    logger.info("loadData cluster starting...");
+    List<ScalingGroup> allScalingGroups = getAllScalingGroups();
+    Map<String, ScalingConfiguration> allScalingConfigurationMap = getAllScalingConfigurations();
+    Map<String, SecurityGroup> allSecurityGroups = getAllSecurityGroups();
+    Map<Object, List<DescribeLoadBalancerAttributeResponse>> allLoadBalances =
+        getAllLoadBalances(allScalingGroups);
+    Map<String, List<ScalingInstance>> allScalingInstances = getAllScalingInstances();
 
-    return result;
-  }
-
-  private CacheResult buildCacheResult(List<ScalingGroup> scalingGroups, IAcsClient client)
-      throws Exception {
     Map<String, Collection<CacheData>> resultMap = new HashMap<>(16);
-
     Map<String, CacheData> applicationCaches = new HashMap<>(16);
     Map<String, CacheData> clusterCaches = new HashMap<>(16);
     Map<String, CacheData> serverGroupCaches = new HashMap<>(16);
     Map<String, CacheData> loadBalancerCaches = new HashMap<>(16);
     Map<String, CacheData> launchConfigCaches = new HashMap<>(16);
     Map<String, CacheData> instanceCaches = new HashMap<>(16);
-    logger.info("yejingtao bug log buildCacheResult start ");
-
-    for (ScalingGroup sg : scalingGroups) {
-      try {
-        String activeScalingConfigurationId = sg.getActiveScalingConfigurationId();
-        String scalingGroupId = sg.getScalingGroupId();
-        DescribeScalingConfigurationsRequest scalingConfigurationsRequest =
-            new DescribeScalingConfigurationsRequest();
-        scalingConfigurationsRequest.setScalingGroupId(scalingGroupId);
-        scalingConfigurationsRequest.setScalingConfigurationId1(activeScalingConfigurationId);
-        DescribeScalingConfigurationsResponse scalingConfigurationsResponse =
-            client.getAcsResponse(scalingConfigurationsRequest);
-        List<ScalingConfiguration> scalingConfigurations =
-            scalingConfigurationsResponse.getScalingConfigurations();
-        String securityGroupName = "";
-        // get securityGroupName
-        if (scalingConfigurations.size() > 0) {
-          ScalingConfiguration scalingConfiguration = scalingConfigurations.get(0);
-          String securityGroupId = scalingConfiguration.getSecurityGroupId();
-          DescribeSecurityGroupsRequest securityGroupsRequest = new DescribeSecurityGroupsRequest();
-          securityGroupsRequest.setSecurityGroupId(securityGroupId);
-          DescribeSecurityGroupsResponse securityGroupsResponse =
-              client.getAcsResponse(securityGroupsRequest);
-          if (securityGroupsResponse.getSecurityGroups().size() > 0) {
-            SecurityGroup securityGroup = securityGroupsResponse.getSecurityGroups().get(0);
-            securityGroupName = securityGroup.getSecurityGroupName();
-          }
-        }
-
-        List<String> loadBalancerIds = sg.getLoadBalancerIds();
-        if (sg.getVServerGroups() != null) {
-          sg.getVServerGroups()
-              .forEach(
-                  vServerGroup -> {
-                    if (!loadBalancerIds.contains(vServerGroup.getLoadBalancerId())) {
-                      loadBalancerIds.add(vServerGroup.getLoadBalancerId());
-                    }
-                  });
-        }
-        List<DescribeLoadBalancerAttributeResponse> loadBalancerAttributes = new ArrayList<>();
-        for (String loadBalancerId : loadBalancerIds) {
-          try {
-            DescribeLoadBalancerAttributeRequest describeLoadBalancerAttributeRequest =
-                new DescribeLoadBalancerAttributeRequest();
-            describeLoadBalancerAttributeRequest.setLoadBalancerId(loadBalancerId);
-            DescribeLoadBalancerAttributeResponse describeLoadBalancerAttributeResponse =
-                client.getAcsResponse(describeLoadBalancerAttributeRequest);
-            loadBalancerAttributes.add(describeLoadBalancerAttributeResponse);
-          } catch (Exception e) {
-            String message = e.getMessage();
-            if (message.indexOf("InvalidLoadBalancerId.NotFound") == -1) {
-              ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
-              throw new IllegalStateException(e.getMessage());
-            } else {
-              ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
-              logger.error(loadBalancerId + " -> NotFound");
-            }
-          }
-        }
-
-        DescribeScalingInstancesRequest scalingInstancesRequest =
-            new DescribeScalingInstancesRequest();
-        scalingInstancesRequest.setScalingGroupId(scalingGroupId);
-        scalingInstancesRequest.setScalingConfigurationId(activeScalingConfigurationId);
-        int pageNumber = 1;
-        int pageSize = 50;
-        DescribeScalingInstancesResponse scalingInstancesResponse;
-        List<ScalingInstance> scalingInstances = new ArrayList<>();
-        while (true) {
-          scalingInstancesRequest.setPageNumber(pageNumber);
-          scalingInstancesRequest.setPageSize(pageSize);
-          scalingInstancesResponse = client.getAcsResponse(scalingInstancesRequest);
-          if (!CollectionUtils.isEmpty(scalingInstancesResponse.getScalingInstances())) {
-            pageNumber = pageNumber + 1;
-            for (ScalingInstance scalingInstance : scalingInstancesResponse.getScalingInstances()) {
-              if (scalingInstance.getInstanceId() != null) {
-                String instanceIds = "[\"" + scalingInstance.getInstanceId() + "\"]";
-                DescribeInstancesRequest request = new DescribeInstancesRequest();
-                request.setInstanceIds(instanceIds);
-                DescribeInstancesResponse acsResponse = client.getAcsResponse(request);
-                if (acsResponse.getInstances() != null && acsResponse.getInstances().size() > 0) {
-                  Instance instance = acsResponse.getInstances().get(0);
-                  String zoneId = instance.getZoneId();
-                  scalingInstance.setCreationType(zoneId);
-                }
-              }
-              scalingInstances.add(scalingInstance);
-            }
-            if (scalingInstancesResponse.getScalingInstances().size() < pageSize) {
-              break;
-            }
-          } else {
-            break;
-          }
-        }
-
-        SgData sgData =
-            new SgData(
-                sg,
-                account.getName(),
-                region,
-                new HashMap<String, String>(16),
-                scalingConfigurationsResponse,
-                loadBalancerAttributes,
-                scalingInstances,
-                securityGroupName);
-
-        cacheApplication(sgData, applicationCaches);
-        cacheCluster(sgData, clusterCaches);
-        cacheServerGroup(sgData, serverGroupCaches);
-        cacheLaunchConfig(sgData, launchConfigCaches);
-        cacheInstance(sgData, instanceCaches);
-        cacheLoadBalancer(sgData, loadBalancerCaches);
-      } catch (Exception e) {
-        AliCloudException error = new AliCloudException("describle_cluster_relation_error");
-        ExceptionUtils.registerMetric(error, AlarmLevelEnum.LEVEL_2);
-        e.printStackTrace();
-        logger.error("yejingtao bug log buildCacheResult error " + e.getMessage());
+    for (ScalingGroup sg : allScalingGroups) {
+      String scalingGroupId = sg.getScalingGroupId();
+      String activeScalingConfigurationId = sg.getActiveScalingConfigurationId();
+      ScalingConfiguration scalingConfiguration =
+          allScalingConfigurationMap.get(
+              String.join("-", scalingGroupId, activeScalingConfigurationId));
+      String securityGroupName = "";
+      if (scalingConfiguration != null) {
+        securityGroupName =
+            Optional.ofNullable(allSecurityGroups.get(scalingConfiguration.getSecurityGroupId()))
+                .map(SecurityGroup::getSecurityGroupName)
+                .orElse("");
       }
+      List<DescribeLoadBalancerAttributeResponse> loadBalancerAttributes =
+          allLoadBalances.getOrDefault(sg.getScalingGroupId(), new ArrayList<>());
+      List<ScalingInstance> scalingInstances =
+          allScalingInstances.getOrDefault(
+              String.join("-", scalingGroupId, activeScalingConfigurationId), new ArrayList<>());
+
+      SgData sgData =
+          new SgData(
+              sg,
+              account.getName(),
+              region,
+              new HashMap<>(16),
+              scalingConfiguration,
+              loadBalancerAttributes,
+              scalingInstances,
+              securityGroupName);
+
+      cacheApplication(sgData, applicationCaches);
+      cacheCluster(sgData, clusterCaches);
+      cacheServerGroup(sgData, serverGroupCaches);
+      cacheLaunchConfig(sgData, launchConfigCaches);
+      cacheInstance(sgData, instanceCaches);
+      cacheLoadBalancer(sgData, loadBalancerCaches);
     }
-    logger.info("yejingtao bug log buildCacheResult end ");
+
     resultMap.put(APPLICATIONS.ns, applicationCaches.values());
     resultMap.put(CLUSTERS.ns, clusterCaches.values());
     resultMap.put(SERVER_GROUPS.ns, serverGroupCaches.values());
@@ -291,6 +167,198 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
         loadBalancerCaches.size(),
         launchConfigCaches.size());
     return new DefaultCacheResult(resultMap);
+  }
+
+  private List<ScalingGroup> getAllScalingGroups() {
+    int pageNum = 1;
+    int pageSize = 50;
+    DescribeScalingGroupsRequest describeScalingGroupsRequest = new DescribeScalingGroupsRequest();
+    List<ScalingGroup> scalingGroupLists = new ArrayList<>();
+    while (true) {
+      logger.info("load asg pageNum:{}", pageNum);
+      try {
+        describeScalingGroupsRequest.setPageSize(pageSize);
+        describeScalingGroupsRequest.setPageNumber(pageNum);
+        DescribeScalingGroupsResponse acsResponse =
+            client.getAcsResponse(describeScalingGroupsRequest);
+        List<ScalingGroup> scalingGroupsLists =
+            Optional.ofNullable(acsResponse)
+                .map(DescribeScalingGroupsResponse::getScalingGroups)
+                .orElseGet(ArrayList::new);
+        if (scalingGroupsLists.size() > 0) {
+          scalingGroupLists.addAll(scalingGroupsLists);
+        }
+        if (scalingGroupsLists.size() < pageSize) {
+          break;
+        }
+        pageNum++;
+      } catch (Exception e) {
+        logger.error("load asg error:" + e.getMessage());
+        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
+      }
+    }
+    logger.info("load scalingGroups size:{}", scalingGroupLists.size());
+    return scalingGroupLists;
+  }
+
+  private Map<String, ScalingConfiguration> getAllScalingConfigurations() {
+    int pageNum = 1;
+    int pageSize = 50;
+    List<ScalingConfiguration> scalingConfigs = new ArrayList<>();
+    DescribeScalingConfigurationsRequest scalingConfigurationsRequest =
+        new DescribeScalingConfigurationsRequest();
+    while (true) {
+      scalingConfigurationsRequest.setPageNumber(pageNum);
+      scalingConfigurationsRequest.setPageSize(pageSize);
+      try {
+        DescribeScalingConfigurationsResponse acsResponse =
+            client.getAcsResponse(scalingConfigurationsRequest);
+        List<ScalingConfiguration> scalingConfigurations =
+            Optional.ofNullable(acsResponse)
+                .map(DescribeScalingConfigurationsResponse::getScalingConfigurations)
+                .orElseGet(ArrayList::new);
+        if (scalingConfigurations.size() > 0) {
+          scalingConfigs.addAll(scalingConfigurations);
+        }
+        if (scalingConfigurations.size() < pageSize) {
+          break;
+        }
+        pageNum++;
+      } catch (ClientException e) {
+        e.printStackTrace();
+      }
+    }
+    logger.info("load scalingConfigs size:{}", scalingConfigs.size());
+    return scalingConfigs.stream()
+        .filter(
+            sc -> StringUtils.isNoneBlank(sc.getScalingGroupId(), sc.getScalingConfigurationId()))
+        .collect(
+            Collectors.toMap(
+                sc -> String.join("-", sc.getScalingGroupId(), sc.getScalingConfigurationId()),
+                Function.identity(),
+                (v1, v2) -> v1));
+  }
+
+  private Map<String, SecurityGroup> getAllSecurityGroups() {
+    int pageNum = 1;
+    int pageSize = 50;
+    List<SecurityGroup> securityGroupLists = new ArrayList<>();
+    DescribeSecurityGroupsRequest securityGroupsRequest = new DescribeSecurityGroupsRequest();
+    while (true) {
+      securityGroupsRequest.setPageNumber(pageNum);
+      securityGroupsRequest.setPageSize(pageSize);
+      try {
+        DescribeSecurityGroupsResponse securityGroupsResponse =
+            client.getAcsResponse(securityGroupsRequest);
+        List<SecurityGroup> securityGroups =
+            Optional.ofNullable(securityGroupsResponse)
+                .map(DescribeSecurityGroupsResponse::getSecurityGroups)
+                .orElseGet(ArrayList::new);
+        if (securityGroups.size() > 0) {
+          securityGroupLists.addAll(securityGroups);
+        }
+        if (securityGroups.size() < pageSize) {
+          break;
+        }
+        pageNum++;
+      } catch (ClientException e) {
+        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
+      }
+    }
+    logger.info("load securityGroups size:{}", securityGroupLists.size());
+    return securityGroupLists.stream()
+        .collect(
+            Collectors.toMap(
+                SecurityGroup::getSecurityGroupId, Function.identity(), (v1, v2) -> v1));
+  }
+
+  private Map<Object, List<DescribeLoadBalancerAttributeResponse>> getAllLoadBalances(
+      List<ScalingGroup> scalingGroups) {
+    if (CollectionUtils.isEmpty(scalingGroups)) {
+      return Collections.emptyMap();
+    }
+    Map<Object, List<DescribeLoadBalancerAttributeResponse>> loadBalancerAttributeMap =
+        new HashMap<>();
+    for (ScalingGroup sg : scalingGroups) {
+      List<String> lbIds = new ArrayList<>();
+      List<String> loadBalancerIds = sg.getLoadBalancerIds();
+      if (!CollectionUtils.isEmpty(loadBalancerIds)) {
+        lbIds.addAll(loadBalancerIds);
+      }
+      Optional.ofNullable(sg.getVServerGroups())
+          .ifPresent(
+              vsgs -> {
+                List<String> vsgLBIds =
+                    vsgs.stream()
+                        .map(ScalingGroup.VServerGroup::getLoadBalancerId)
+                        .collect(Collectors.toList());
+                if (!CollectionUtils.isEmpty(vsgLBIds)) {
+                  lbIds.addAll(vsgLBIds);
+                }
+              });
+      if (!CollectionUtils.isEmpty(loadBalancerIds)) {
+        lbIds.addAll(loadBalancerIds);
+      }
+      List<DescribeLoadBalancerAttributeResponse> lbAttributes = new ArrayList<>();
+      for (String lbId : lbIds) {
+        try {
+          DescribeLoadBalancerAttributeRequest describeLoadBalancerAttributeRequest =
+              new DescribeLoadBalancerAttributeRequest();
+          describeLoadBalancerAttributeRequest.setLoadBalancerId(lbId);
+          DescribeLoadBalancerAttributeResponse describeLoadBalancerAttributeResponse =
+              client.getAcsResponse(describeLoadBalancerAttributeRequest);
+          lbAttributes.add(describeLoadBalancerAttributeResponse);
+        } catch (Exception e) {
+          String message = e.getMessage();
+          if (message.indexOf("InvalidLoadBalancerId.NotFound") == -1) {
+            ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_1);
+            throw new IllegalStateException(e.getMessage());
+          } else {
+            ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
+            logger.error(lbId + " -> NotFound");
+          }
+        }
+      }
+      loadBalancerAttributeMap.put(sg.getScalingGroupId(), lbAttributes);
+    }
+
+    logger.info("load loadBalancer attribute size:{}", loadBalancerAttributeMap.size());
+    return loadBalancerAttributeMap;
+  }
+
+  private Map<String, List<ScalingInstance>> getAllScalingInstances() {
+    int pageNum = 1;
+    int pageSize = 50;
+    List<ScalingInstance> scalingInstanceLists = new ArrayList<>();
+    DescribeScalingInstancesRequest scalingInstancesRequest = new DescribeScalingInstancesRequest();
+    while (true) {
+      try {
+        scalingInstancesRequest.setPageNumber(pageNum);
+        scalingInstancesRequest.setPageSize(pageSize);
+        DescribeScalingInstancesResponse acsResponse =
+            client.getAcsResponse(scalingInstancesRequest);
+        List<ScalingInstance> scalingInstances =
+            Optional.ofNullable(acsResponse)
+                .map(DescribeScalingInstancesResponse::getScalingInstances)
+                .orElseGet(ArrayList::new);
+        if (scalingInstances.size() > 0) {
+          scalingInstanceLists.addAll(scalingInstances);
+        }
+        if (scalingInstances.size() < pageSize) {
+          break;
+        }
+        pageNum++;
+      } catch (ClientException e) {
+        e.printStackTrace();
+      }
+    }
+    logger.info("load scalingInstances size:{}", scalingInstanceLists.size());
+    return scalingInstanceLists.stream()
+        .filter(
+            si -> StringUtils.isNoneBlank(si.getScalingGroupId(), si.getScalingConfigurationId()))
+        .collect(
+            Collectors.groupingBy(
+                si -> String.join("-", si.getScalingGroupId(), si.getScalingConfigurationId())));
   }
 
   private void cacheLoadBalancer(SgData data, Map<String, CacheData> loadBalancerCaches) {
@@ -457,15 +525,9 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
     attributes.put("scalingGroup", data.sg);
     attributes.put("region", region);
     attributes.put("name", data.sg.getScalingGroupName());
-    if (data.scalingConfigurationsResponse.getScalingConfigurations().size() > 0) {
-      attributes.put(
-          "launchConfigName",
-          data.scalingConfigurationsResponse
-              .getScalingConfigurations()
-              .get(0)
-              .getScalingConfigurationName());
-      ScalingConfiguration scalingConfiguration =
-          data.scalingConfigurationsResponse.getScalingConfigurations().get(0);
+    if (data.scalingConfiguration != null) {
+      attributes.put("launchConfigName", data.scalingConfiguration.getScalingConfigurationName());
+      ScalingConfiguration scalingConfiguration = data.scalingConfiguration;
       Map<String, Object> map = objectMapper.convertValue(scalingConfiguration, Map.class);
       map.put("securityGroupName", data.securityGroupName);
       attributes.put("scalingConfiguration", map);
@@ -507,7 +569,7 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
 
   private static class SgData {
     final ScalingGroup sg;
-    final DescribeScalingConfigurationsResponse scalingConfigurationsResponse;
+    final ScalingConfiguration scalingConfiguration;
     final List<ScalingInstance> scalingInstances;
     final List<DescribeLoadBalancerAttributeResponse> loadBalancerAttributes;
     final Names name;
@@ -524,13 +586,13 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
         String account,
         String region,
         Map<String, String> subnetMap,
-        DescribeScalingConfigurationsResponse scalingConfigurationsResponse,
+        ScalingConfiguration scalingConfiguration,
         List<DescribeLoadBalancerAttributeResponse> loadBalancerAttributes,
         List<ScalingInstance> scalingInstances,
         String securityGroupName) {
 
       this.sg = sg;
-      this.scalingConfigurationsResponse = scalingConfigurationsResponse;
+      this.scalingConfiguration = scalingConfiguration;
       this.scalingInstances = scalingInstances;
       this.loadBalancerAttributes = loadBalancerAttributes;
       name = Names.parseName(sg.getScalingGroupName());
@@ -538,13 +600,17 @@ public class AliCloudClusterCachingAgent implements CachingAgent, AccountAware, 
       cluster = Keys.getClusterKey(name.getCluster(), name.getApp(), account);
       serverGroup = Keys.getServerGroupKey(sg.getScalingGroupName(), account, region);
       launchConfig = Keys.getLaunchConfigKey(sg.getScalingGroupName(), account, region);
-      for (DescribeLoadBalancerAttributeResponse loadBalancerAttribute : loadBalancerAttributes) {
-        loadBalancerNames.add(
-            Keys.getLoadBalancerKey(
-                loadBalancerAttribute.getLoadBalancerName(), account, region, null));
+      if (!CollectionUtils.isEmpty(loadBalancerAttributes)) {
+        for (DescribeLoadBalancerAttributeResponse loadBalancerAttribute : loadBalancerAttributes) {
+          loadBalancerNames.add(
+              Keys.getLoadBalancerKey(
+                  loadBalancerAttribute.getLoadBalancerName(), account, region, null));
+        }
       }
-      for (ScalingInstance scalingInstance : scalingInstances) {
-        instanceIds.add(Keys.getInstanceKey(scalingInstance.getInstanceId(), account, region));
+      if (!CollectionUtils.isEmpty(scalingInstances)) {
+        for (ScalingInstance scalingInstance : scalingInstances) {
+          instanceIds.add(Keys.getInstanceKey(scalingInstance.getInstanceId(), account, region));
+        }
       }
       this.securityGroupName = securityGroupName;
     }
