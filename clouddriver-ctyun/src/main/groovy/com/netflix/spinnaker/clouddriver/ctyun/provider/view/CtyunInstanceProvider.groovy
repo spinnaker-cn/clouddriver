@@ -77,7 +77,7 @@ class CtyunInstanceProvider implements InstanceProvider<CtyunInstance, String> {
             }
             Map<String,Object> listenermap = listeners.find {li->
               def ru = li.rules.find{rule->
-                rule.ruleTargetGroupId == it.hostGroupID
+                rule.ruleTargetGroupId == lbInfo.hostGroupID
               }
               if(ru!=null&&ru.get("locationId")!=null && String.valueOf(ru.get("locationId")).size()>0){
                 listenerId=li.listenerId

@@ -115,7 +115,7 @@ class CtyunLoadBalancerInstanceStateCachingAgent implements CachingAgent, Health
             def targetId1 = instanceHealth1.targetId
             def instanceId1 = instanceHealth1.instanceId
             def healthStatus1 = false
-            if("active".equals(instanceHealth1.healthCheckStatus)){
+            if("online".equals(instanceHealth1.healthCheckStatus)){
               healthStatus1 = true
             }
             def port1 = instanceHealth1.port
@@ -139,7 +139,7 @@ class CtyunLoadBalancerInstanceStateCachingAgent implements CachingAgent, Health
                 def targetId = instanceHealth.targetId
                 def instanceId = instanceHealth.instanceId
                 def healthStatus = false
-                if("active".equals(instanceHealth.healthCheckStatus)){
+                if("online".equals(instanceHealth.healthCheckStatus)){
                   healthStatus = true
                 }
                 def port = instanceHealth.port
