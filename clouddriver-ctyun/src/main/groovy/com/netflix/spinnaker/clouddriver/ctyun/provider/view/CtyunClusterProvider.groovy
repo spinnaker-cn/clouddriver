@@ -161,7 +161,7 @@ class CtyunClusterProvider implements ClusterProvider<CtyunCluster> {
                 return true
               }
             }
-            listenermap.remove("rules");
+            listenermap?.remove("rules");
             it.put("listener",listenermap)
           }
         }
