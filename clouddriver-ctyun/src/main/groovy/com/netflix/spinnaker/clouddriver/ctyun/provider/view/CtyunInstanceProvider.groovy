@@ -64,25 +64,27 @@ class CtyunInstanceProvider implements InstanceProvider<CtyunInstance, String> {
           CacheData loadBalancersData = cacheView.get LOAD_BALANCERS.ns, loadBalancerKey
           def listenerId = ''
           def locationId = ''
-          Map<String,Object> map=loadBalancersData?.attributes.listeners.find {ss->
-            ss.targetGroupId==lbInfo.hostGroupID
-          }
-          if(map!=null&&map.get("listenerId")!=null&&String.valueOf(map.get("listenerId")).size()>0){
-            listenerId=map.get("listenerId")
-            locationId=lbInfo.hostGroupID
-          }else {
-            //查转发规则
-            Collection<Map> listeners = loadBalancersData?.attributes.listeners.findAll { liss->
-              liss.rules.size()>0
+          if(loadBalancersData!=null) {
+            Map<String, Object> map = loadBalancersData?.attributes.listeners.find { ss ->
+              ss.targetGroupId == lbInfo.hostGroupID
             }
-            Map<String,Object> listenermap = listeners.find {li->
-              def ru = li.rules.find{rule->
-                rule.ruleTargetGroupId == it.hostGroupID
+            if (map != null && map.get("listenerId") != null && String.valueOf(map.get("listenerId")).size() > 0) {
+              listenerId = map.get("listenerId")
+              locationId = lbInfo.hostGroupID
+            } else {
+              //查转发规则
+              Collection<Map> listeners = loadBalancersData?.attributes.listeners.findAll { liss ->
+                liss.rules.size() > 0
               }
-              if(ru!=null&&ru.get("locationId")!=null && String.valueOf(ru.get("locationId")).size()>0){
-                listenerId=li.listenerId
-                locationId=ru.get("locationId")
-                return true
+              Map<String, Object> listenermap = listeners.find { li ->
+                def ru = li.rules.find { rule ->
+                  rule.ruleTargetGroupId == lbInfo.hostGroupID
+                }
+                if (ru != null && ru.get("locationId") != null && String.valueOf(ru.get("locationId")).size() > 0) {
+                  listenerId = li.listenerId
+                  locationId = ru.get("locationId")
+                  return true
+                }
               }
             }
           }

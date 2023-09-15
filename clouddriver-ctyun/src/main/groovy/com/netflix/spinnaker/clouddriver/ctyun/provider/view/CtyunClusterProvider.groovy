@@ -140,7 +140,7 @@ class CtyunClusterProvider implements ClusterProvider<CtyunCluster> {
       serverGroup.loadBlanders.each {
         String loadBalancerKey = Keys.getLoadBalancerKey it.lbID, account, region
         CacheData loadBalancersData = cacheView.get LOAD_BALANCERS.ns, loadBalancerKey
-        if(serverGroup.loadBlanders?.size()>0){
+        if(loadBalancersData!=null){
           Map<String,Object> map=loadBalancersData.attributes.listeners.find {ss->
             ss.targetGroupId==it.hostGroupID
           }
@@ -161,7 +161,7 @@ class CtyunClusterProvider implements ClusterProvider<CtyunCluster> {
                 return true
               }
             }
-            listenermap.remove("rules");
+            listenermap?.remove("rules");
             it.put("listener",listenermap)
           }
         }
