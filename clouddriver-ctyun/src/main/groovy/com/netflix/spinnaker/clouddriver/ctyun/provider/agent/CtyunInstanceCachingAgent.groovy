@@ -45,8 +45,6 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
       credentials.credentials.securityKey,
       region
     )
-    /*asClient.setAccountId(credentials.credentials.accountId)
-    asClient.setUserId(credentials.credentials.userId)*/
 
     CloudVirtualMachineClient cvmClient = new CloudVirtualMachineClient(
       credentials.credentials.accessKey,
@@ -60,9 +58,7 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
       it.instanceID
     }
     //获取所有资源id，用来获取所有tags信息
-    /*def resourceIDs = groupNameList.collect {
-      it.resourceID
-    }*/
+
     log.info "loads ${asgInstanceIds.size()} auto scaling instances. "
 
     log.info "start load instances detail info."
@@ -81,9 +77,7 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
     def i=0
     result.each {
       def launchTime = CloudVirtualMachineClient.ConvertIsoDateTime it.createdTime
-      /*def launchConfigurationName = asgInstances.find { asgIns ->
-        asgIns.instanceID == it.instanceID
-      }?.configName*/
+
       def securityGroupIds=it.secGroupList.collect({ sss -> sss.securityGroupID })
       def serverGroupName=groupNameList.find { group ->
         group.instanceID == it.instanceID
@@ -121,11 +115,6 @@ class CtyunInstanceCachingAgent extends AbstractCtyunCachingAgent {
           }
         }
       }
-
-      /*测试用*/
-      /*ctyunInstance.tags.add(["key": "spinnaker:server-group-name", "value": serverGroupName])
-      ctyunInstance.tags.add(["key": "tag.key2", "value": "tag.value2"])
-      ctyunInstance.tags.add(["key": "tag.key3", "value": "tag.value3"])*/
 
       def instances = namespaceCache[INSTANCES.ns]
       def instanceKey = Keys.getInstanceKey it.instanceID, this.accountName, this.region
