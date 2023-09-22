@@ -104,34 +104,6 @@ class CtyunLoadBalancerClient {
     loadBalancerAll
   }
 
-  List<ReturnObj> getLoadBalancerByName(String name) {
-    List<ReturnObj> loadBalancerAll = []
-    try{
-      ListLoadbalancerRequest request = new ListLoadbalancerRequest()
-        .withRegionID(regionId).withName(name);
-      CTResponse<ListLoadbalancerResponseData> response = client.listLoadbalancer(request);
-      if(response.httpCode==200&&response.getData()!=null){
-        ListLoadbalancerResponseData listLoadbalancerResponseData=response.getData()
-        if(listLoadbalancerResponseData.getStatusCode()==800){
-          if(listLoadbalancerResponseData.getReturnObj().size()>0){
-            loadBalancerAll.addAll(listLoadbalancerResponseData.getReturnObj())
-          }
-        }else{
-          log.error("查询负载均衡异常！错误码={}，错误信息={}",listLoadbalancerResponseData.getErrorCode(),listLoadbalancerResponseData.getMessage())
-          throw new CtyunOperationException(listLoadbalancerResponseData.getMessage())
-        }
-      }else{
-        log.error("负载均衡列表查询接口异常！错误信息={}",response.getMessage())
-        throw new CtyunOperationException(response.getMessage())
-      }
-
-      return loadBalancerAll
-    } catch (CtyunOperationException e) {
-      log.error(e);
-      throw new CtyunOperationException(e.toString())
-    }
-  }
-
   List<ReturnObj> getLoadBalancerById(String id) {
     List<ReturnObj> loadBalancerAll = []
     try{
@@ -210,27 +182,6 @@ class CtyunLoadBalancerClient {
     }
   }
 
-  /*String deleteLoadBalancerByIds(String[] loadBalancerIds) {
-    try{
-      DeleteLoadBalancerRequest req = new DeleteLoadBalancerRequest();
-      req.setLoadBalancerIds(loadBalancerIds)
-      DeleteLoadBalancerResponse resp = client.DeleteLoadBalancer(req);
-
-      //DescribeTaskStatus is success
-      for (def i = 0; i < MAX_TRY_COUNT; i++) {
-        Thread.sleep(REQ_TRY_INTERVAL)
-        DescribeTaskStatusRequest statusReq = new  DescribeTaskStatusRequest()
-        statusReq.setTaskId(resp.getRequestId())
-        DescribeTaskStatusResponse  statusResp = client.DescribeTaskStatus(statusReq)
-        if (statusResp.getStatus() == 0) {   //task success
-          return "success"
-        }
-      }
-    } catch (TencentCloudSDKException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-  }*/
-
   String deleteLoadBalancerByIds(String loadBalancerIds) {
     String result;
     try{
@@ -288,16 +239,6 @@ class CtyunLoadBalancerClient {
     }
   }
 
-  /*List<Listener> getLBListenerById(String listenerId) {
-    try{
-      DescribeListenersRequest req = new DescribeListenersRequest();
-      req.setLoadBalancerId(listenerId)
-      DescribeListenersResponse resp = client.DescribeListeners(req);
-      return resp.getListeners()
-    } catch (TencentCloudSDKException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-  }*/
 
   List<cn.ctyun.ctapi.ctelb.listrule.ReturnObj> getAllRule(String loadBalancerId) {
     List<cn.ctyun.ctapi.ctelb.listrule.ReturnObj> ruleAll = []
@@ -756,35 +697,6 @@ class CtyunLoadBalancerClient {
     return ""
   }
 
-  String registerTarget7Layer(String loadBalancerId, String listenerId, String domain, String url, List<CtyunLoadBalancerTarget> targets) {
-    try{
-      RegisterTargetsRequest req = new RegisterTargetsRequest();
-      req.setLoadBalancerId(loadBalancerId)
-      req.setListenerId(listenerId)
-      req.setDomain(domain)
-      req.setUrl(url)
-      req.targets = targets.collect {
-        return new Target(instanceId:it.instanceId, port:it.port, type:it.type, weight:it.weight)
-      }
-      RegisterTargetsResponse resp = client.RegisterTargets(req);
-
-      //DescribeTaskStatus task is success
-      def maxTryCount = targets.size()
-      for (def i = 0; i < maxTryCount; i++) {
-        Thread.sleep(REQ_TRY_INTERVAL)
-        DescribeTaskStatusRequest statusReq = new  DescribeTaskStatusRequest()
-        statusReq.setTaskId(resp.getRequestId())
-        DescribeTaskStatusResponse  statusResp = client.DescribeTaskStatus(statusReq)
-        if (statusResp.getStatus() == 0) {   //task success
-          return "success"
-        }
-      }
-    } catch (TencentCloudSDKException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-    return ""
-  }
-
   String registerTarget7Layer(String loadBalancerId, String listenerId, String locationId, List<CtyunLoadBalancerTarget> targets) {
     try{
       RegisterTargetsRequest req = new RegisterTargetsRequest();
@@ -928,91 +840,4 @@ class CtyunLoadBalancerClient {
       throw new CtyunOperationException(e)
     }
   }
-
-//  0522new targetGroupID
-  List<cn.ctyun.ctapi.ctelb.listtarget.ReturnObj> getLBTargetList(String targetGroupID) {
-    List<cn.ctyun.ctapi.ctelb.listtarget.ReturnObj> listTargetAll = []
-    try {
-      ListTargetRequest request = new ListTargetRequest()
-        .withTargetGroupID(targetGroupID)
-        .withRegionID(regionId);
-      CTResponse<ListTargetResponseData> response = client.listTarget(request);
-
-      if(response.httpCode==200&&response.getData()!=null){
-        ListTargetResponseData listTargetResponseData=response.getData()
-        if(listTargetResponseData.getStatusCode()==800){
-          if(listTargetResponseData.getReturnObj().size()>0){
-            listTargetAll.addAll(listTargetResponseData.getReturnObj())
-          }
-        }else{
-          log.error("查询后端服务列表报错！错误码={}，错误信息={}",listTargetResponseData.getErrorCode(),listTargetResponseData.getMessage())
-          throw new CtyunOperationException(listTargetResponseData.getMessage())
-        }
-      }else{
-        log.error("查询后端服务列表接口异常！错误信息={}",response.getMessage())
-        throw new CtyunOperationException(response.getMessage())
-      }
-
-      return listTargetAll
-    } catch (CtyunOperationException e) {
-      throw new CtyunOperationException(e)
-    }
-  }
-
-  List<ListenerBackend> getLBTargetList(String loadBalancerId, List<String> listenerIds) {
-    try {
-      DescribeTargetsRequest req = new DescribeTargetsRequest();
-      req.setLoadBalancerId(loadBalancerId)
-      req.listenerIds = listenerIds.collect {
-        return new String(it)
-      }
-      DescribeTargetsResponse resp = client.DescribeTargets(req);
-      return resp.getListeners()
-    } catch (CtyunOperationException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-  }
-
-  String setLBSecurityGroups(String loadBalancerId, List<String> securityGroups) {
-    try {
-      SetLoadBalancerSecurityGroupsRequest req = new SetLoadBalancerSecurityGroupsRequest()
-      req.setLoadBalancerId(loadBalancerId)
-      req.securityGroups = securityGroups.collect {
-        return new String(it)
-      }
-      SetLoadBalancerSecurityGroupsResponse resp = client.SetLoadBalancerSecurityGroups(req)
-      return "success"
-    } catch (TencentCloudSDKException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-  }
-
-  /*List<LoadBalancerHealth> getLBTargetHealth(List<String> loadBalancerIds) {
-    def loadBalancerHealths = []
-    try {
-      *//*DescribeTargetHealthRequest req = new DescribeTargetHealthRequest()
-      def totalCount = loadBalancerIds.size()
-      def reqCount = totalCount
-      def startIndex = 0
-      def endIndex = DESCRIBE_TARGET_HEALTH_LIMIT
-      while(reqCount > 0) {
-        if (endIndex > totalCount) {
-          endIndex = totalCount
-        }
-        def batchIds = loadBalancerIds[startIndex..(endIndex-1)]
-        req.loadBalancerIds = batchIds.collect {
-          return new String(it)
-        }
-        DescribeTargetHealthResponse resp = client.DescribeTargetHealth(req)
-        loadBalancerHealths.addAll(resp.getLoadBalancers())
-        reqCount -= DESCRIBE_TARGET_HEALTH_LIMIT
-        startIndex += DESCRIBE_TARGET_HEALTH_LIMIT
-        endIndex = startIndex + DESCRIBE_TARGET_HEALTH_LIMIT
-      }*//*
-      return loadBalancerHealths
-    } catch (TencentCloudSDKException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-  }*/
-
 }

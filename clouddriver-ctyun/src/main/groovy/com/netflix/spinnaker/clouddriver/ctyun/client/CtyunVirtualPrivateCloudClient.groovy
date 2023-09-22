@@ -48,7 +48,6 @@ import org.springframework.stereotype.Component
 @Slf4j
 class CtyunVirtualPrivateCloudClient {
   private final DEFAULT_LIMIT = 50
-  //private final String DEFAULT_LIMIT_STR = 50
   private Credential cred
   CtvpcClient client
   private final String endingPoint = "ctvpc-global.ctapi.ctyun.cn"
@@ -68,23 +67,31 @@ class CtyunVirtualPrivateCloudClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        ListSecurityGroupRequest request = new ListSecurityGroupRequest().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
-        CTResponse<ListSecurityGroupResponseData> response = client.listSecurityGroup(request);
-        if(response.httpCode==200&&response.getData()!=null){
-          ListSecurityGroupResponseData listSecurityGroupResponseData=response.getData()
-          if(listSecurityGroupResponseData.getStatusCode()==800){
-            if(listSecurityGroupResponseData.getReturnObj().getSecurityGroups().size()>0){
-              securityGroupAll.addAll(listSecurityGroupResponseData.getReturnObj().getSecurityGroups())
+        try {
+          ListSecurityGroupRequest request = new ListSecurityGroupRequest().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
+          CTResponse<ListSecurityGroupResponseData> response = client.listSecurityGroup(request);
+          if (response.httpCode == 200 && response.getData() != null) {
+            ListSecurityGroupResponseData listSecurityGroupResponseData = response.getData()
+            if (listSecurityGroupResponseData.getStatusCode() == 800) {
+              if (listSecurityGroupResponseData.getReturnObj() == null || listSecurityGroupResponseData.getReturnObj().getSecurityGroups() == null) {
+                throw new CtyunOperationException("返回结果为空！listSecurityGroupResponseData=" + JSONObject.toJSONString(listSecurityGroupResponseData))
+              }
+              if (listSecurityGroupResponseData.getReturnObj().getSecurityGroups().size() > 0) {
+                securityGroupAll.addAll(listSecurityGroupResponseData.getReturnObj().getSecurityGroups())
+              }
+
+              getCount = listSecurityGroupResponseData.getReturnObj().getSecurityGroups().size();
+            } else {
+              log.info("getSecurityGroupsAll--获取所有安全组数据--非800！pageNum={},错误码={}，错误信息={}", pageNumber, listSecurityGroupResponseData.getErrCode(), listSecurityGroupResponseData.getMessage())
             }
-            pageNumber++;
-            getCount = listSecurityGroupResponseData.getReturnObj().getSecurityGroups().size();
-          }else{
-            log.info("getSecurityGroupsAll--获取所有安全组数据--非800！pageNum={},错误码={}，错误信息={}",(pageNumber-1),listSecurityGroupResponseData.getErrCode(),listSecurityGroupResponseData.getMessage())
+          } else {
+            log.info("getSecurityGroupsAll--获取所有安全组数据--非200！{}", response.getMessage())
+            //throw new CtyunOperationException(response.getMessage())
           }
-        }else{
-          log.info("getSecurityGroupsAll--获取所有安全组数据--非200！{}",response.getMessage())
-          //throw new CtyunOperationException(response.getMessage())
+        }catch (Exception e) {
+          log.error("getSecurityGroupsAll--第{}次 获取所有安全组数据--Exception",pageNumber,e)
         }
+        pageNumber++;
       }
       log.info("getSecurityGroupsAll--获取所有安全组数据--end,size={}",securityGroupAll.size())
       return securityGroupAll
@@ -307,23 +314,30 @@ class CtyunVirtualPrivateCloudClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        ListVpcRequest request = new ListVpcRequest().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
-        CTResponse<ListVpcResponseData> response = client.listVpc(request);
-        if(response.httpCode==200&&response.getData()!=null){
-          ListVpcResponseData listVpcResponseData=response.getData()
-          if(listVpcResponseData.getStatusCode()==800){
-            if(listVpcResponseData.getReturnObj().getVpcs().size()>0){
-              networkAll.addAll(listVpcResponseData.getReturnObj().getVpcs())
+        try {
+          ListVpcRequest request = new ListVpcRequest().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
+          CTResponse<ListVpcResponseData> response = client.listVpc(request);
+          if (response.httpCode == 200 && response.getData() != null) {
+            ListVpcResponseData listVpcResponseData = response.getData()
+            if (listVpcResponseData.getStatusCode() == 800) {
+              if (listVpcResponseData.getReturnObj() == null || listVpcResponseData.getReturnObj().getVpcs() == null) {
+                throw new CtyunOperationException("返回结果为空！listVpcResponseData=" + JSONObject.toJSONString(listVpcResponseData))
+              }
+              if (listVpcResponseData.getReturnObj().getVpcs().size() > 0) {
+                networkAll.addAll(listVpcResponseData.getReturnObj().getVpcs())
+              }
+              getCount = listVpcResponseData.getReturnObj().getVpcs().size();
+            } else {
+              log.info("getNetworksAll--获取所有网络信息--非800！pageNum={},错误码={}，错误信息={}", pageNumber, listVpcResponseData.getErrorCode(), listVpcResponseData.getMessage())
             }
-            pageNumber++;
-            getCount = listVpcResponseData.getReturnObj().getVpcs().size();
-          }else{
-            log.info("getNetworksAll--获取所有网络信息--非800！pageNum={},错误码={}，错误信息={}",(pageNumber-1),listVpcResponseData.getErrorCode(),listVpcResponseData.getMessage())
+          } else {
+            log.info("getNetworksAll--获取所有网络信息--非200！{}", response.getMessage())
+            //throw new CtyunOperationException(response.getMessage())
           }
-        }else{
-          log.info("getNetworksAll--获取所有网络信息--非200！{}",response.getMessage())
-          //throw new CtyunOperationException(response.getMessage())
+        }catch (Exception e) {
+          log.error("getNetworksAll--第{}次 获取所有网络信息--Exception",pageNumber,e)
         }
+        pageNumber++;
       }
       log.info("getNetworksAll--获取所有网络信息--end,size={}",networkAll.size())
       return networkAll
@@ -341,23 +355,31 @@ class CtyunVirtualPrivateCloudClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        ListSubNetRequest request = new ListSubNetRequest().withRegionID(regionId).withVpcID(vpcId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
-        CTResponse<ListSubNetResponseData> response = client.listSubnet(request);
-        if(response.httpCode==200&&response.getData()!=null){
-          ListSubNetResponseData listSubNetResponseData=response.getData()
-          if(listSubNetResponseData.getStatusCode()==800){
-            if(listSubNetResponseData.getReturnObj().getSubnets().size()>0){
-              subnetAll.addAll(listSubNetResponseData.getReturnObj().getSubnets())
+        try {
+          ListSubNetRequest request = new ListSubNetRequest().withRegionID(regionId).withVpcID(vpcId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
+          CTResponse<ListSubNetResponseData> response = client.listSubnet(request);
+          if (response.httpCode == 200 && response.getData() != null) {
+            ListSubNetResponseData listSubNetResponseData = response.getData()
+            if (listSubNetResponseData.getStatusCode() == 800) {
+              if (listSubNetResponseData.getReturnObj() == null || listSubNetResponseData.getReturnObj().getSubnets() == null) {
+                throw new CtyunOperationException("返回结果为空！listSubNetResponseData=" + JSONObject.toJSONString(listSubNetResponseData))
+              }
+              if (listSubNetResponseData.getReturnObj().getSubnets().size() > 0) {
+                subnetAll.addAll(listSubNetResponseData.getReturnObj().getSubnets())
+              }
+
+              getCount = listSubNetResponseData.getReturnObj().getSubnets().size();
+            } else {
+              log.info("getSubnetsAll--通过vpcId获取子网信息--非800！pageNum={},错误码={}，错误信息={}", pageNumber, listSubNetResponseData.getErrorCode(), listSubNetResponseData.getMessage())
             }
-            pageNumber++;
-            getCount = listSubNetResponseData.getReturnObj().getSubnets().size();
-          }else{
-            log.info("getSubnetsAll--通过vpcId获取子网信息--非800！pageNum={},错误码={}，错误信息={}",(pageNumber-1),listSubNetResponseData.getErrorCode(),listSubNetResponseData.getMessage())
+          } else {
+            log.info("getSubnetsAll--通过vpcId获取子网信息--非200！{}", response.getMessage())
+            //throw new CtyunOperationException(response.getMessage())
           }
-        }else{
-          log.info("getSubnetsAll--通过vpcId获取子网信息--非200！{}",response.getMessage())
-          //throw new CtyunOperationException(response.getMessage())
+        }catch (Exception e) {
+          log.error("getSubnetsAll--第{}次 通过vpcId获取子网信息--Exception",pageNumber,e)
         }
+        pageNumber++;
       }
       log.info("getSubnetsAll--通过vpcId获取子网信息--end,size={}",subnetAll.size())
       return subnetAll
@@ -378,29 +400,36 @@ class CtyunVirtualPrivateCloudClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        NewListEipRequestBody body = new NewListEipRequestBody()
-          .withClientToken(UUID.randomUUID().toString())
-          .withRegionID(regionId)
-          .withPage(pageNumber)
-          .withPageSize(DEFAULT_LIMIT)
-          .withStatus("DOWN");
-        NewListEipRequest request = new NewListEipRequest().withBody(body);
-        CTResponse<NewListEipResponseData> response = eipClient.newListEip(request);
-        if(response.httpCode==200&&response.getData()!=null){
-          NewListEipResponseData newListEipResponseData=response.getData()
-          if(newListEipResponseData.getStatusCode()==800){
-            if(newListEipResponseData.getReturnObj().getEips().size()>0){
-              eipAll.addAll(newListEipResponseData.getReturnObj().getEips())
+        try {
+          NewListEipRequestBody body = new NewListEipRequestBody()
+            .withClientToken(UUID.randomUUID().toString())
+            .withRegionID(regionId)
+            .withPage(pageNumber)
+            .withPageSize(DEFAULT_LIMIT)
+            .withStatus("DOWN");
+          NewListEipRequest request = new NewListEipRequest().withBody(body);
+          CTResponse<NewListEipResponseData> response = eipClient.newListEip(request);
+          if (response.httpCode == 200 && response.getData() != null) {
+            NewListEipResponseData newListEipResponseData = response.getData()
+            if (newListEipResponseData.getStatusCode() == 800) {
+              if (newListEipResponseData.getReturnObj() == null || newListEipResponseData.getReturnObj().getEips() == null) {
+                throw new CtyunOperationException("返回结果为空！newListEipResponseData=" + JSONObject.toJSONString(newListEipResponseData))
+              }
+              if (newListEipResponseData.getReturnObj().getEips().size() > 0) {
+                eipAll.addAll(newListEipResponseData.getReturnObj().getEips())
+              }
+              getCount = newListEipResponseData.getReturnObj().getEips().size();
+            } else {
+              log.info("getEipsDownAll--获取未绑定eip信息--非800！pageNum={},错误码={}，错误信息={}，描述={}", pageNumber, newListEipResponseData.getErrorCode(), newListEipResponseData.getMessage(), newListEipResponseData.getDescription())
             }
-            pageNumber++;
-            getCount = newListEipResponseData.getReturnObj().getEips().size();
-          }else{
-            log.info("getEipsDownAll--获取未绑定eip信息--非800！pageNum={},错误码={}，错误信息={}，描述={}",(pageNumber-1),newListEipResponseData.getErrorCode(),newListEipResponseData.getMessage(),newListEipResponseData.getDescription())
+          } else {
+            log.info("getEipsDownAll--获取未绑定eip信息--非200！{}", response.getMessage())
+            //throw new CtyunOperationException(response.getMessage())
           }
-        }else{
-          log.info("getEipsDownAll--获取未绑定eip信息--非200！{}",response.getMessage())
-          //throw new CtyunOperationException(response.getMessage())
+        }catch (Exception e) {
+          log.error("getEipsDownAll--第{}次 获取未绑定eip信息--Exception",pageNumber,e)
         }
+        pageNumber++;
       }
       log.info("getEipsDownAll--获取未绑定eip信息--end,size={}",eipAll.size())
       return eipAll

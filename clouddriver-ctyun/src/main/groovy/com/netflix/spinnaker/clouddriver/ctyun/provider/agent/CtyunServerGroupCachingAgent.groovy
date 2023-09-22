@@ -255,23 +255,11 @@ class CtyunServerGroupCachingAgent extends AbstractCtyunCachingAgent implements 
 
         def getLaunchConfiguration=client.getLaunchConfiguration(it.configID,it.groupID)
         getLaunchConfiguration.setSecurityGroupList(Arrays.asList(it.getSecurityGroupIDList()))
-        /*测试用*/
-       /* List<Tag> tagList=new ArrayList<>()
-        Tag tag=new Tag()
-        tag.setKey("testKey")
-        tag.setValue("testValue")
-        tagList.add(tag)
-        Tag tag2=new Tag()
-        tag2.setKey("testKey2")
-        tag2.setValue("testValue2")
-        tagList.add(tag2)
-        getLaunchConfiguration.setTags(tagList)*/
+
 
         Map<String, Object> asc = objectMapper.convertValue getLaunchConfiguration, ATTRIBUTES
         serverGroup.launchConfig = asc
 
-        //def keyIds=cvmClient.keyPairs
-        //serverGroup.launchConfig.loginSettings.keyIds=
         List<Map<String, Object>> systemDisk=new ArrayList<>()
         List<Map<String, Object>> dataDisks=new ArrayList<>()
         asc.volumes.each {ss->
@@ -325,11 +313,8 @@ class CtyunServerGroupCachingAgent extends AbstractCtyunCachingAgent implements 
           instance.id=it.id
           SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
           instance.launchTime = it.joinDate!=null?sdf.parse(it.joinDate).time:null
-          /*def instanceItem=cvmClient.getInstanceById(it.instanceID)
-          instance.zone = instanceItem?.getAzName()*/
           serverGroup.instances.add(instance)
         }
-        //serverGroup.asg.desiredCapacity=instances!=null?instances.size():0
         if(asg.useLb==1){
           def getLoadBalancerListByGroupId=client.getLoadBalancerListByGroupId autoScalingGroupId
           serverGroup.loadBlanders = getLoadBalancerListByGroupId.collect {
@@ -337,9 +322,6 @@ class CtyunServerGroupCachingAgent extends AbstractCtyunCachingAgent implements 
             return asp
           }
         }
-        /*if(i==32){
-          log.info("伸缩组数据处理第{}次！",i)
-        }*/
         i++
         serverGroupList.add(serverGroup)
       }catch(Exception e){

@@ -112,7 +112,6 @@ import org.springframework.stereotype.Component
 import org.springframework.util.StringUtils
 
 import java.text.SimpleDateFormat
-import java.util.stream.Collectors
 
 @Component
 @Slf4j
@@ -122,8 +121,6 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
   private ScalingClient labelClient
   private CtelbClient clbClient // todo move to load balancer client ?
   private String regionId
-  /*private String accountId
-  private String userId*/
   private final String endingPointElb = "ctelb-global.ctapi.ctyun.cn"
   private final String endingPointLabel = "bss-global.ctapi.ctyun.cn"
   @Override
@@ -146,13 +143,6 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     this.regionId = regionId
 
   }
-
-/*  void setAccountId(String accountId){
-    this.accountId=accountId
-  }
-  void setUserId(String userId){
-    this.userId=userId
-  }*/
 
   Integer deploy(CtyunDeployDescription description) {
     log.info("deploy--创建弹性伸缩组--start")
@@ -279,8 +269,6 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       .withMaxCount(description.maxSize)
       .withExpectedCount(description.desiredCapacity)
       .withHealthPeriod(description.healthPeriod==null?300:description.healthPeriod)
-      //.withConfigObj(configObj)
-      //.withRuleList(ruleList)
       .withConfigID(description.configId)
     if (description.forwardLoadBalancers) {
       body.withUseLb(1).withLbList(lbList)
@@ -331,24 +319,30 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        GroupListRequestBody requestBody = new GroupListRequestBody().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
-        GroupListRequest request = new GroupListRequest().withBody(requestBody);
-        CTResponse<GroupListResponseData> response = client.groupList(request);
-        if(response.httpCode==200&&response.getData()!=null){
-          GroupListResponseData groupListResponseData=response.getData()
-          if(groupListResponseData.getStatusCode()==800){
-            if(groupListResponseData.getReturnObj().getScalingGroups().size()>0){
-              autoScalingGroupAll.addAll(groupListResponseData.getReturnObj().getScalingGroups())
+        try {
+          GroupListRequestBody requestBody = new GroupListRequestBody().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
+          GroupListRequest request = new GroupListRequest().withBody(requestBody);
+          CTResponse<GroupListResponseData> response = client.groupList(request);
+          if (response.httpCode == 200 && response.getData() != null) {
+            GroupListResponseData groupListResponseData = response.getData()
+            if (groupListResponseData.getStatusCode() == 800) {
+              if (groupListResponseData.getReturnObj() == null || groupListResponseData.getReturnObj().getScalingGroups() == null) {
+                throw new CtyunOperationException("返回结果为空！groupListResponseData="+JSONObject.toJSONString(groupListResponseData))
+              }
+              if (groupListResponseData.getReturnObj().getScalingGroups().size() > 0) {
+                autoScalingGroupAll.addAll(groupListResponseData.getReturnObj().getScalingGroups())
+              }
+              getCount = groupListResponseData.getReturnObj().getScalingGroups().size();
+            } else {
+              log.error("getAllAutoScalingGroups--查询所有弹性伸缩组--非800！pageNum={},错误码={}，错误信息={}", pageNumber, groupListResponseData.getErrorCode(), groupListResponseData.getDescription())
             }
-            pageNumber++;
-            getCount = groupListResponseData.getReturnObj().getScalingGroups().size();
-          }else{
-            log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--非800！pageNum={},错误码={}，错误信息={}",(pageNumber-1),groupListResponseData.getErrorCode(),groupListResponseData.getDescription())
+          } else {
+            log.error("getAllAutoScalingGroups--查询所有弹性伸缩组--非200！{}", response)
           }
-        }else{
-          log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--非200！{}",response)
-          //throw new CtyunOperationException(response.getDescription())
+        }catch (Exception e) {
+          log.error("getAllAutoScalingGroups--第{}次 查询所有弹性伸缩组--Exception",pageNumber,e)
         }
+        pageNumber++;
       }
       log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--end,size={}",autoScalingGroupAll.size())
       return autoScalingGroupAll
@@ -359,36 +353,42 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
   }
   //查询所有弹性伸缩组--其他接口遍历用
   List<ScalingGroup> getAllAutoScalingGroups2() {
-    log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--start")
+    log.info("getAllAutoScalingGroups2--查询所有弹性伸缩组--start")
     List<ScalingGroup> autoScalingGroupAll = []
     try {
       def pageNumber=1;
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        GroupListRequestBody requestBody = new GroupListRequestBody().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
-        GroupListRequest request = new GroupListRequest().withBody(requestBody);
-        CTResponse<GroupListResponseData> response = client.groupList(request);
-        if(response.httpCode==200&&response.getData()!=null){
-          GroupListResponseData groupListResponseData=response.getData()
-          if(groupListResponseData.getStatusCode()==800){
-            if(groupListResponseData.getReturnObj().getScalingGroups().size()>0){
-              autoScalingGroupAll.addAll(groupListResponseData.getReturnObj().getScalingGroups())
+        try {
+          GroupListRequestBody requestBody = new GroupListRequestBody().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
+          GroupListRequest request = new GroupListRequest().withBody(requestBody);
+          CTResponse<GroupListResponseData> response = client.groupList(request);
+          if (response.httpCode == 200 && response.getData() != null) {
+            GroupListResponseData groupListResponseData = response.getData()
+            if (groupListResponseData.getStatusCode() == 800) {
+              if (groupListResponseData.getReturnObj() == null || groupListResponseData.getReturnObj().getScalingGroups() == null) {
+                throw new CtyunOperationException("返回结果为空！groupListResponseData=" + JSONObject.toJSONString(groupListResponseData))
+              }
+              if (groupListResponseData.getReturnObj().getScalingGroups().size() > 0) {
+                autoScalingGroupAll.addAll(groupListResponseData.getReturnObj().getScalingGroups())
+              }
+              getCount = groupListResponseData.getReturnObj().getScalingGroups().size();
+            } else {
+              log.info("getAllAutoScalingGroups2--查询所有弹性伸缩组--非800！pageNum={},错误码={}，错误信息={}", pageNumber, groupListResponseData.getErrorCode(), groupListResponseData.getDescription())
             }
-            pageNumber++;
-            getCount = groupListResponseData.getReturnObj().getScalingGroups().size();
-          }else{
-            log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--非800！pageNum={},错误码={}，错误信息={}",(pageNumber-1),groupListResponseData.getErrorCode(),groupListResponseData.getDescription())
+          } else {
+            log.info("getAllAutoScalingGroups2--查询所有弹性伸缩组--非200！{}", response)
           }
-        }else{
-          log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--非200！{}",response)
-          //throw new CtyunOperationException(response.getDescription())
+        }catch (Exception e) {
+          log.error("getAllAutoScalingGroups2--第{}次 查询所有弹性伸缩组--Exception",pageNumber,e)
         }
+        pageNumber++;
       }
-      log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--end,size={}",autoScalingGroupAll.size())
+      log.info("getAllAutoScalingGroups2--查询所有弹性伸缩组--end,size={}",autoScalingGroupAll.size())
       return autoScalingGroupAll
     } catch (Exception e) {
-      log.error("getAllAutoScalingGroups--查询所有弹性伸缩组--Exception",e)
+      log.error("getAllAutoScalingGroups2--查询所有弹性伸缩组--Exception",e)
       throw new CtyunOperationException(e.toString())
     }
   }
@@ -403,7 +403,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
         if(response.httpCode==200&&response.getData()!=null){
           GroupListResponseData groupListResponseData=response.getData()
           if(groupListResponseData.getStatusCode()==800){
-            if(groupListResponseData.getReturnObj().getScalingGroups().size()>0){
+            if(groupListResponseData.getReturnObj()?.getScalingGroups()?.size()>0){
               autoScalingGroup=groupListResponseData.getReturnObj().getScalingGroups()[0]
             }
           }else{
@@ -431,7 +431,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       if(response.httpCode==200&&response.getData()!=null){
         ListLoadBalancerResponseData listLoadBalancerResponseData=response.getData()
         if(listLoadBalancerResponseData.getStatusCode()==800){
-          if(listLoadBalancerResponseData.getReturnObj().getLoadBalancers().size()>0){
+          if(listLoadBalancerResponseData.getReturnObj()?.getLoadBalancers()?.size()>0){
             list=listLoadBalancerResponseData.getReturnObj().getLoadBalancers()
           }
         }else{
@@ -474,10 +474,6 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
           GroupListConfigResponseData groupListConfigResponseData = response.getData()
           if (groupListConfigResponseData.getStatusCode() == 800) {
             GroupListConfigReturnObj obj=groupListConfigResponseData.getReturnObj()?.get(0);
-            /*ScalingGroup scalingGroup=this.getAutoScalingGroupByGroupId(groupId)
-            if(scalingGroup!=null&&scalingGroup.getSecurityGroupIDList()!=null){
-              obj.setSecurityGroupList(Arrays.asList(scalingGroup.getSecurityGroupIDList()))
-            }*/
             log.info("getLaunchConfiguration--通过配置id集合获取配置信息--end")
             return obj;
           } else {
@@ -508,7 +504,6 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
             Map<String,String> groupMap=new HashMap()
             groupMap.put("groupName",scalingGroup.getName())
             groupMap.put("instanceID",groupListInstance.getInstanceID())
-            //groupMap.put("resourceID",groupListInstance.getResourceID())
             groupNameList.add(groupMap)
             allList.add(groupListInstance)
           }
@@ -534,7 +529,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       if (response.httpCode == 200 && response.getData() != null) {
         GroupListInstanceResponseData groupListInstanceResponseData = response.getData()
         if (groupListInstanceResponseData.getStatusCode() == 800) {
-          log.info("getAutoScalingInstances--通过伸缩组id获取主机实例--end--size--{}",groupListInstanceResponseData.getReturnObj()?.getInstanceList().size())
+          log.info("getAutoScalingInstances--通过伸缩组id获取主机实例--end--size--{}",groupListInstanceResponseData.getReturnObj()?.getInstanceList()?.size())
           return groupListInstanceResponseData.getReturnObj()?.getInstanceList();
         } else {
           log.info("getAutoScalingInstances--通过伸缩组id获取主机实例--非800！错误码={}，错误信息={}",  groupListInstanceResponseData.getErrorCode(), groupListInstanceResponseData.getDescription())
@@ -559,29 +554,33 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        Map<String,Object> queryParam=new HashMap();
-        queryParam.put("pageNum",pageNumber);
-        queryParam.put("pageSize",DEFAULT_LIMIT);
-        ListLabelRequestBody body = new ListLabelRequestBody().withBaseResourceIds(asgInstanceIds);
-        ListLabelRequest request = new ListLabelRequest().withBody(body).withQueryParam(queryParam);
-        CTResponse<ListLabelResponseData> response = labelClient.listlabels(request);
-        if(response.httpCode==200&&response.getData()!=null){
-          ListLabelResponseData listLabelResponseData=response.getData()
-          if (listLabelResponseData.getList()!=null) {
-            if (listLabelResponseData.getList().size()>0) {
-              labelAll.addAll(listLabelResponseData.getList())
+        try {
+          Map<String, Object> queryParam = new HashMap();
+          queryParam.put("pageNum", pageNumber);
+          queryParam.put("pageSize", DEFAULT_LIMIT);
+          ListLabelRequestBody body = new ListLabelRequestBody().withBaseResourceIds(asgInstanceIds);
+          ListLabelRequest request = new ListLabelRequest().withBody(body).withQueryParam(queryParam);
+          CTResponse<ListLabelResponseData> response = labelClient.listlabels(request);
+          if (response.httpCode == 200 && response.getData() != null) {
+            ListLabelResponseData listLabelResponseData = response.getData()
+            if (listLabelResponseData.getList() != null) {
+              if (listLabelResponseData.getList().size() > 0) {
+                labelAll.addAll(listLabelResponseData.getList())
+              }
+              getCount = listLabelResponseData.getList().size();
+            } else {
+              log.info("getLabels--标签--无数据！listLabelResponseData.getList()={}", listLabelResponseData.getList())
+              break
             }
-            pageNumber++;
-            getCount = listLabelResponseData.getList().size();
-          } else {
-            log.info("getLabels--标签--无数据！listLabelResponseData.getList()={}", listLabelResponseData.getList())
-            break
-          }
 
-        }else{
-          log.info("getLabels--标签--非200！{}",response.getMessage())
-          //throw new CtyunOperationException(response.getMessage())
+          } else {
+            log.info("getLabels--标签--非200！{}", response.getMessage())
+            //throw new CtyunOperationException(response.getMessage())
+          }
+        }catch (Exception e) {
+          log.error("getLabels--第{}次 标签--Exception",pageNumber,e)
         }
+        pageNumber++;
       }
       log.info("getLabels--标签--end,size={}",labelAll.size())
       return labelAll
@@ -590,31 +589,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       throw new CtyunOperationException(e.toString())
     }
   }
-  //设置主机实例保护状态1保护2非保护
-  /*def setInstancesProtection(List<Integer> instanceIds,Integer groupId,Integer protectStatus) {
-    log.info("setInstancesProtection--设置主机实例保护状态1保护2非保护--start--instanceIds={}",instanceIds)
-    try {
-      SetInstancesProtectionBody body = new SetInstancesProtectionBody().withRegionID(regionId).withGroupID(groupId).withProtectStatus(protectStatus).withInstanceIDList(instanceIds);
-      SetInstancesProtectionRequest request = new SetInstancesProtectionRequest().withBody(body);
-      CTResponse<SetInstancesProtectionData> response = client.setInstancesProtection(request);
-      if(response.httpCode==200&&response.getData()!=null){
-        SetInstancesProtectionData setInstancesProtectionData=response.getData()
-        if(setInstancesProtectionData.getStatusCode()==800){
-          log.info("setInstancesProtection--设置主机实例保护状态1保护2非保护--end "+ JSONObject.toJSONString(setInstancesProtectionData.getReturnObj())+" is ok!")
-          return setInstancesProtectionData.getReturnObj().getInstanceIDList()
-        }else{
-          log.info("setInstancesProtection--设置主机实例保护状态1保护2非保护--非800！{}",batchStopInstancesData.getMessage())
-          //throw new CtyunOperationException(batchStopInstancesData.getMessage())
-        }
-      }else{
-        log.info("setInstancesProtection--设置主机实例保护状态1保护2非保护--非200！{}",response.getMessage())
-        throw new CtyunOperationException(response.getMessage())
-      }
-    } catch (Exception e) {
-      log.error("setInstancesProtection--设置主机实例保护状态1保护2非保护--Exception",e)
-      throw new CtyunOperationException(e.toString())
-    }
-  }*/
+
   //获取伸缩组告警策略
   List<RuleInfo> getScalingPolicies(Integer asgId = null) {
     log.info("getScalingPolicies--获取伸缩组告警策略--start--asgId--{}",asgId)
@@ -624,24 +599,31 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        GroupRuleListRequestBody requestBody = new GroupRuleListRequestBody().withGroupID(asgId).withRegionID(regionId).withPage(pageNumber).withPageSize(DEFAULT_LIMIT);
-        GroupRuleListRequest request = new GroupRuleListRequest().withBody(requestBody);
-        CTResponse<GroupRuleListResponseData> response = client.groupRuleList(request);
-        if(response.httpCode==200&&response.getData()!=null){
-          GroupRuleListResponseData groupRuleListResponseData=response.getData()
-          if(groupRuleListResponseData.getStatusCode()==800){
-            if(groupRuleListResponseData.getReturnObj().getRuleList().size()>0){
-              autoScalingPoliciesAll.addAll(groupRuleListResponseData.getReturnObj().getRuleList())
+        try {
+          GroupRuleListRequestBody requestBody = new GroupRuleListRequestBody().withGroupID(asgId).withRegionID(regionId).withPage(pageNumber).withPageSize(DEFAULT_LIMIT);
+          GroupRuleListRequest request = new GroupRuleListRequest().withBody(requestBody);
+          CTResponse<GroupRuleListResponseData> response = client.groupRuleList(request);
+          if (response.httpCode == 200 && response.getData() != null) {
+            GroupRuleListResponseData groupRuleListResponseData = response.getData()
+            if (groupRuleListResponseData.getStatusCode() == 800) {
+              if (groupRuleListResponseData.getReturnObj() == null || groupRuleListResponseData.getReturnObj().getRuleList() == null) {
+                throw new CtyunOperationException("返回结果为空！groupRuleListResponseData=" + JSONObject.toJSONString(groupRuleListResponseData))
+              }
+              if (groupRuleListResponseData.getReturnObj().getRuleList().size() > 0) {
+                autoScalingPoliciesAll.addAll(groupRuleListResponseData.getReturnObj().getRuleList())
+              }
+              getCount = groupRuleListResponseData.getReturnObj().getRuleList().size();
+            } else {
+              log.info("getScalingPolicies--获取伸缩组告警策略--非800！pageNum={},错误码={}，错误信息={}", pageNumber, groupRuleListResponseData.getErrorCode(), groupRuleListResponseData.getDescription())
             }
-            pageNumber++;
-            getCount = groupRuleListResponseData.getReturnObj().getRuleList().size();
-          }else{
-            log.info("getScalingPolicies--获取伸缩组告警策略--非800！pageNum={},错误码={}，错误信息={}",(pageNumber-1),groupRuleListResponseData.getErrorCode(),groupRuleListResponseData.getDescription())
+          } else {
+            log.info("getScalingPolicies--获取伸缩组告警策略--非200！{}", response)
+            // throw new CtyunOperationException(response.getDescription())
           }
-        }else{
-          log.info("getScalingPolicies--获取伸缩组告警策略--非200！{}",response)
-         // throw new CtyunOperationException(response.getDescription())
+        }catch (Exception e) {
+          log.error("getScalingPolicies--第{}次 获取伸缩组告警策略--Exception",pageNumber,e)
         }
+        pageNumber++;
       }
 
       def resultSet=autoScalingPoliciesAll?.findAll({
@@ -664,26 +646,33 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       def totalCount = DEFAULT_LIMIT
       def getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
-        GroupRuleListRequestBody requestBody = new GroupRuleListRequestBody().withGroupID(asgId).withRegionID(regionId).withPage(pageNumber).withPageSize(DEFAULT_LIMIT);
-        GroupRuleListRequest request = new GroupRuleListRequest().withBody(requestBody);
-        CTResponse<GroupRuleListResponseData> response = client.groupRuleList(request);
-        if(response.httpCode==200&&response.getData()!=null){
-          GroupRuleListResponseData groupRuleListResponseData=response.getData()
-          if(groupRuleListResponseData.getStatusCode()==800){
-            if(groupRuleListResponseData.getReturnObj().getRuleList().size()>0){
-              autoScalingPoliciesAll.addAll(groupRuleListResponseData.getReturnObj().getRuleList())
-            }
-            pageNumber++;
-            getCount = groupRuleListResponseData.getReturnObj().getRuleList().size();
-          }else{
-            log.info("getScheduledAction--根据伸缩组获取定时和周期策略--非800！pageNum={},错误码={}，错误信息={}",(pageNumber-1),groupRuleListResponseData.getErrorCode(),groupRuleListResponseData.getDescription())
-          }
-        }else{
-          log.info("getScheduledAction--根据伸缩组获取定时和周期策略--非200！{}",response)
-          //throw new CtyunOperationException(response.getDescription())
-        }
-      }
+        try {
+          GroupRuleListRequestBody requestBody = new GroupRuleListRequestBody().withGroupID(asgId).withRegionID(regionId).withPage(pageNumber).withPageSize(DEFAULT_LIMIT);
+          GroupRuleListRequest request = new GroupRuleListRequest().withBody(requestBody);
+          CTResponse<GroupRuleListResponseData> response = client.groupRuleList(request);
+          if (response.httpCode == 200 && response.getData() != null) {
+            GroupRuleListResponseData groupRuleListResponseData = response.getData()
+            if (groupRuleListResponseData.getStatusCode() == 800) {
+              if (groupRuleListResponseData.getReturnObj() == null || groupRuleListResponseData.getReturnObj().getRuleList() == null) {
+                throw new CtyunOperationException("返回结果为空！groupRuleListResponseData=" + JSONObject.toJSONString(groupRuleListResponseData))
+              }
+              if (groupRuleListResponseData.getReturnObj().getRuleList().size() > 0) {
+                autoScalingPoliciesAll.addAll(groupRuleListResponseData.getReturnObj().getRuleList())
+              }
 
+              getCount = groupRuleListResponseData.getReturnObj().getRuleList().size();
+            } else {
+              log.info("getScheduledAction--根据伸缩组获取定时和周期策略--非800！pageNum={},错误码={}，错误信息={}", (pageNumber - 1), groupRuleListResponseData.getErrorCode(), groupRuleListResponseData.getDescription())
+            }
+          } else {
+            log.info("getScheduledAction--根据伸缩组获取定时和周期策略--非200！{}", response)
+            //throw new CtyunOperationException(response.getDescription())
+          }
+        }catch (Exception e) {
+          log.error("getScheduledAction--第{}次 根据伸缩组获取定时和周期策略--Exception",pageNumber,e)
+        }
+        pageNumber++;
+      }
       def resultSet= autoScalingPoliciesAll?.findAll({
         it.ruleType!=1
       })
@@ -868,30 +857,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       throw new CtyunOperationException(e.toString())
     }
   }
-  //移除，instanceIds就是实例的instanceId集合，字符串类型
-  def detachInstances(def asgId, def instanceIds) {
-    log.info("detachInstances--移除实例--start--asgId--{}--instanceIds--{}",asgId,instanceIds)
-    try {
-      InstanceMoveOutRequestBody body = new InstanceMoveOutRequestBody().withRegionID(regionId).withGroupID(asgId).withInstanceIDList(instanceIds);
-      InstanceMoveOutRequest request = new InstanceMoveOutRequest().withBody(body);
-      CTResponse<InstanceMoveOutResponseData> response = client.instanceMoveOut(request);
-      if (response.httpCode == 200 && response.getData() != null) {
-        InstanceMoveOutResponseData instanceMoveOutResponseData = response.getData()
-        if (instanceMoveOutResponseData.getStatusCode() == 800) {
-          log.info("detachInstances--移除实例--成功--end--{}",instanceMoveOutResponseData.getReturnObj())
-          return response
-        } else {
-          log.info("detachInstances--移除实例--非800！错误码={}，错误信息={}",  instanceMoveOutResponseData.getErrorCode(), instanceMoveOutResponseData.getDescription())
-        }
-      } else {
-        log.info("detachInstances--移除实例--非200！{}",response)
-        //throw new CtyunOperationException(response.getDescription())
-      }
-    } catch (Exception e) {
-      log.error("detachInstances--移除实例--Exception",e)
-      throw new CtyunOperationException(e.toString())
-    }
-  }
+
   //移除并释放，instanceIds实际是实例的ID字段，integer类型
   void removeInstances(def asgId, def instanceIds) {
     log.info("removeInstances--移除并释放实例--start--asgId--{}--instanceIds--{}",asgId,instanceIds)
@@ -979,10 +945,8 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
         TriggerInfo triggerInfo = new TriggerInfo()
         //再把入参中的trigger信息复制到triggerInfo中，因为类型不通，上面复制会导致报错，单独处理
         BeanUtils.copyProperties(description.getTriggerObj(), triggerInfo)
-       // triggerInfo.setName(null)
-        //triggerInfo.setName(description.serverGroupName + "-alarm-" + new Date().time.toString())
         RuleUpdateRequestBody requestBody = new RuleUpdateRequestBody().withRegionID(description.getRegionID())
-          .withGroupId(description.getGroupID()).withRuleID(description.getRuleID())//.withName(description.getName())
+          .withGroupId(description.getGroupID()).withRuleID(description.getRuleID())
           .withOperateUnit(description.getOperateUnit()).withOperateCount(description.getOperateCount())
           .withAction(description.getAction()).withExecutionTime(description.getExecutionTime()).withEffectiveFrom(description.getEffectiveFrom())
           .withEffectiveTill(description.getEffectiveTill()).withCooldown(description.getCooldown()).withCycle(description.getCycle())
@@ -1133,8 +1097,6 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
   }
   //创建弹性伸缩周期策略
   Integer createGroupCycleRules(GroupCreateCycleRuleRequest request) {
-
-
     log.info("createGroupCycleRules--创建弹性伸缩周期策略--start")
     try {
       CTResponse<GroupCreateCycleRuleResponseData> response= client.createGroupCycleRules(request);
@@ -1156,312 +1118,4 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       throw new CtyunOperationException(e)
     }
   }
-
-  //执行弹性伸缩定时策略
-  Integer ruleExecute(RuleExecuteRequest request) {
-    log.info("createGroupScheduledRules--执行弹性伸缩定时策略--start")
-    try {
-      CTResponse<RuleExecuteResponseData>  response= client.ruleExecute(request);
-      if(response.httpCode==200&&response.getData()!=null){
-        RuleExecuteResponseData ruleExecuteResponseData=response.getData()
-        if(ruleExecuteResponseData.getStatusCode()==800){
-          log.info("createGroupScheduledRules--执行弹性伸缩定时策略--完成--end")
-          return response.getData().getReturnObj().getRuleID()
-        }else{
-          log.info("createGroupScheduledRules--执行弹性伸缩定时策略--非800,错误码={}，错误信息={}",ruleExecuteResponseData.getErrorCode(),ruleExecuteResponseData.getDescription())
-          throw new CtyunOperationException(ruleExecuteResponseData.getDescription())
-        }
-      }else{
-        log.info("createGroupScheduledRules--执行弹性伸缩定时策略--非200！{}",response)
-        throw new CtyunOperationException(response.getMessage())
-      }
-    } catch (Exception e) {
-      log.error("createGroupScheduledRules--执行弹性伸缩定时策略--Exception",e)
-      throw new CtyunOperationException(e)
-    }
-
-  }
-
-  //根据后端服务组id获取后端服务列表
-  List<cn.ctyun.ctapi.ctelb.listtarget.ReturnObj> getTargetList(String targetGroupID) {
-    log.info("getElbTargetList--根据后端服务组id获取后端服务列表--start--targetGroupID--{}",targetGroupID)
-    List<cn.ctyun.ctapi.ctelb.listtarget.ReturnObj> list=[]
-    try {
-      ListTargetRequest request = new ListTargetRequest().withTargetGroupID(targetGroupID).withRegionID(regionId);
-      CTResponse<ListTargetResponseData> response = clbClient.listTarget(request);
-        if(response.httpCode==200&&response.getData()!=null){
-          ListTargetResponseData listTargetResponseData=response.getData()
-          if(listTargetResponseData.getStatusCode()==800){
-            if(listTargetResponseData.getReturnObj().size()>0){
-              list= listTargetResponseData.getReturnObj()
-            }
-          }else{
-            log.info("getElbTargetList--根据后端服务组id获取后端服务列表--非800！错误码={}，错误信息={}",listTargetResponseData.getErrorCode(),listTargetResponseData.getDescription())
-          }
-        }else{
-          log.info("getElbTargetList--根据后端服务组id获取后端服务列表--非200！{}",response.getMessage())
-          //throw new CtyunOperationException(response.getDescription())
-        }
-      log.info("getElbTargetList--根据后端服务组id获取后端服务列表--end--size--{}",list.size())
-      return list
-    } catch (Exception e) {
-      log.error("getElbTargetList--根据后端服务组id获取后端服务列表--Exception",e)
-      throw new CtyunOperationException(e.toString())
-    }
-  }
-
-  //创建后端服务
-  Integer createTarget(CreateTargetRequestBody body) {
-    log.info("createTarget--创建后端服务--start")
-    try {
-      CreateTargetRequest request = new CreateTargetRequest().withBody(body);
-      CTResponse<CreateTargetResponseData> response = clbClient.createTarget(request);
-      if(response.httpCode==200&&response.getData()!=null){
-        CreateTargetResponseData createTargetResponseData=response.getData()
-        if(createTargetResponseData.getStatusCode()==800){
-          log.info("createTarget--创建后端服务--完成--end")
-          return (createTargetResponseData.getReturnObj()!=null&&createTargetResponseData.getReturnObj().size()>0)?createTargetResponseData.getReturnObj()[0]:null
-        }else{
-          log.info("createTarget--创建后端服务--非800,错误码={}，错误信息={}",createTargetResponseData.getErrorCode(),createTargetResponseData.getDescription())
-          throw new CtyunOperationException(createTargetResponseData.getDescription())
-        }
-      }else{
-        log.info("createTarget--创建后端服务--非200！{}",response)
-        throw new CtyunOperationException(response.getMessage())
-      }
-    } catch (Exception e) {
-      log.error("createTarget--创建后端服务--Exception",e)
-      throw new CtyunOperationException(e)
-    }
-
-  }
-//删除后端服务
-  Integer deleteTarget(String id) {
-    log.info("deleteTarget--删除后端服务--start")
-    try {
-
-
-      DeleteTargetRequestBody body = new DeleteTargetRequestBody()
-        .withClientToken(UUID.randomUUID().toString())
-        .withRegionID(regionId)
-        .withID(id);
-      DeleteTargetRequest request = new DeleteTargetRequest().withBody(body);
-      CTResponse<DeleteTargetResponseData> response = clbClient.deleteTarget(request);
-      if(response.httpCode==200&&response.getData()!=null){
-        DeleteTargetResponseData deleteTargetResponseData=response.getData()
-        if(deleteTargetResponseData.getStatusCode()==800){
-          log.info("deleteTarget--删除后端服务--完成--end")
-          return (deleteTargetResponseData.getReturnObj()!=null&&deleteTargetResponseData.getReturnObj().size()>0)?deleteTargetResponseData.getReturnObj()[0]:null
-        }else{
-          log.info("deleteTarget--删除后端服务--非800,错误码={}，错误信息={}",deleteTargetResponseData.getErrorCode(),deleteTargetResponseData.getDescription())
-          throw new CtyunOperationException(deleteTargetResponseData.getDescription())
-        }
-      }else{
-        log.info("deleteTarget--删除后端服务--非200！{}",response)
-        throw new CtyunOperationException(response.getMessage())
-      }
-    } catch (Exception e) {
-      log.error("deleteTarget--删除后端服务--Exception",e)
-      throw new CtyunOperationException(e)
-    }
-
-  }
-  //一下为负载均衡相关
- /* void attachAutoScalingInstancesToForwardClb(def flb, def targets, boolean retry = false) {
-    def partTargets = Lists.partition(targets, 20)
-    def request = new RegisterTargetsRequest()
-    request.loadBalancerId = flb.loadBalancerId
-    request.listenerId = flb.listenerId
-    if (flb?.locationId) {
-      request.locationId = flb?.locationId
-    }
-    partTargets.forEach({ partTarget ->
-      def retry_count = 0
-      while (retry_count < DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME) {
-        retry_count = retry_count + 1
-        request.targets = partTarget.collect {
-          return new Target(
-            instanceId: it.instanceId,
-            weight: it.weight,
-            port: it.port
-          )
-        }
-        try {
-          clbClient.RegisterTargets(request)
-          break
-        } catch (TencentCloudSDKException e) {
-          if (e.toString().contains("FailedOperation") && retry) {
-            log.info("lb service throw FailedOperation error, probably $flb.loadBalancerId is locked, will retry later.")
-            sleep(500)
-          } else {
-            throw new TencentCloudSDKException(e.toString())
-          }
-        }
-      }
-    })
-  }*/
-
-
-
-  /*void attachAutoScalingInstancesToClassicClb(def lbId, def targets) {
-    try {
-      def request = new RegisterTargetsWithClassicalLBRequest()
-      request.loadBalancerId = lbId
-      request.targets = targets.collect {
-        return new ClassicalTargetInfo(
-          instanceId: it.instanceId,
-          weight: it.weight
-        )
-      }
-      clbClient.RegisterTargetsWithClassicalLB(request)
-    } catch (TencentCloudSDKException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-  }*/
-
- /* void detachAutoScalingInstancesFromForwardClb(def flb, def targets, boolean retry = false) {
-    def request = new DeregisterTargetsRequest()
-    request.loadBalancerId = flb.loadBalancerId
-    request.listenerId = flb.listenerId
-    if (flb?.locationId) {
-      request.locationId = flb?.locationId
-    }
-    def partTargets = Lists.partition(targets.collect {
-      return new Target(
-        instanceId: it.instanceId,
-        weight: it.weight,
-        port: it.port
-      )
-    }, 20)
-    partTargets.forEach({ target ->
-      def retry_count = 0
-      while (retry_count < DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME) {
-        retry_count = retry_count + 1
-        request.setTargets(target as Target[])
-        try {
-          clbClient.DeregisterTargets(request)
-          break
-        } catch (TencentCloudSDKException e) {
-          ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_3, this.class)
-          if (e.toString().contains("FailedOperation") && retry) {
-            log.info("lb service throw FailedOperation error, probably $flb.loadBalancerId is locked, will retry later.")
-            sleep(5000)
-          } else if (!StringUtils.isEmpty(e.message) && e.message.contains("InternalError") && retry) {
-            log.info("lb service throw InternalError,loadBalanceId $flb.loadBalancerId, will retry later,current retry count: $retry_count")
-            sleep(5000)
-          } else {
-            throw new TencentCloudSDKException(e.toString())
-          }
-        }
-      }
-    })
-  }*/
-
-  /*void detachAutoScalingInstancesFromClassicClb(String lbId, List<String> instanceIds) {
-    try {
-      def request = new DeregisterTargetsFromClassicalLBRequest()
-      request.loadBalancerId = lbId
-      request.instanceIds = instanceIds
-      clbClient.DeregisterTargetsFromClassicalLB(request)
-    } catch (TencentCloudSDKException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-  }
-
-  List<String> getClassicLbInstanceIds(String lbId) {
-    try {
-      def request = new DescribeClassicalLBTargetsRequest()
-      request.loadBalancerId = lbId
-      def response = clbClient.DescribeClassicalLBTargets(request)
-      return response.targets.collect {
-        it.instanceId
-      }
-    } catch (TencentCloudSDKException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-  }*/
-
- /* def getForwardLbTargets(def flb) {
-    try {
-      def request = new DescribeTargetsRequest()
-      request.loadBalancerId = flb.loadBalancerId
-      request.listenerIds = [flb.listenerId]
-      def response = clbClient.DescribeTargets(request)
-      return response.listeners
-    } catch (TencentCloudSDKException e) {
-      return []
-    }
-  }*/
-
-
-/*  def getNotification(String asgId = null) {
-    iterQuery { offset, limit ->
-      def request = new DescribeNotificationConfigurationsRequest(offset: offset, limit: limit)
-
-      if (asgId) {
-        request.filters = [new Filter(name: 'auto-scaling-group-id', values: [asgId])]
-      }
-
-      def response = client.DescribeNotificationConfigurations request
-      response.autoScalingNotificationSet
-    } as List<AutoScalingNotification>
-  }
-
-  def createNotification(String asgId, AutoScalingNotification notification) {
-    try {
-      def request = new CreateNotificationConfigurationRequest().with {
-        it.autoScalingGroupId = asgId
-        it.notificationUserGroupIds = notification.notificationUserGroupIds
-        it.notificationTypes = notification.notificationTypes
-        it
-      }
-      def response = client.CreateNotificationConfiguration request
-      response
-    } catch (TencentCloudSDKException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-  }*/
- /* def getLifecycleHooks(String asgId = null) {
-    *//*iterQuery { offset, limit ->
-      def request = new DescribeLifecycleHooksRequest(offset: offset, limit: limit)
-
-      if (asgId) {
-        request.filters = [new Filter(name: 'auto-scaling-group-id', values: [asgId])]
-      }
-
-      def response = client.DescribeLifecycleHooks request
-      response.lifecycleHookSet
-    } as List<LifecycleHook>*//*
-  }
-
-  def createLifecycleHooks(String asgId, LifecycleHook lifecycleHook) {
-    try {
-      def request = new CreateLifecycleHookRequest().with {
-        it.autoScalingGroupId = asgId
-        it.defaultResult = lifecycleHook.defaultResult
-        it.heartbeatTimeout = lifecycleHook.heartbeatTimeout
-        it.lifecycleHookName = lifecycleHook.lifecycleHookName
-        it.lifecycleTransition = lifecycleHook.lifecycleTransition
-        it.lifecycleTransitionType = lifecycleHook.lifecycleTransitionType
-        def notificationTarget = lifecycleHook.notificationTarget
-        if (!StringUtils.isEmpty(notificationTarget.targetType)){
-          it.notificationTarget = notificationTarget
-          it.notificationTarget.targetType = notificationTarget.targetType
-          if (!StringUtils.isEmpty(notificationTarget.queueName)){
-            it.notificationTarget.queueName = notificationTarget.queueName
-          }
-          if (!StringUtils.isEmpty(notificationTarget.topicName)){
-            it.notificationTarget.topicName = notificationTarget.topicName
-          }
-        }
-        it.notificationMetadata = lifecycleHook.notificationMetadata
-        it
-      }
-      def response = client.CreateLifecycleHook request
-      response
-    } catch (TencentCloudSDKException e) {
-      throw new CtyunOperationException(e.toString())
-    }
-  }*/
-
 }

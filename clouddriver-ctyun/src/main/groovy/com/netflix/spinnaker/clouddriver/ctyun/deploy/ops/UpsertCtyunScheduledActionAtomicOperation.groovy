@@ -89,6 +89,9 @@ class UpsertCtyunScheduledActionAtomicOperation implements AtomicOperation<Void>
         //定时和周期都用同一个创建方法
         CTResponse<GroupCreateRuleResponseData> scalingPolicy = client.createGroupRules(request)
         log.info("创建弹性定时策略返回:{}", JSON.toJSONString(scalingPolicy))
+        if(scalingPolicy.getData().getStatusCode()!=800){
+          throw new CtyunOperationException(scalingPolicy.getData().getDescription())
+        }
         def scalingPolicyId = scalingPolicy.getData().getReturnObj().getRuleID()
         task.updateStatus BASE_PHASE, "new ctyun scaling scheduled policy $scalingPolicyId is created."
       } else if (description.operationType == UpsertCtyunScheduledActionDescription.OperationType.MODIFY) {
