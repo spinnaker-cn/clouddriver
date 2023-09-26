@@ -37,7 +37,10 @@ import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
 import com.netflix.spinnaker.clouddriver.core.provider.agent.HealthProvidingCachingAgent;
 import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import java.util.*;
+import java.util.concurrent.*;
 import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
+import org.springframework.util.CollectionUtils;
 
 public class AliCloudLoadBalancerInstanceStateCachingAgent
     implements CachingAgent, HealthProvidingCachingAgent {
@@ -47,6 +50,14 @@ public class AliCloudLoadBalancerInstanceStateCachingAgent
   IAcsClient client;
   Cache cacheView;
   ApplicationContext ctx;
+  static final ThreadPoolExecutor threadPoolExecutor =
+      new ThreadPoolExecutor(
+          3,
+          3,
+          60,
+          TimeUnit.SECONDS,
+          new LinkedBlockingQueue<>(99999),
+          new CustomizableThreadFactory("AliCloudLBHealth"));
   static final String healthId = "alicloud-load-balancer-instance-health";
 
   public AliCloudLoadBalancerInstanceStateCachingAgent(
@@ -74,49 +85,27 @@ public class AliCloudLoadBalancerInstanceStateCachingAgent
   public CacheResult loadData(ProviderCache providerCache) {
     Map<String, Collection<CacheData>> resultMap = new HashMap<>(16);
     List<CacheData> instanceDatas = new ArrayList<>();
-
     Collection<String> allLoadBalancerKeys = getCacheView().getIdentifiers(LOAD_BALANCERS.ns);
     Collection<CacheData> loadBalancerData =
         getCacheView().getAll(LOAD_BALANCERS.ns, allLoadBalancerKeys, null);
-    DescribeHealthStatusRequest describeHealthStatusRequest = new DescribeHealthStatusRequest();
-    DescribeHealthStatusResponse describeHealthStatusResponse;
+    List<Future<List<CacheData>>> futureResult = new ArrayList<>();
     for (CacheData cacheData : loadBalancerData) {
-      Map<String, Object> loadBalancerAttributes =
-          objectMapper.convertValue(cacheData.getAttributes(), Map.class);
-      String loadBalancerId = String.valueOf(loadBalancerAttributes.get("loadBalancerId"));
-      describeHealthStatusRequest.setLoadBalancerId(loadBalancerId);
-      String regionId = String.valueOf(loadBalancerAttributes.get("regionId"));
-      if (loadBalancerAttributes.get("regionId") == null || regionId.equals("null")) {
-        continue;
-      }
-      describeHealthStatusRequest.setSysRegionId(regionId);
-      try {
-        describeHealthStatusResponse = client.getAcsResponse(describeHealthStatusRequest);
-        for (DescribeHealthStatusResponse.BackendServer backendServer :
-            describeHealthStatusResponse.getBackendServers()) {
-          Map<String, Object> attributes = objectMapper.convertValue(backendServer, Map.class);
-          attributes.put("loadBalancerId", loadBalancerId);
-          CacheData data =
-              new DefaultCacheData(
-                  Keys.getInstanceHealthKey(
-                      loadBalancerId,
-                      backendServer.getServerId(),
-                      backendServer.getListenerPort().toString(),
-                      account.getName(),
-                      regionId,
-                      healthId),
-                  attributes,
-                  new HashMap<>(16));
-          instanceDatas.add(data);
-        }
-
-      } catch (Exception e) {
-        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
-        e.printStackTrace();
-      }
+      HealthStateCheckCallable healthStateCheckCallable = new HealthStateCheckCallable(cacheData);
+      Future<List<CacheData>> submit = threadPoolExecutor.submit(healthStateCheckCallable);
+      futureResult.add(submit);
     }
+    futureResult.forEach(
+        it -> {
+          try {
+            List<CacheData> cacheData = it.get(60, TimeUnit.SECONDS);
+            if (!CollectionUtils.isEmpty(cacheData)) {
+              instanceDatas.addAll(cacheData);
+            }
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        });
     resultMap.put(HEALTH.ns, instanceDatas);
-
     return new DefaultCacheResult(resultMap);
   }
 
@@ -145,5 +134,59 @@ public class AliCloudLoadBalancerInstanceStateCachingAgent
       this.cacheView = ctx.getBean(Cache.class);
     }
     return this.cacheView;
+  }
+
+  class HealthStateCheckCallable implements Callable<List<CacheData>> {
+    private CacheData lbData;
+
+    HealthStateCheckCallable(CacheData lbData) {
+      this.lbData = lbData;
+    }
+
+    @Override
+    public List<CacheData> call() {
+      DescribeHealthStatusRequest describeHealthStatusRequest = new DescribeHealthStatusRequest();
+      DescribeHealthStatusResponse describeHealthStatusResponse;
+      Map<String, Object> loadBalancerAttributes =
+          objectMapper.convertValue(lbData.getAttributes(), Map.class);
+      String loadBalancerId = String.valueOf(loadBalancerAttributes.get("loadBalancerId"));
+      describeHealthStatusRequest.setLoadBalancerId(loadBalancerId);
+      String regionId = String.valueOf(loadBalancerAttributes.get("regionId"));
+      if (loadBalancerAttributes.get("regionId") == null || regionId.equals("null")) {
+        return Collections.emptyList();
+      }
+      List<CacheData> cacheDatas = new ArrayList<CacheData>();
+      describeHealthStatusRequest.setSysRegionId(regionId);
+      try {
+        describeHealthStatusResponse = client.getAcsResponse(describeHealthStatusRequest);
+        Optional.ofNullable(describeHealthStatusResponse)
+            .map(DescribeHealthStatusResponse::getBackendServers)
+            .ifPresent(
+                backendServers -> {
+                  backendServers.forEach(
+                      backendServer -> {
+                        Map<String, Object> attributes =
+                            objectMapper.convertValue(backendServer, Map.class);
+                        attributes.put("loadBalancerId", loadBalancerId);
+                        DefaultCacheData cacheData =
+                            new DefaultCacheData(
+                                Keys.getInstanceHealthKey(
+                                    loadBalancerId,
+                                    backendServer.getServerId(),
+                                    backendServer.getListenerPort().toString(),
+                                    account.getName(),
+                                    regionId,
+                                    healthId),
+                                attributes,
+                                new HashMap<>(16));
+                        cacheDatas.add(cacheData);
+                      });
+                });
+      } catch (Exception e) {
+        ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
+        e.printStackTrace();
+      }
+      return cacheDatas;
+    }
   }
 }
