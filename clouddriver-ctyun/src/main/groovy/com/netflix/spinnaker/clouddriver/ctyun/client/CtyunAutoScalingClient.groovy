@@ -813,7 +813,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
   void deleteAutoScalingGroup(Integer asgId) {
     log.info("deleteAutoScalingGroup--删除伸缩组--start--asgId--{}",asgId)
     try {
-      GroupDeleteRequestBody body = new GroupDeleteRequestBody().withRegionID(regionId).withGroupID(asgId);
+      GroupDeleteRequestBody body = new GroupDeleteRequestBody().withRegionID(regionId).withGroupID(asgId).withForce(true);
       GroupDeleteRequest request = new GroupDeleteRequest().withBody(body);
       CTResponse<GroupDeleteResponseData> response= client.groupDelete(request);
       if (response.httpCode == 200 && response.getData() != null) {
