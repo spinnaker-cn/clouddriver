@@ -43,7 +43,7 @@ import groovy.util.logging.Slf4j
 
 @Slf4j
 class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
-  private final DEFAULT_LIMIT = 50
+  private final int DEFAULT_LIMIT = 50
   final String endPoint = "ctecs-global.ctapi.ctyun.cn"//云主机相关
   final String endPointImage="ctimage-global.ctapi.ctyun.cn"//镜像相关
   private ImageClient imageClient
@@ -64,44 +64,48 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
   }
   //获取镜像
   List<ListImagesInfo> getImages(visibility) {
-    log.info("getImages--获取所有公共镜像数据--start")
+    log.info("getImages--获取所有类型{}镜像数据--start",visibility)
     List<ListImagesInfo> imageAll = []
     try {
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try {
+          long startTime=System.currentTimeMillis();
           ListImageRequest request = new ListImageRequest().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT).withVisibility(visibility);
           CTResponse<ListImageResponseData> response = imageClient.listImage(request);
           if (response.httpCode == 200 && response.getData() != null) {
             ListImageResponseData listImageResponseData = response.getData()
             if (listImageResponseData.getStatusCode() == 800) {
               if (listImageResponseData.getReturnObj() == null || listImageResponseData.getReturnObj().getImages() == null) {
-
-                throw new CtyunOperationException("返回结果为空！listImageResponseData=" + JSONObject.toJSONString(listImageResponseData))
+                log.error("getImages--获取所有类型{}镜像数据--pageNum={} 返回结果为空！listImageResponseData={}",pageNumber,JSONObject.toJSONString(listImageResponseData));
+                return null
               }
               if (listImageResponseData.getReturnObj().getImages().size() > 0) {
                 imageAll.addAll(listImageResponseData.getReturnObj().getImages())
               }
-
               getCount = listImageResponseData.getReturnObj().getImages().size();
+              log.info("getImages--获取所有类型{}镜像数据--成功！pageNum={} 用时={}",pageNumber,(System.currentTimeMillis()-startTime));
             } else {
-              log.info("getImages--获取所有公共镜像数据--非800！pageNum={},错误码={}，错误信息={}", pageNumber, listImageResponseData.getErrorCode(), listImageResponseData.getMessage())
+              log.error("getImages--获取所有类型{}镜像数据--非800！pageNum={} 用时={},错误码={}，错误信息={}",visibility, pageNumber,(System.currentTimeMillis()-startTime), listImageResponseData.getStatusCode(), listImageResponseData.getMessage())
+              return null;
             }
           } else {
-            log.info("getImages--获取所有公共镜像数据--非200！{}", response.getMessage())
-            //throw new CtyunOperationException(response.getMessage())
+            log.error("getImages--获取所有类型{}镜像数据--非200！pageNum={},message={}",visibility,pageNumber,response.getMessage())
+            return null;
           }
         }catch (Exception e) {
-          log.error("getImages--第{}次 获取所有公共镜像数据--Exception",pageNumber,e)
+          log.error("getImages--第{}次 获取所有类型{}镜像数据 用时={}--Exception",pageNumber,visibility,e)
+          return null;
         }
         pageNumber++;
+        sleep(500)
       }
-      log.info("getImages--获取所有公共镜像数据--end,size={}",imageAll.size())
+      log.info("getImages--获取所有类型{}镜像数据--end,size={}",visibility,imageAll.size())
       return imageAll
     } catch (Exception e) {
-      log.error("getImages--获取所有公共镜像数据--Exception",e)
+      log.error("getImages--获取所有类型{}镜像数据--Exception",visibility,e)
       throw new CtyunOperationException(e.toString())
     }
   }
@@ -120,11 +124,12 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
               instanceTypeAll.addAll(listFlavorResponseData.getReturnObj().getFlavorList())
             }
           }else{
-            log.info("getInstanceTypes--获取所有实例规格--非800！错误码={}，错误信息={}",listFlavorResponseData.getErrorCode(),listFlavorResponseData.getMessage())
+            log.error("getInstanceTypes--获取所有实例规格--非800！错误码={}，错误信息={}",listFlavorResponseData.getStatusCode(),listFlavorResponseData.getMessage())
+            return null;
           }
         }else{
-          log.info("getInstanceTypes--获取所有实例规格--非200！{}",response.getMessage())
-          //throw new CtyunOperationException(response.getMessage())
+          log.error("getInstanceTypes--获取所有实例规格--非200！message={}",response.getMessage())
+          return null;
         }
       log.info("getInstanceTypes--获取所有实例规格--end,size={}",instanceTypeAll.size())
       return instanceTypeAll
@@ -149,6 +154,7 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
 
       for (int i = 0; i < instanceIds.size(); i += maxSize) {
         try {
+          long startTime=System.currentTimeMillis();
           if (i + maxSize > instanceIds.size()) {
             // 如果下一个批次数据已经超出list范围，那就用数据总量-开始截取的序列号，获取最后数据量的序列号
             toIndex = instanceIds.size();
@@ -164,21 +170,26 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
             ListInstanceResponseData listInstanceResponseData = response.getData()
             if (listInstanceResponseData.getStatusCode() == 800) {
               if (listInstanceResponseData.getReturnObj() == null || listInstanceResponseData.getReturnObj().getResults() == null) {
-                throw new CtyunOperationException("返回结果为空！listInstanceResponseData=" + JSONObject.toJSONString(listInstanceResponseData))
+                log.error("getInstances--通过instanceIds获取实例--toIndex={} 返回结果为空！listInstanceResponseData={}",toIndex,JSONObject.toJSONString(listInstanceResponseData))
+                return null;
               }
               if (listInstanceResponseData.getReturnObj().getResults().size() > 0) {
                 instanceAll.addAll(listInstanceResponseData.getReturnObj().getResults())
+                log.info("getInstances--通过instanceIds获取实例--成功！toIndex={} 用时={}",toIndex,(System.currentTimeMillis()-startTime));
               }
             } else {
-              log.info("getInstances--通过instanceIds获取实例--非800！toIndex={},错误码={}，错误信息={}", toIndex, listInstanceResponseData.getErrorCode(), listInstanceResponseData.getMessage())
+              log.error("getInstances--通过instanceIds获取实例--非800！toIndex={} 用时={},错误码={}，错误信息={}", toIndex,(System.currentTimeMillis()-startTime), listInstanceResponseData.getStatusCode(), listInstanceResponseData.getMessage())
+              return null;
             }
           } else {
-            log.info("getInstances--通过instanceIds获取实例--非200！{}", response.getMessage())
-            //throw new CtyunOperationException(response.getMessage())
+            log.error("getInstances--通过instanceIds获取实例--非200！toIndex={} message={}",toIndex, response.getMessage())
+
+            return null;
           }
         }catch (Exception e) {
           log.error("getInstances--i={} 通过instanceIds获取实例--Exception",i,e)
         }
+        sleep(500)
       }
       log.info("getInstances--通过instanceIds获取实例--end,size={}",instanceAll.size())
       return instanceAll
@@ -193,11 +204,12 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
     log.info("getKeyPairs--获取密钥对--start")
     List<ListKeypair> keyPairAll = []
     try {
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try{
+          long startTime=System.currentTimeMillis();
           ListKeypairRequestBody requestBody = new ListKeypairRequestBody().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
           ListKeypairRequest request = new ListKeypairRequest().withBody(requestBody);
           CTResponse<ListKeypairResponseData> response = ctvmClient.listKeypair(request);
@@ -205,23 +217,27 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
             ListKeypairResponseData listKeypairResponseData=response.getData()
             if(listKeypairResponseData.getStatusCode()==800){
               if (listKeypairResponseData.getReturnObj() == null || listKeypairResponseData.getReturnObj().getResults() == null) {
-                throw new CtyunOperationException("返回结果为空！listKeypairResponseData=" + JSONObject.toJSONString(listKeypairResponseData))
+                log.error("getKeyPairs--获取密钥对--toIndex={} 返回结果为空！listKeypairResponseData={}",toIndex,JSONObject.toJSONString(listKeypairResponseData))
+                return null;
               }
               if(listKeypairResponseData.getReturnObj().getResults().size()>0){
                 keyPairAll.addAll(listKeypairResponseData.getReturnObj().getResults())
               }
               getCount = listKeypairResponseData.getReturnObj().getResults().size();
             }else{
-              log.info("getKeyPairs--获取密钥对--非800！pageNum={},错误码={}，错误信息={}",pageNumber,listKeypairResponseData.getErrorCode(),listKeypairResponseData.getMessage())
+              log.error("getKeyPairs--获取密钥对--非800！pageNum={} 用时={},错误码={}，错误信息={}",pageNumber,(System.currentTimeMillis()-startTime),listKeypairResponseData.getStatusCode(),listKeypairResponseData.getMessage())
+              return null;
             }
           }else{
-            log.info("getKeyPairs--获取密钥对--非200！{}",response.getMessage())
-            //throw new CtyunOperationException(response.getMessage())
+            log.error("getKeyPairs--获取密钥对--非200！pageNum={} message={}",pageNumber,response.getMessage())
+
+            return null;
           }
         }catch (Exception e) {
           log.error("getKeyPairs--第{}次 获取密钥对--Exception",pageNumber,e)
         }
         pageNumber++;
+        sleep(500)
       }
       log.info("getKeyPairs--获取密钥对--end,size={}",keyPairAll.size())
       return keyPairAll
@@ -232,9 +248,9 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
   }
   //批量终止主机实例
   def terminateInstances(List<String> instanceIds) {
-    log.info("terminateInstances--批量终止主机实例--start--instanceIds={}",instanceIds)
+    log.info("terminateInstances--批量终止主机实例--start--instanceIds=[{}]",instanceIds)
     try {
-      BatchStopInstancesBody body = new BatchStopInstancesBody().withRegionID(regionId).withInstanceIDList(instanceIds?.join(","));
+      BatchStopInstancesBody body = new BatchStopInstancesBody().withRegionID(regionId).withInstanceIDList(instanceIds?.findAll({it!=null}).join(","));
       BatchStopInstancesRequest request = new BatchStopInstancesRequest().withBody(body);
       CTResponse<BatchStopInstancesData> response = ctvmClient.batchStopInstances(request);
       if(response.httpCode==200&&response.getData()!=null){
@@ -243,12 +259,12 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
           log.info("terminateInstances--批量终止主机实例--end "+ JSONObject.toJSONString(batchStopInstancesData.getReturnObj())+" is ok!")
           return batchStopInstancesData.getReturnObj().getJobIDList()
         }else{
-          log.info("terminateInstances--批量终止主机实例--非800！{}",batchStopInstancesData.getMessage())
-          //throw new CtyunOperationException(batchStopInstancesData.getMessage())
+          log.error("terminateInstances--批量终止主机实例--非800！{} {}",batchStopInstancesData.getStatusCode(),batchStopInstancesData.getMessage())
+          throw new CtyunOperationException("terminateInstances--批量终止主机实例--非800！"+batchStopInstancesData.getStatusCode()+" "+batchStopInstancesData.getMessage())
         }
       }else{
-        log.info("terminateInstances--批量终止主机实例--非200！{}",response.getMessage())
-        throw new CtyunOperationException(response.getMessage())
+        log.error("terminateInstances--批量终止主机实例--非200！message={}",response.getMessage())
+        throw new CtyunOperationException("terminateInstances--批量终止主机实例--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("terminateInstances--批量终止主机实例--Exception",e)
@@ -257,9 +273,9 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
   }
 //批量启动主机实例
   def startInstances(List<String> instanceIds) {
-    log.info("startInstances--批量启动主机实例--start--instanceIds={}",instanceIds)
+    log.info("startInstances--批量启动主机实例--start--instanceIds=[{}]",instanceIds)
     try {
-      BatchStartInstancesBody body = new BatchStartInstancesBody().withRegionID(regionId).withInstanceIDList(instanceIds?.join(","));
+      BatchStartInstancesBody body = new BatchStartInstancesBody().withRegionID(regionId).withInstanceIDList(instanceIds?.findAll({it!=null}).join(","));
       BatchStartInstancesRequest request = new BatchStartInstancesRequest().withBody(body);
       CTResponse<BatchStartInstancesData> response = ctvmClient.batchStartInstances(request);
 
@@ -269,12 +285,12 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
           log.info("startInstances--批量启动主机实例--end "+ JSONObject.toJSONString(batchStartInstancesData.getReturnObj())+" is ok!")
           return batchStartInstancesData.getReturnObj().getJobIDList()
         }else{
-          log.info("startInstances--批量启动主机实例--非800！{}",batchStartInstancesData.getMessage())
-          //throw new CtyunOperationException(batchStopInstancesData.getMessage())
+          log.error("startInstances--批量启动主机实例--非800！{} {}",batchStartInstancesData.getStatusCode(),batchStartInstancesData.getMessage())
+          throw new CtyunOperationException("startInstances--批量启动主机实例--非800！"+batchStartInstancesData.getStatusCode()+" "+batchStartInstancesData.getMessage())
         }
       }else{
-        log.info("startInstances--批量启动主机实例--非200！{}",response.getMessage())
-        throw new CtyunOperationException(response.getMessage())
+        log.error("startInstances--批量启动主机实例--非200！message={}",response.getMessage())
+        throw new CtyunOperationException("startInstances--批量启动主机实例--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("startInstances--批量启动主机实例--Exception",e)
@@ -283,10 +299,10 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
   }
 //批量重启主机实例
   def rebootInstances(List<String> instanceIds) {
-    log.info("rebootInstances--批量重启主机实例--start--instanceIds={}",instanceIds)
+    log.info("rebootInstances--批量重启主机实例--start--instanceIds=[{}]",instanceIds)
     try {
 
-      BatchRebootInstancesBody body = new BatchRebootInstancesBody().withRegionID(regionId).withInstanceIDList(instanceIds?.join(","));
+      BatchRebootInstancesBody body = new BatchRebootInstancesBody().withRegionID(regionId).withInstanceIDList(instanceIds?.findAll({it!=null}).join(","));
       BatchRebootInstancesRequest request = new BatchRebootInstancesRequest().withBody(body);
       CTResponse<BatchRebootInstancesData> response = ctvmClient.batchRebootInstances(request);
       if(response.httpCode==200&&response.getData()!=null){
@@ -294,12 +310,12 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
         if(batchRebootInstancesData.getStatusCode()==800){
           log.info("rebootInstances--批量重启主机实例--end "+ JSONObject.toJSONString(batchRebootInstancesData.getReturnObj())+" is ok!")
         }else{
-          log.info("rebootInstances--批量重启主机实例--非800！{}",batchRebootInstancesData.getMessage())
-          //throw new CtyunOperationException(batchRebootInstancesData.getMessage())
+          log.error("rebootInstances--批量重启主机实例--非800！{} {}",batchRebootInstancesData.getStatusCode(),batchRebootInstancesData.getMessage())
+          throw new CtyunOperationException("rebootInstances--批量重启主机实例--非800！"+batchRebootInstancesData.getStatusCode()+" "+batchRebootInstancesData.getMessage())
         }
       }else{
-        log.info("rebootInstances--批量重启主机实例--非200！{}",response.getMessage())
-        //throw new CtyunOperationException(response.getMessage())
+        log.error("rebootInstances--批量重启主机实例--非200！message={}",response.getMessage())
+        throw new CtyunOperationException("rebootInstances--批量重启主机实例--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("rebootInstances--批量重启主机实例--Exception",e)
@@ -320,11 +336,12 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
            log.info("getRegionsDetails--获取资源池--end,size={}",regionsDetailsResponseData.getReturnObj().getRegionList().size())
            return regionsDetailsResponseData.getReturnObj().getRegionList()
         }else{
-          log.info("getRegionsDetails--获取资源池--非800！,错误码={}，错误信息={}",regionsDetailsResponseData.getErrorCode(),regionsDetailsResponseData.getMessage())
+          log.error("getRegionsDetails--获取资源池--非800！,错误码={}，错误信息={}",regionsDetailsResponseData.getStatusCode(),regionsDetailsResponseData.getMessage())
+          return null;
         }
       }else{
-        log.info("getRegionsDetails--获取资源池--非200！{}",response.getMessage())
-        //throw new CtyunOperationException(response.getMessage())
+        log.error("getRegionsDetails--获取资源池--非200！message{}",response.getMessage())
+        return null;
       }
     } catch (Exception e) {
       log.error("getRegionsDetails--获取资源池--Exception",e)
@@ -343,11 +360,12 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
           log.info("getZones--获取区域--end,size={}",getZonesResponseData.getReturnObj().getZoneList().size())
           return getZonesResponseData.getReturnObj().getZoneList()
         }else{
-          log.info("getZones--获取区域--非800！,错误码={}，错误信息={}",getZonesResponseData.getErrorCode(),getZonesResponseData.getMessage())
+          log.error("getZones--获取区域--非800！,错误码={}，错误信息={}",getZonesResponseData.getStatusCode(),getZonesResponseData.getMessage())
+          return null;
         }
       }else{
-        log.info("getZones--获取区域--非200！{}",response.getMessage())
-        //throw new CtyunOperationException(response.getMessage())
+        log.error("getZones--获取区域--非200！message={}",response.getMessage())
+        return null;
       }
     } catch (Exception e) {
       log.error("getZones--获取区域--Exception",e)
@@ -368,11 +386,12 @@ class CloudVirtualMachineClient extends AbstractCtyunServiceClient {
           log.info("getMyZones--获取我的账户下能用得区域--end,size={}",availabilityZonesResponseData.getReturnObj().getAzList().size())
           return availabilityZonesResponseData.getReturnObj().getAzList()
         }else{
-          log.info("getMyZones--获取我的账户下能用得区域--非800！,错误码={}，错误信息={}",availabilityZonesResponseData.getErrorCode(),availabilityZonesResponseData.getMessage())
+          log.error("getMyZones--获取我的账户下能用得区域--非800！,错误码={}，错误信息={}",availabilityZonesResponseData.getStatusCode(),availabilityZonesResponseData.getMessage())
+          return null;
         }
       }else{
-        log.info("getMyZones--获取我的账户下能用得区域--非200！{}",response.getMessage())
-        //throw new CtyunOperationException(response.getMessage())
+        log.error("getMyZones--获取我的账户下能用得区域--非200！message={}",response.getMessage())
+        return null;
       }
     } catch (Exception e) {
       log.error("getMyZones--获取我的账户下能用得区域--Exception",e)
