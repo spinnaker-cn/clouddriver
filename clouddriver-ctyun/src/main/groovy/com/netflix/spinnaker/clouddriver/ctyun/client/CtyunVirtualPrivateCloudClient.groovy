@@ -47,7 +47,7 @@ import org.springframework.stereotype.Component
 @Component
 @Slf4j
 class CtyunVirtualPrivateCloudClient {
-  private final DEFAULT_LIMIT = 50
+  private final int DEFAULT_LIMIT = 50
   private Credential cred
   CtvpcClient client
   private final String endingPoint = "ctvpc-global.ctapi.ctyun.cn"
@@ -63,35 +63,41 @@ class CtyunVirtualPrivateCloudClient {
     log.info("getSecurityGroupsAll--获取所有安全组数据--start")
     List<ReturnObj.SecurityGroups> securityGroupAll = []
     try {
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try {
+          long startTime=System.currentTimeMillis();
           ListSecurityGroupRequest request = new ListSecurityGroupRequest().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
           CTResponse<ListSecurityGroupResponseData> response = client.listSecurityGroup(request);
           if (response.httpCode == 200 && response.getData() != null) {
             ListSecurityGroupResponseData listSecurityGroupResponseData = response.getData()
             if (listSecurityGroupResponseData.getStatusCode() == 800) {
               if (listSecurityGroupResponseData.getReturnObj() == null || listSecurityGroupResponseData.getReturnObj().getSecurityGroups() == null) {
-                throw new CtyunOperationException("返回结果为空！listSecurityGroupResponseData=" + JSONObject.toJSONString(listSecurityGroupResponseData))
+                log.error("getSecurityGroupsAll--获取所有安全组数据--pageNum={} 返回结果为空！listSecurityGroupResponseData={}",pageNumber, JSONObject.toJSONString(listSecurityGroupResponseData))
+                return null;
               }
               if (listSecurityGroupResponseData.getReturnObj().getSecurityGroups().size() > 0) {
                 securityGroupAll.addAll(listSecurityGroupResponseData.getReturnObj().getSecurityGroups())
               }
 
               getCount = listSecurityGroupResponseData.getReturnObj().getSecurityGroups().size();
+              log.info("getSecurityGroupsAll--获取所有安全组数据--成功！pageNum={} 用时={}",pageNumber,(System.currentTimeMillis()-startTime));
             } else {
-              log.info("getSecurityGroupsAll--获取所有安全组数据--非800！pageNum={},错误码={}，错误信息={}", pageNumber, listSecurityGroupResponseData.getErrCode(), listSecurityGroupResponseData.getMessage())
+              log.error("getSecurityGroupsAll--获取所有安全组数据--非800！pageNum={} 用时={},错误码={}，错误信息={}", pageNumber,(System.currentTimeMillis()-startTime), listSecurityGroupResponseData.getStatusCode(), listSecurityGroupResponseData.getMessage())
+              return null;
             }
           } else {
-            log.info("getSecurityGroupsAll--获取所有安全组数据--非200！{}", response.getMessage())
-            //throw new CtyunOperationException(response.getMessage())
+            log.error("getSecurityGroupsAll--获取所有安全组数据--非200！pageNum={} message={}" , pageNumber,response.getMessage())
+            return null;
           }
         }catch (Exception e) {
           log.error("getSecurityGroupsAll--第{}次 获取所有安全组数据--Exception",pageNumber,e)
+          return null;
         }
         pageNumber++;
+        sleep(500)
       }
       log.info("getSecurityGroupsAll--获取所有安全组数据--end,size={}",securityGroupAll.size())
       return securityGroupAll
@@ -113,12 +119,12 @@ class CtyunVirtualPrivateCloudClient {
           log.info("createSecurityGroup--创建安全组--end！{}", JSONObject.toJSONString(createSecurityGroupResponseData.getReturnObj()))
           return createSecurityGroupResponseData.getReturnObj().getSecurityGroupID()
         }else{
-          log.info("createSecurityGroup--创建安全组--非800！{}",createSecurityGroupResponseData.getMessage())
-          //throw new CtyunOperationException(createSecurityGroupResponseData.getMessage())
+          log.error("createSecurityGroup--创建安全组--非800！{} {}",createSecurityGroupResponseData.getStatusCode(),createSecurityGroupResponseData.getMessage())
+          throw new CtyunOperationException("createSecurityGroup--创建安全组--非800！"+createSecurityGroupResponseData.getStatusCode()+" "+createSecurityGroupResponseData.getMessage())
         }
       }else{
-        log.info("createSecurityGroup--创建安全组--非200！{}",response.getMessage())
-        //throw new CtyunOperationException(response.getMessage())
+        log.error("createSecurityGroup--创建安全组--非200！message={}",response.getMessage())
+        throw new CtyunOperationException("createSecurityGroup--创建安全组--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("createSecurityGroup--创建安全组--Exception",e)
@@ -160,10 +166,12 @@ class CtyunVirtualPrivateCloudClient {
               if(createSgIngressRuleResponseData.getStatusCode()==800){
                 log.info("createSecurityGroup--创建安全组访问策略--入站规则--end！{}", JSONObject.toJSONString(createSgIngressRuleResponseData))
               }else{
-                log.info("createSecurityGroup--创建安全组访问策略--入站规则--非800！{}",createSgIngressRuleResponseData.getMessage())
+                log.error("createSecurityGroup--创建安全组访问策略--入站规则--非800！{} {}",createSgIngressRuleResponseData.getStatusCode(),createSgIngressRuleResponseData.getMessage())
+                throw new CtyunOperationException("createSecurityGroup--创建安全组访问策略--入站规则--非800！"+createSgIngressRuleResponseData.getStatusCode()+" "+createSgIngressRuleResponseData.getMessage())
               }
             }else{
-              log.info("createSecurityGroup--创建安全组访问策略--入站规则--非200！{}",response.getMessage())
+              log.error("createSecurityGroup--创建安全组访问策略--入站规则--非200！{}",response.getMessage())
+              throw new CtyunOperationException("createSecurityGroup--创建安全组访问策略--入站规则--非200！httpCode="+response.httpCode)
             }
           }
         }
@@ -196,10 +204,12 @@ class CtyunVirtualPrivateCloudClient {
               if(createSgEngressRuleResponseData.getStatusCode()==800){
                 log.info("createSecurityGroup--创建安全组访问策略--出站规则--end！{}", JSONObject.toJSONString(createSgEngressRuleResponseData))
               }else{
-                log.info("createSecurityGroup--创建安全组访问策略--出站规则--非800！{}",createSgEngressRuleResponseData.getMessage())
+                log.error("createSecurityGroup--创建安全组访问策略--出站规则--非800！{} {}",createSgEngressRuleResponseData.getStatusCode(),createSgEngressRuleResponseData.getMessage())
+                throw new CtyunOperationException("createSecurityGroup--创建安全组访问策略--出站规则--非800！"+createSgEngressRuleResponseData.getStatusCode()+" "+createSgEngressRuleResponseData.getMessage())
               }
             }else{
-              log.info("createSecurityGroup--创建安全组访问策略--出站规则--非200！{}",response.getMessage())
+              log.error("createSecurityGroup--创建安全组访问策略--出站规则--非200！{}",response.getMessage())
+              throw new CtyunOperationException("createSecurityGroup--创建安全组访问策略--出站规则--非200！httpCode="+response.httpCode)
             }
           }
         }
@@ -227,10 +237,12 @@ class CtyunVirtualPrivateCloudClient {
             if(revokeSgIngressRuleResponseData.getStatusCode()==800){
               log.info("deleteSecurityGroupInRules--删除入站规则--end！{}", JSONObject.toJSONString(revokeSgIngressRuleResponseData))
             }else{
-              log.info("deleteSecurityGroupInRules--删除入站规则--非800！{}",revokeSgIngressRuleResponseData.getMessage())
+              log.error("deleteSecurityGroupInRules--删除入站规则--非800！{} {}",revokeSgIngressRuleResponseData.getStatusCode(),revokeSgIngressRuleResponseData.getMessage())
+              throw new CtyunOperationException("deleteSecurityGroupInRules--删除入站规则--非800！"+revokeSgIngressRuleResponseData.getStatusCode()+" "+revokeSgIngressRuleResponseData.getMessage())
             }
           }else{
-            log.info("deleteSecurityGroupInRules--删除入站规则--非200！{}",response.getMessage())
+            log.error("deleteSecurityGroupInRules--删除入站规则--非200！{}",response.getMessage())
+            throw new CtyunOperationException("deleteSecurityGroupInRules--删除入站规则--非200！httpCode="+response.httpCode)
           }
         }
       }
@@ -253,13 +265,12 @@ class CtyunVirtualPrivateCloudClient {
           log.info("getSecurityGroupById--通过安全组id获取详细信息--end,{}",showSecurityGroupResponseData.getReturnObj())
           return showSecurityGroupResponseData.getReturnObj()
         }else{
-          log.info("getSecurityGroupById--通过安全组id获取详细信息--非800！错误码={}，错误信息={}",showSecurityGroupResponseData.getErrCode(),showSecurityGroupResponseData.getMessage())
-
-          //throw new CtyunOperationException(showSecurityGroupResponseData.getMessage())
+          log.error("getSecurityGroupById--通过安全组id获取详细信息--非800！错误码={}，错误信息={}",showSecurityGroupResponseData.getStatusCode(),showSecurityGroupResponseData.getMessage())
+          return null;
         }
       }else{
-        log.info("getSecurityGroupById--通过安全组id获取详细信息--非200！{}",response.getMessage())
-       // throw new CtyunOperationException(response.getMessage())
+        log.error("getSecurityGroupById--通过安全组id获取详细信息--非200！{}",response.getMessage())
+        return null;
       }
 
     } catch (Exception e) {
@@ -280,10 +291,12 @@ class CtyunVirtualPrivateCloudClient {
         if(deleteSecurityGroupResponseData.getStatusCode()==800){
           log.info("deleteSecurityGroup--删除安全组--end！{}", JSONObject.toJSONString(deleteSecurityGroupResponseData))
         }else{
-          log.info("deleteSecurityGroup--删除安全组--非800！{}",deleteSecurityGroupResponseData.getMessage())
+          log.error("deleteSecurityGroup--删除安全组--非800！{} {}",deleteSecurityGroupResponseData.getStatusCode(),deleteSecurityGroupResponseData.getMessage())
+          throw new CtyunOperationException("deleteSecurityGroup--删除安全组--非800！"+deleteSecurityGroupResponseData.getStatusCode()+" "+deleteSecurityGroupResponseData.getMessage())
         }
       }else{
-        log.info("deleteSecurityGroup--删除安全组--非200！{}",response.getMessage())
+        log.error("deleteSecurityGroup--删除安全组--非200！{}",response.getMessage())
+        throw new CtyunOperationException("deleteSecurityGroup--删除安全组--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("deleteSecurityGroup--删除安全组--Exception",e)
@@ -310,34 +323,40 @@ class CtyunVirtualPrivateCloudClient {
     log.info("getNetworksAll--获取所有网络信息--start")
     List<ReturnVpcObject> networkAll =[]
     try{
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try {
+          long startTime=System.currentTimeMillis();
           ListVpcRequest request = new ListVpcRequest().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
           CTResponse<ListVpcResponseData> response = client.listVpc(request);
           if (response.httpCode == 200 && response.getData() != null) {
             ListVpcResponseData listVpcResponseData = response.getData()
             if (listVpcResponseData.getStatusCode() == 800) {
               if (listVpcResponseData.getReturnObj() == null || listVpcResponseData.getReturnObj().getVpcs() == null) {
-                throw new CtyunOperationException("返回结果为空！listVpcResponseData=" + JSONObject.toJSONString(listVpcResponseData))
+                log.error("getNetworksAll--获取所有网络信息--pageNum={} 返回结果为空！listVpcResponseData={}",pageNumber, JSONObject.toJSONString(listVpcResponseData))
+                return null;
               }
               if (listVpcResponseData.getReturnObj().getVpcs().size() > 0) {
                 networkAll.addAll(listVpcResponseData.getReturnObj().getVpcs())
               }
               getCount = listVpcResponseData.getReturnObj().getVpcs().size();
+              log.info("getNetworksAll--获取所有网络信息--成功！pageNum={} 用时={}",pageNumber,(System.currentTimeMillis()-startTime));
             } else {
-              log.info("getNetworksAll--获取所有网络信息--非800！pageNum={},错误码={}，错误信息={}", pageNumber, listVpcResponseData.getErrorCode(), listVpcResponseData.getMessage())
+              log.error("getNetworksAll--获取所有网络信息--非800！pageNum={} 用时={},错误码={}，错误信息={}", pageNumber,(System.currentTimeMillis()-startTime), listVpcResponseData.getStatusCode(), listVpcResponseData.getMessage())
+              return null;
             }
           } else {
-            log.info("getNetworksAll--获取所有网络信息--非200！{}", response.getMessage())
-            //throw new CtyunOperationException(response.getMessage())
+            log.error("getNetworksAll--获取所有网络信息--非200！pageNum={} message={}",pageNumber, response.getMessage())
+            return null;
           }
         }catch (Exception e) {
           log.error("getNetworksAll--第{}次 获取所有网络信息--Exception",pageNumber,e)
+          return null;
         }
         pageNumber++;
+        sleep(500)
       }
       log.info("getNetworksAll--获取所有网络信息--end,size={}",networkAll.size())
       return networkAll
@@ -351,35 +370,41 @@ class CtyunVirtualPrivateCloudClient {
     log.info("getSubnetsAll--通过vpcId获取子网信息--start--vpcId--{}",vpcId)
     List<ReturnSubNetObject> subnetAll = []
     try{
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try {
+          long startTime=System.currentTimeMillis();
           ListSubNetRequest request = new ListSubNetRequest().withRegionID(regionId).withVpcID(vpcId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
           CTResponse<ListSubNetResponseData> response = client.listSubnet(request);
           if (response.httpCode == 200 && response.getData() != null) {
             ListSubNetResponseData listSubNetResponseData = response.getData()
             if (listSubNetResponseData.getStatusCode() == 800) {
               if (listSubNetResponseData.getReturnObj() == null || listSubNetResponseData.getReturnObj().getSubnets() == null) {
-                throw new CtyunOperationException("返回结果为空！listSubNetResponseData=" + JSONObject.toJSONString(listSubNetResponseData))
+                log.error("getSubnetsAll--通过vpcId获取子网信息--pageNum={} 返回结果为空！listSubNetResponseData=={}",pageNumber, JSONObject.toJSONString(listSubNetResponseData))
+                return null;
               }
               if (listSubNetResponseData.getReturnObj().getSubnets().size() > 0) {
                 subnetAll.addAll(listSubNetResponseData.getReturnObj().getSubnets())
               }
 
               getCount = listSubNetResponseData.getReturnObj().getSubnets().size();
+              log.info("getSubnetsAll--通过vpcId获取子网信息--成功！pageNum={} 用时={}",pageNumber,(System.currentTimeMillis()-startTime));
             } else {
-              log.info("getSubnetsAll--通过vpcId获取子网信息--非800！pageNum={},错误码={}，错误信息={}", pageNumber, listSubNetResponseData.getErrorCode(), listSubNetResponseData.getMessage())
+              log.error("getSubnetsAll--通过vpcId获取子网信息--非800！pageNum={} 用时={},错误码={}，错误信息={}", pageNumber,(System.currentTimeMillis()-startTime), listSubNetResponseData.getStatusCode(), listSubNetResponseData.getMessage())
+              return null;
             }
           } else {
-            log.info("getSubnetsAll--通过vpcId获取子网信息--非200！{}", response.getMessage())
-            //throw new CtyunOperationException(response.getMessage())
+            log.error("getSubnetsAll--通过vpcId获取子网信息--非200！pageNum={} message={}", pageNumber, response.getMessage())
+            return null;
           }
         }catch (Exception e) {
           log.error("getSubnetsAll--第{}次 通过vpcId获取子网信息--Exception",pageNumber,e)
+          return null;
         }
         pageNumber++;
+        sleep(500)
       }
       log.info("getSubnetsAll--通过vpcId获取子网信息--end,size={}",subnetAll.size())
       return subnetAll
@@ -396,11 +421,12 @@ class CtyunVirtualPrivateCloudClient {
     eipClient.init(cred, endingPoint);
     List<Eip> eipAll = []
     try{
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try {
+          long startTime=System.currentTimeMillis();
           NewListEipRequestBody body = new NewListEipRequestBody()
             .withClientToken(UUID.randomUUID().toString())
             .withRegionID(regionId)
@@ -413,29 +439,34 @@ class CtyunVirtualPrivateCloudClient {
             NewListEipResponseData newListEipResponseData = response.getData()
             if (newListEipResponseData.getStatusCode() == 800) {
               if (newListEipResponseData.getReturnObj() == null || newListEipResponseData.getReturnObj().getEips() == null) {
-                throw new CtyunOperationException("返回结果为空！newListEipResponseData=" + JSONObject.toJSONString(newListEipResponseData))
+                log.error("getEipsDownAll--获取未绑定eip信息--pageNum={} 返回结果为空！newListEipResponseData={}",pageNumber, JSONObject.toJSONString(newListEipResponseData))
+                return null;
               }
               if (newListEipResponseData.getReturnObj().getEips().size() > 0) {
                 eipAll.addAll(newListEipResponseData.getReturnObj().getEips())
               }
               getCount = newListEipResponseData.getReturnObj().getEips().size();
+              log.info("getEipsDownAll--获取未绑定eip信息--成功！pageNum={} 用时={}",pageNumber,(System.currentTimeMillis()-startTime));
             } else {
-              log.info("getEipsDownAll--获取未绑定eip信息--非800！pageNum={},错误码={}，错误信息={}，描述={}", pageNumber, newListEipResponseData.getErrorCode(), newListEipResponseData.getMessage(), newListEipResponseData.getDescription())
+              log.error("getEipsDownAll--获取未绑定eip信息--非800！pageNum={} 用时={},错误码={}，错误信息={}，描述={}", pageNumber,(System.currentTimeMillis()-startTime), newListEipResponseData.getStatusCode(), newListEipResponseData.getMessage(), newListEipResponseData.getDescription())
+              return null;
             }
           } else {
-            log.info("getEipsDownAll--获取未绑定eip信息--非200！{}", response.getMessage())
-            //throw new CtyunOperationException(response.getMessage())
+            log.error("getEipsDownAll--获取未绑定eip信息--非200！pageNum={} message={}", pageNumber, response.getMessage())
+            return null;
           }
         }catch (Exception e) {
           log.error("getEipsDownAll--第{}次 获取未绑定eip信息--Exception",pageNumber,e)
+          return null;
         }
         pageNumber++;
+        sleep(500)
       }
       log.info("getEipsDownAll--获取未绑定eip信息--end,size={}",eipAll.size())
       return eipAll
     } catch (CtyunOperationException e) {
       log.error("getEipsDownAll--获取未绑定eip信息--Exception",e)
-      throw new CtyunOperationException(e)
+      throw new CtyunOperationException(e.toString())
     }
   }
 

@@ -2,14 +2,6 @@ package com.netflix.spinnaker.clouddriver.ctyun.client
 
 import cn.ctyun.ctapi.CTResponse
 import cn.ctyun.ctapi.ctelb.CtelbClient
-import cn.ctyun.ctapi.ctelb.createtarget.CreateTargetRequest
-import cn.ctyun.ctapi.ctelb.createtarget.CreateTargetRequestBody
-import cn.ctyun.ctapi.ctelb.createtarget.CreateTargetResponseData
-import cn.ctyun.ctapi.ctelb.deletetarget.DeleteTargetRequest
-import cn.ctyun.ctapi.ctelb.deletetarget.DeleteTargetRequestBody
-import cn.ctyun.ctapi.ctelb.deletetarget.DeleteTargetResponseData
-import cn.ctyun.ctapi.ctelb.listtarget.ListTargetRequest
-import cn.ctyun.ctapi.ctelb.listtarget.ListTargetResponseData
 import cn.ctyun.ctapi.scaling.ScalingClient
 import cn.ctyun.ctapi.scaling.configcreate.ConfigCreateRequest
 import cn.ctyun.ctapi.scaling.configcreate.ConfigCreateRequestBody
@@ -56,9 +48,6 @@ import cn.ctyun.ctapi.scaling.groupqueryactivitydetail.GroupQueryActivityResultO
 import cn.ctyun.ctapi.scaling.groupupdate.GroupUpdateRequest
 import cn.ctyun.ctapi.scaling.groupupdate.GroupUpdateRequestBody
 import cn.ctyun.ctapi.scaling.groupupdate.GroupUpdateResponseData
-import cn.ctyun.ctapi.scaling.instancemoveout.InstanceMoveOutRequest
-import cn.ctyun.ctapi.scaling.instancemoveout.InstanceMoveOutRequestBody
-import cn.ctyun.ctapi.scaling.instancemoveout.InstanceMoveOutResponseData
 import cn.ctyun.ctapi.scaling.instancemoveoutrelease.InstanceMoveOutReleaseRequest
 import cn.ctyun.ctapi.scaling.instancemoveoutrelease.InstanceMoveOutReleaseRequestBody
 import cn.ctyun.ctapi.scaling.instancemoveoutrelease.InstanceMoveOutReleaseResponseData
@@ -84,8 +73,6 @@ import cn.ctyun.ctapi.scaling.ruledelete.RuleDeleteResponseData
 import cn.ctyun.ctapi.scaling.ruledeletealarm.RuleDeleteAlarmRequest
 import cn.ctyun.ctapi.scaling.ruledeletealarm.RuleDeleteAlarmRequestBody
 import cn.ctyun.ctapi.scaling.ruledeletealarm.RuleDeleteAlarmResponseData
-import cn.ctyun.ctapi.scaling.ruleexecute.RuleExecuteRequest
-import cn.ctyun.ctapi.scaling.ruleexecute.RuleExecuteResponseData
 import cn.ctyun.ctapi.scaling.rulelist.GroupRuleListRequest
 import cn.ctyun.ctapi.scaling.rulelist.GroupRuleListRequestBody
 import cn.ctyun.ctapi.scaling.rulelist.GroupRuleListResponseData
@@ -157,17 +144,17 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
             log.info("deploy--创建弹性伸缩组--end！groupCreateResponseData={}",JSONObject.toJSONString(groupCreateResponseData))
             groupCreateResponseData.getReturnObj().getGroupID()
           }else{
-            log.info("deploy--创建弹性伸缩组--非800！,错误码={}，错误信息={}",groupCreateResponseData.getErrorCode(),groupCreateResponseData.getDescription())
-            throw new CtyunOperationException(groupCreateResponseData.getDescription())
+            log.info("deploy--创建弹性伸缩组--非800！,错误码={}，错误信息={}",groupCreateResponseData.getErrorCode(),groupCreateResponseData.getMessage())
+            throw new CtyunOperationException("deploy--创建弹性伸缩组--非800！"+groupCreateResponseData.getErrorCode()+" "+groupCreateResponseData.getMessage())
           }
         }else{
-          log.info("deploy--创建弹性伸缩组--非200！{}",response)
-          throw new CtyunOperationException(response.getMessage())
+          log.error("deploy--创建弹性伸缩组--非200！message={}",response.getMessage())
+          throw new CtyunOperationException("deploy--创建弹性伸缩组--非200！httpCode="+response.httpCode)
         }
 
       } catch (Exception e) {
         log.error("deploy--创建弹性伸缩组--Exception",e)
-        throw new CtyunOperationException(e)
+        throw new CtyunOperationException(e.toString())
       }
   }
 
@@ -287,25 +274,25 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
 
   //创建配置信息
   Integer createConfig(ConfigCreateRequestBody configObj) {
-    log.info("createConfig--resize弹性组--start--configObj--{}",JSONObject.toJSONString(configObj))
+    log.info("createConfig--创建伸缩配置--start--configObj--{}",JSONObject.toJSONString(configObj))
     try {
       ConfigCreateRequest request = new ConfigCreateRequest().withBody(configObj);
       CTResponse<ConfigCreateResponseData> response= client.createConfig(request);
       if (response.httpCode == 200 && response.getData() != null) {
         ConfigCreateResponseData configCreateResponseData = response.getData()
         if (configCreateResponseData.getStatusCode() == 800) {
-          log.info("createConfig--resize弹性组--成功--end--{}", JSONObject.toJSONString(configCreateResponseData.getReturnObj()))
+          log.info("createConfig--创建伸缩配置--成功--end--{}", JSONObject.toJSONString(configCreateResponseData.getReturnObj()))
           return configCreateResponseData.getReturnObj().getId()
         } else {
-          log.info("createConfig--resize弹性组--非800！错误码={}，错误信息={}",  configCreateResponseData.getErrorCode(), configCreateResponseData.getDescription())
-          throw new CtyunOperationException(configCreateResponseData.getDescription())
+          log.error("createConfig--创建伸缩配置--非800！错误码={}，错误信息={}",  configCreateResponseData.getStatusCode(), configCreateResponseData.getMessage())
+          throw new CtyunOperationException("createConfig--创建伸缩配置--非800！"+configCreateResponseData.getStatusCode()+" "+configCreateResponseData.getMessage())
         }
       } else {
-        log.info("createConfig--resize弹性组--非200！{}",response)
-        throw new CtyunOperationException(response.getMessage())
+        log.error("createConfig--创建伸缩配置--非200！message={}",response.getMessage())
+        throw new CtyunOperationException("createConfig--创建伸缩配置--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
-      log.error("createConfig--resize弹性组--Exception",e)
+      log.error("createConfig--创建伸缩配置--Exception",e)
       throw new CtyunOperationException(e.toString())
     }
   }
@@ -315,11 +302,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--start")
     List<ScalingGroup> autoScalingGroupAll = []
     try {
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try {
+          long startTime=System.currentTimeMillis();
           GroupListRequestBody requestBody = new GroupListRequestBody().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
           GroupListRequest request = new GroupListRequest().withBody(requestBody);
           CTResponse<GroupListResponseData> response = client.groupList(request);
@@ -327,22 +315,28 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
             GroupListResponseData groupListResponseData = response.getData()
             if (groupListResponseData.getStatusCode() == 800) {
               if (groupListResponseData.getReturnObj() == null || groupListResponseData.getReturnObj().getScalingGroups() == null) {
-                throw new CtyunOperationException("返回结果为空！groupListResponseData="+JSONObject.toJSONString(groupListResponseData))
+                log.error("getAllAutoScalingGroups--查询所有弹性伸缩组--pageNum={} 返回结果为空！groupListResponseData={}",pageNumber, JSONObject.toJSONString(groupListResponseData))
+                return null;
               }
               if (groupListResponseData.getReturnObj().getScalingGroups().size() > 0) {
                 autoScalingGroupAll.addAll(groupListResponseData.getReturnObj().getScalingGroups())
               }
               getCount = groupListResponseData.getReturnObj().getScalingGroups().size();
+              log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--成功！pageNum={} 用时={}",pageNumber,(System.currentTimeMillis()-startTime));
             } else {
-              log.error("getAllAutoScalingGroups--查询所有弹性伸缩组--非800！pageNum={},错误码={}，错误信息={}", pageNumber, groupListResponseData.getErrorCode(), groupListResponseData.getDescription())
+              log.error("getAllAutoScalingGroups--查询所有弹性伸缩组--非800！pageNum={} 用时={},错误码={}，错误信息={}", pageNumber,(System.currentTimeMillis()-startTime), groupListResponseData.getStatusCode(), groupListResponseData.getMessage())
+              return null;
             }
           } else {
-            log.error("getAllAutoScalingGroups--查询所有弹性伸缩组--非200！{}", response)
+            log.error("getAllAutoScalingGroups--查询所有弹性伸缩组--非200！pageNum={} message{}", pageNumber, response.getMessage())
+            return null;
           }
         }catch (Exception e) {
           log.error("getAllAutoScalingGroups--第{}次 查询所有弹性伸缩组--Exception",pageNumber,e)
+          return null;
         }
         pageNumber++;
+        sleep(500)
       }
       log.info("getAllAutoScalingGroups--查询所有弹性伸缩组--end,size={}",autoScalingGroupAll.size())
       return autoScalingGroupAll
@@ -356,11 +350,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     log.info("getAllAutoScalingGroups2--查询所有弹性伸缩组--start")
     List<ScalingGroup> autoScalingGroupAll = []
     try {
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try {
+          long startTime=System.currentTimeMillis();
           GroupListRequestBody requestBody = new GroupListRequestBody().withRegionID(regionId).withPageNo(pageNumber).withPageSize(DEFAULT_LIMIT);
           GroupListRequest request = new GroupListRequest().withBody(requestBody);
           CTResponse<GroupListResponseData> response = client.groupList(request);
@@ -368,22 +363,28 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
             GroupListResponseData groupListResponseData = response.getData()
             if (groupListResponseData.getStatusCode() == 800) {
               if (groupListResponseData.getReturnObj() == null || groupListResponseData.getReturnObj().getScalingGroups() == null) {
-                throw new CtyunOperationException("返回结果为空！groupListResponseData=" + JSONObject.toJSONString(groupListResponseData))
+                log.error("getAllAutoScalingGroups2--查询所有弹性伸缩组--pageNum={} 返回结果为空！groupListResponseData={}",pageNumber, JSONObject.toJSONString(groupListResponseData))
+                return null;
               }
               if (groupListResponseData.getReturnObj().getScalingGroups().size() > 0) {
                 autoScalingGroupAll.addAll(groupListResponseData.getReturnObj().getScalingGroups())
               }
               getCount = groupListResponseData.getReturnObj().getScalingGroups().size();
+              log.info("getAllAutoScalingGroups2--查询所有弹性伸缩组--成功！pageNum={} 用时={}",pageNumber,(System.currentTimeMillis()-startTime));
             } else {
-              log.info("getAllAutoScalingGroups2--查询所有弹性伸缩组--非800！pageNum={},错误码={}，错误信息={}", pageNumber, groupListResponseData.getErrorCode(), groupListResponseData.getDescription())
+              log.error("getAllAutoScalingGroups2--查询所有弹性伸缩组--非800！pageNum={} 用时={},错误码={}，错误信息={}", pageNumber,(System.currentTimeMillis()-startTime), groupListResponseData.getStatusCode(), groupListResponseData.getMessage())
+              return null;
             }
           } else {
-            log.info("getAllAutoScalingGroups2--查询所有弹性伸缩组--非200！{}", response)
+            log.error("getAllAutoScalingGroups2--查询所有弹性伸缩组--非200！pageNum={}  message={}", pageNumber, response.getMessage())
+            return null;
           }
         }catch (Exception e) {
           log.error("getAllAutoScalingGroups2--第{}次 查询所有弹性伸缩组--Exception",pageNumber,e)
+          return null;
         }
         pageNumber++;
+        sleep(500)
       }
       log.info("getAllAutoScalingGroups2--查询所有弹性伸缩组--end,size={}",autoScalingGroupAll.size())
       return autoScalingGroupAll
@@ -407,11 +408,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
               autoScalingGroup=groupListResponseData.getReturnObj().getScalingGroups()[0]
             }
           }else{
-            log.info("getAutoScalingGroupByGroupId--通过groupId查询所有弹性伸缩组--非800！,错误码={}，错误信息={}",groupListResponseData.getErrorCode(),groupListResponseData.getDescription())
+            log.error("getAutoScalingGroupByGroupId--通过groupId查询所有弹性伸缩组--非800！,错误码={}，错误信息={}",groupListResponseData.getStatusCode(),groupListResponseData.getMessage())
+            return null;
           }
         }else{
-          log.info("getAutoScalingGroupByGroupId--通过groupId查询所有弹性伸缩组--非200！{}",response)
-          //throw new CtyunOperationException(response.getDescription())
+          log.error("getAutoScalingGroupByGroupId--通过groupId查询所有弹性伸缩组--非200！{}",response.getMessage())
+          return null;
         }
       log.info("getAutoScalingGroupByGroupId--通过groupId查询所有弹性伸缩组--end")
       return autoScalingGroup
@@ -435,11 +437,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
             list=listLoadBalancerResponseData.getReturnObj().getLoadBalancers()
           }
         }else{
-          log.info("getLoadBalancerListByGroupId--通过groupId查询所有负载均衡器--非800！,错误码={}，错误信息={}",listLoadBalancerResponseData.getErrorCode(),listLoadBalancerResponseData.getDescription())
+          log.error("getLoadBalancerListByGroupId--通过groupId查询所有负载均衡器--非800！,错误码={}，错误信息={}",listLoadBalancerResponseData.getStatusCode(),listLoadBalancerResponseData.getMessage())
+          return null;
         }
       }else{
-        log.info("getLoadBalancerListByGroupId--通过groupId查询所有负载均衡器--非200！{}",response.getMessage())
-        //throw new CtyunOperationException(response.getDescription())
+        log.error("getLoadBalancerListByGroupId--通过groupId查询所有负载均衡器--非200！{}",response.getMessage())
+        return null;
       }
       log.info("getLoadBalancerListByGroupId--通过groupId查询所有负载均衡器--end")
       return list
@@ -477,11 +480,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
             log.info("getLaunchConfiguration--通过配置id集合获取配置信息--end")
             return obj;
           } else {
-            log.info("getLaunchConfiguration--通过配置id集合获取配置信息--非800！错误码={}，错误信息={}",  groupListConfigResponseData.getErrorCode(), groupListConfigResponseData.getDescription())
+            log.error("getLaunchConfiguration--通过配置id集合获取配置信息--非800！错误码={}，错误信息={}",  groupListConfigResponseData.getStatusCode(), groupListConfigResponseData.getMessage())
+            return null;
           }
         } else {
-          log.info("getLaunchConfiguration--通过配置id集合获取配置信息--非200！{}",response)
-          //throw new CtyunOperationException(response.getDescription())
+          log.error("getLaunchConfiguration--通过配置id集合获取配置信息--非200！{}",response.getMessage())
+          return null;
         }
 
     } catch (Exception e) {
@@ -511,7 +515,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       }
     } catch (Exception e) {
       log.error("getAllAutoScalingInstances--获取所有伸缩组关联的主机--Exception",e)
-      //throw new CtyunOperationException(e.toString())
+      throw new CtyunOperationException(e.toString())
     }
     Map<String,Object> map=new HashMap();
     map.put("groupNameList",groupNameList);
@@ -532,15 +536,16 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
           log.info("getAutoScalingInstances--通过伸缩组id获取主机实例--end--size--{}",groupListInstanceResponseData.getReturnObj()?.getInstanceList()?.size())
           return groupListInstanceResponseData.getReturnObj()?.getInstanceList();
         } else {
-          log.info("getAutoScalingInstances--通过伸缩组id获取主机实例--非800！错误码={}，错误信息={}",  groupListInstanceResponseData.getErrorCode(), groupListInstanceResponseData.getDescription())
+          log.error("getAutoScalingInstances--通过伸缩组id获取主机实例--非800！错误码={}，错误信息={}",  groupListInstanceResponseData.getStatusCode(), groupListInstanceResponseData.getMessage())
+          return null;
         }
       } else {
-        log.info("getLaunchConfiguration--通过配置id集合获取配置信息--非200！{}",response)
-       // throw new CtyunOperationException(response.getDescription())
+        log.error("getLaunchConfiguration--通过配置id集合获取配置信息--非200！{}",response.getMessage())
+        return null;
       }
     } catch (Exception e) {
       log.error("getAutoScalingInstances--通过伸缩组id获取主机实例--Exception",e)
-      throw new CtyunOperationException(e)
+      throw new CtyunOperationException(e.toString())
     }
 
   }
@@ -550,11 +555,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     log.info("getLabels--标签--start asgInstanceIds={}",asgInstanceIds)
     List<LabelDTO> labelAll = []
     try {
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try {
+          long startTime=System.currentTimeMillis();
           Map<String, Object> queryParam = new HashMap();
           queryParam.put("pageNum", pageNumber);
           queryParam.put("pageSize", DEFAULT_LIMIT);
@@ -568,19 +574,22 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
                 labelAll.addAll(listLabelResponseData.getList())
               }
               getCount = listLabelResponseData.getList().size();
+              log.info("getLabels--标签--成功！pageNum={} 用时={}",pageNumber,(System.currentTimeMillis()-startTime));
             } else {
               log.info("getLabels--标签--无数据！listLabelResponseData.getList()={}", listLabelResponseData.getList())
-              break
+              return null;
             }
 
           } else {
-            log.info("getLabels--标签--非200！{}", response.getMessage())
-            //throw new CtyunOperationException(response.getMessage())
+            log.error("getLabels--标签--非200！message={}", response.getMessage())
+            return null;
           }
         }catch (Exception e) {
           log.error("getLabels--第{}次 标签--Exception",pageNumber,e)
+          throw new CtyunOperationException(e.toString())
         }
         pageNumber++;
+        sleep(500)
       }
       log.info("getLabels--标签--end,size={}",labelAll.size())
       return labelAll
@@ -595,11 +604,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     log.info("getScalingPolicies--获取伸缩组告警策略--start--asgId--{}",asgId)
     List<RuleInfo> autoScalingPoliciesAll = []
     try {
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try {
+          long startTime=System.currentTimeMillis();
           GroupRuleListRequestBody requestBody = new GroupRuleListRequestBody().withGroupID(asgId).withRegionID(regionId).withPage(pageNumber).withPageSize(DEFAULT_LIMIT);
           GroupRuleListRequest request = new GroupRuleListRequest().withBody(requestBody);
           CTResponse<GroupRuleListResponseData> response = client.groupRuleList(request);
@@ -607,23 +617,28 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
             GroupRuleListResponseData groupRuleListResponseData = response.getData()
             if (groupRuleListResponseData.getStatusCode() == 800) {
               if (groupRuleListResponseData.getReturnObj() == null || groupRuleListResponseData.getReturnObj().getRuleList() == null) {
-                throw new CtyunOperationException("返回结果为空！groupRuleListResponseData=" + JSONObject.toJSONString(groupRuleListResponseData))
+                log.error("getScalingPolicies--获取伸缩组告警策略--pageNum={} 返回结果为空！groupRuleListResponseData={}",pageNumber, JSONObject.toJSONString(groupRuleListResponseData))
+                return null;
               }
               if (groupRuleListResponseData.getReturnObj().getRuleList().size() > 0) {
                 autoScalingPoliciesAll.addAll(groupRuleListResponseData.getReturnObj().getRuleList())
               }
               getCount = groupRuleListResponseData.getReturnObj().getRuleList().size();
+              log.info("getScalingPolicies--获取伸缩组告警策略--成功！pageNum={} 用时={}",pageNumber,(System.currentTimeMillis()-startTime));
             } else {
-              log.info("getScalingPolicies--获取伸缩组告警策略--非800！pageNum={},错误码={}，错误信息={}", pageNumber, groupRuleListResponseData.getErrorCode(), groupRuleListResponseData.getDescription())
+              log.error("getScalingPolicies--获取伸缩组告警策略--非800！pageNum={},错误码={}，错误信息={}", pageNumber, groupRuleListResponseData.getStatusCode(), groupRuleListResponseData.getMessage())
+              return null;
             }
           } else {
-            log.info("getScalingPolicies--获取伸缩组告警策略--非200！{}", response)
-            // throw new CtyunOperationException(response.getDescription())
+            log.error("getScalingPolicies--获取伸缩组告警策略--非200！message={}", response.getMessage())
+            return null;
           }
         }catch (Exception e) {
           log.error("getScalingPolicies--第{}次 获取伸缩组告警策略--Exception",pageNumber,e)
+          return null;
         }
         pageNumber++;
+        sleep(500)
       }
 
       def resultSet=autoScalingPoliciesAll?.findAll({
@@ -642,11 +657,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     log.info("getScheduledAction--根据伸缩组获取定时和周期策略--start--asgId--{}",asgId)
     List<RuleInfo> autoScalingPoliciesAll = []
     try {
-      def pageNumber=1;
-      def totalCount = DEFAULT_LIMIT
-      def getCount = DEFAULT_LIMIT
+      int pageNumber=1;
+      int totalCount = DEFAULT_LIMIT
+      int getCount = DEFAULT_LIMIT
       while(totalCount==getCount){
         try {
+          long startTime=System.currentTimeMillis();
           GroupRuleListRequestBody requestBody = new GroupRuleListRequestBody().withGroupID(asgId).withRegionID(regionId).withPage(pageNumber).withPageSize(DEFAULT_LIMIT);
           GroupRuleListRequest request = new GroupRuleListRequest().withBody(requestBody);
           CTResponse<GroupRuleListResponseData> response = client.groupRuleList(request);
@@ -654,24 +670,29 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
             GroupRuleListResponseData groupRuleListResponseData = response.getData()
             if (groupRuleListResponseData.getStatusCode() == 800) {
               if (groupRuleListResponseData.getReturnObj() == null || groupRuleListResponseData.getReturnObj().getRuleList() == null) {
-                throw new CtyunOperationException("返回结果为空！groupRuleListResponseData=" + JSONObject.toJSONString(groupRuleListResponseData))
+                log.error("getScheduledAction--根据伸缩组获取定时和周期策略--pageNum={} 返回结果为空！groupRuleListResponseData={}",pageNumber, JSONObject.toJSONString(groupRuleListResponseData))
+                return null;
               }
               if (groupRuleListResponseData.getReturnObj().getRuleList().size() > 0) {
                 autoScalingPoliciesAll.addAll(groupRuleListResponseData.getReturnObj().getRuleList())
               }
 
               getCount = groupRuleListResponseData.getReturnObj().getRuleList().size();
+              log.info("getScheduledAction--根据伸缩组获取定时和周期策略--成功！pageNum={} 用时={}",pageNumber,(System.currentTimeMillis()-startTime));
             } else {
-              log.info("getScheduledAction--根据伸缩组获取定时和周期策略--非800！pageNum={},错误码={}，错误信息={}", (pageNumber - 1), groupRuleListResponseData.getErrorCode(), groupRuleListResponseData.getDescription())
+              log.error("getScheduledAction--根据伸缩组获取定时和周期策略--非800！pageNum={} 用时={},错误码={}，错误信息={}", pageNumber,(System.currentTimeMillis()-startTime), groupRuleListResponseData.getStatusCode(), groupRuleListResponseData.getMessage())
+              return null;
             }
           } else {
-            log.info("getScheduledAction--根据伸缩组获取定时和周期策略--非200！{}", response)
-            //throw new CtyunOperationException(response.getDescription())
+            log.error("getScheduledAction--根据伸缩组获取定时和周期策略--非200！message={}", response.getMessage())
+            return null;
           }
         }catch (Exception e) {
           log.error("getScheduledAction--第{}次 根据伸缩组获取定时和周期策略--Exception",pageNumber,e)
+          return null;
         }
         pageNumber++;
+        sleep(500)
       }
       def resultSet= autoScalingPoliciesAll?.findAll({
         it.ruleType!=1
@@ -699,11 +720,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
               autoScalingActivitiesAll.add(groupQueryActivityResultObj);
             }
           }else{
-            log.info("getAutoScalingActivitiesByAsgId--获取所有伸缩活动日志数据--非800,错误码={}，错误信息={}",groupQueryActivityResponseData.getErrorCode(),groupQueryActivityResponseData.getDescription())
+            log.error("getAutoScalingActivitiesByAsgId--获取所有伸缩活动日志数据--非800,错误码={}，错误信息={}",groupQueryActivityResponseData.getStatusCode(),groupQueryActivityResponseData.getMessage())
+            return null;
           }
         }else{
-          log.info("getAutoScalingActivitiesByAsgId--获取所有伸缩活动日志数据--非200！{}",response)
-         // throw new CtyunOperationException(response.getDescription())
+          log.error("getAutoScalingActivitiesByAsgId--获取所有伸缩活动日志数据--非200！{}",response.getMessage())
+          return null;
         }
       log.info("getAutoScalingActivitiesByAsgId--获取所有伸缩活动日志数据--end--size--{}",autoScalingActivitiesAll.size())
       return autoScalingActivitiesAll
@@ -725,11 +747,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
           log.info("getAutoScalingActivitiesDetailByActiveId--通过活动id获取活动详情--end--{}",groupQueryActivityDetailResponseData.getReturnObj())
           return groupQueryActivityDetailResponseData.getReturnObj();
         } else {
-          log.info("getAutoScalingActivitiesDetailByActiveId--通过活动id获取活动详情--非800！错误码={}，错误信息={}",  groupQueryActivityDetailResponseData.getErrorCode(), groupQueryActivityDetailResponseData.getDescription())
+          log.error("getAutoScalingActivitiesDetailByActiveId--通过活动id获取活动详情--非800！错误码={}，错误信息={}",  groupQueryActivityDetailResponseData.getStatusCode(), groupQueryActivityDetailResponseData.getMessage())
+          return null;
         }
       } else {
-        log.info("getAutoScalingActivitiesDetailByActiveId--通过活动id获取活动详情--非200！{}",response)
-        //throw new CtyunOperationException(response.getDescription())
+        log.error("getAutoScalingActivitiesDetailByActiveId--通过活动id获取活动详情--非200！{}",response.getMessage())
+        return null;
       }
     } catch (Exception e) {
       log.error("getAutoScalingActivitiesDetailByActiveId--通过活动id获取活动详情--Exception",e)
@@ -749,11 +772,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
         if (groupEnableResponseData.getStatusCode() == 800) {
           log.info("enableAutoScalingGroup--启用弹性组--成功--end--{}",groupEnableResponseData.getReturnObj())
         } else {
-          log.info("enableAutoScalingGroup--启用弹性组--非800！错误码={}，错误信息={}",  groupEnableResponseData.getErrorCode(), groupEnableResponseData.getDescription())
+          log.error("enableAutoScalingGroup--启用弹性组--非800！错误码={}，错误信息={}",  groupEnableResponseData.getStatusCode(), groupEnableResponseData.getMessage())
+          throw new CtyunOperationException("enableAutoScalingGroup--启用弹性组--非800！"+groupEnableResponseData.getStatusCode()+" "+groupEnableResponseData.getMessage())
         }
       } else {
-        log.info("enableAutoScalingGroup--启用弹性组--非200！{}",response)
-        //throw new CtyunOperationException(response.getDescription())
+        log.error("enableAutoScalingGroup--启用弹性组--非200！{}",response.getMessage())
+        throw new CtyunOperationException("enableAutoScalingGroup--启用弹性组--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("enableAutoScalingGroup--启用弹性组--Exception",e)
@@ -772,11 +796,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
         if (groupDisableResponseData.getStatusCode() == 800) {
           log.info("disableAutoScalingGroup--停用弹性组--成功--end--{}",groupDisableResponseData.getReturnObj())
         } else {
-          log.info("disableAutoScalingGroup--停用弹性组--非800！错误码={}，错误信息={}",  groupDisableResponseData.getErrorCode(), groupDisableResponseData.getDescription())
+          log.error("disableAutoScalingGroup--停用弹性组--非800！错误码={}，错误信息={}",  groupDisableResponseData.getStatusCode(), groupDisableResponseData.getMessage())
+          throw new CtyunOperationException("disableAutoScalingGroup--停用弹性组--非800！"+groupDisableResponseData.getStatusCode()+" "+groupDisableResponseData.getMessage())
         }
       } else {
-        log.info("disableAutoScalingGroup--停用弹性组--非200！{}",response)
-        //throw new CtyunOperationException(response.getDescription())
+        log.error("disableAutoScalingGroup--停用弹性组--非200！{}",response.getMessage())
+        throw new CtyunOperationException("disableAutoScalingGroup--停用弹性组--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("disableAutoScalingGroup--停用弹性组--Exception",e)
@@ -796,11 +821,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
           log.info("resizeAutoScalingGroup--resize弹性组--成功--end--{}", JSONObject.toJSONString(groupUpdateResponseData.getReturnObj()))
           return groupUpdateResponseData.getReturnObj().getGroupID()
         } else {
-          log.info("resizeAutoScalingGroup--resize弹性组--非800！错误码={}，错误信息={}",  groupUpdateResponseData.getErrorCode(), groupUpdateResponseData.getDescription())
+          log.error("resizeAutoScalingGroup--resize弹性组--非800！错误码={}，错误信息={}",  groupUpdateResponseData.getStatusCode(), groupUpdateResponseData.getMessage())
+          throw new CtyunOperationException("resizeAutoScalingGroup--resize弹性组--非800！"+groupUpdateResponseData.getStatusCode()+" "+groupUpdateResponseData.getMessage())
         }
       } else {
-        log.info("resizeAutoScalingGroup--resize弹性组--非200！{}",response)
-        //throw new CtyunOperationException(response.getDescription())
+        log.error("resizeAutoScalingGroup--resize弹性组--非200！{}",response.getMessage())
+        throw new CtyunOperationException("resizeAutoScalingGroup--resize弹性组--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("resizeAutoScalingGroup--resize弹性组--Exception",e)
@@ -813,20 +839,20 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
   void deleteAutoScalingGroup(Integer asgId) {
     log.info("deleteAutoScalingGroup--删除伸缩组--start--asgId--{}",asgId)
     try {
-      GroupDeleteRequestBody body = new GroupDeleteRequestBody().withRegionID(regionId).withGroupID(asgId);
+      GroupDeleteRequestBody body = new GroupDeleteRequestBody().withRegionID(regionId).withGroupID(asgId).withForce(true);
       GroupDeleteRequest request = new GroupDeleteRequest().withBody(body);
       CTResponse<GroupDeleteResponseData> response= client.groupDelete(request);
       if (response.httpCode == 200 && response.getData() != null) {
         GroupDeleteResponseData groupDeleteResponseData = response.getData()
         if (groupDeleteResponseData.getStatusCode() == 800) {
-          log.info("resizeAutoScalingGroup--resize弹性组--成功--end--{}",groupDeleteResponseData.getReturnObj())
+          log.info("deleteAutoScalingGroup--删除伸缩组--成功--end--{}",groupDeleteResponseData.getReturnObj())
         } else {
-          log.info("resizeAutoScalingGroup--resize弹性组--非800！错误码={}，错误信息={}",  groupDeleteResponseData.getErrorCode(), groupDeleteResponseData.getDescription())
-          throw new CtyunOperationException(groupDeleteResponseData.getDescription())
+          log.error("deleteAutoScalingGroup--删除伸缩组--非800！错误码={}，错误信息={}",  groupDeleteResponseData.getStatusCode(), groupDeleteResponseData.getMessage())
+          throw new CtyunOperationException("deleteAutoScalingGroup--删除伸缩组--非800！ "+groupDeleteResponseData.getStatusCode()+" "+groupDeleteResponseData.getMessage())
         }
       } else {
-        log.info("resizeAutoScalingGroup--resize弹性组--非200！{}",response)
-        throw new CtyunOperationException(response.getDescription())
+        log.error("deleteAutoScalingGroup--resize弹性组--非200！{}",response.getMessage())
+        throw new CtyunOperationException("resizeAutoScalingGroup--删除伸缩组--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("deleteAutoScalingGroup--删除伸缩组--Exception",e)
@@ -845,12 +871,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
         if (gonfigDeleteResponseData.getStatusCode() == 800) {
           log.info("deleteLaunchConfiguration--删除配置--成功--end--{}",gonfigDeleteResponseData.getReturnObj())
         } else {
-          log.info("deleteLaunchConfiguration--删除配置--非800！错误码={}，错误信息={}",  gonfigDeleteResponseData.getErrorCode(), gonfigDeleteResponseData.getDescription())
-          throw new CtyunOperationException(gonfigDeleteResponseData.getDescription())
+          log.error("deleteLaunchConfiguration--删除配置--非800！错误码={}，错误信息={}",  gonfigDeleteResponseData.getStatusCode(), gonfigDeleteResponseData.getMessage())
+          throw new CtyunOperationException("deleteLaunchConfiguration--删除配置--非800！ "+gonfigDeleteResponseData.getStatusCode()+" "+gonfigDeleteResponseData.getMessage())
         }
       } else {
-        log.info("deleteLaunchConfiguration--删除配置--非200！{}",response)
-        throw new CtyunOperationException(response.getDescription())
+        log.error("deleteLaunchConfiguration--删除配置--非200！{}",response.getMessage())
+        throw new CtyunOperationException("deleteLaunchConfiguration--删除配置--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("deleteLaunchConfiguration--删除配置--Exception",e)
@@ -870,12 +896,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
         if (instanceMoveOutReleaseResponseData.getStatusCode() == 800) {
           log.info("removeInstances--移除并释放实例--成功--end--{}",instanceMoveOutReleaseResponseData.getReturnObj())
         } else {
-          log.info("removeInstances--移除并释放实例--非800！错误码={}，错误信息={}",  instanceMoveOutReleaseResponseData.getErrorCode(), instanceMoveOutReleaseResponseData.getDescription())
-          throw new CtyunOperationException(instanceMoveOutReleaseResponseData.getDescription())
+          log.error("removeInstances--移除并释放实例--非800！错误码={}，错误信息={}",  instanceMoveOutReleaseResponseData.getStatusCode(), instanceMoveOutReleaseResponseData.getMessage())
+          throw new CtyunOperationException("removeInstances--移除并释放实例--非800！"+instanceMoveOutReleaseResponseData.getStatusCode()+" "+instanceMoveOutReleaseResponseData.getMessage())
         }
       } else {
-        log.info("removeInstances--移除并释放实例--非200！{}",response)
-        throw new CtyunOperationException(response.getMessage())
+        log.error("removeInstances--移除并释放实例--非200！{}",response.getMessage())
+        throw new CtyunOperationException("removeInstances--移除并释放实例--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("removeInstances--移除并释放实例--Exception",e)
@@ -899,12 +925,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
         log.info("stopRule--停用策略--停用--完成！")
         return true//停用成功后可以修改
       }else{
-        log.info("stopRule--停用策略--停用--非800,错误码={}，错误信息={}",ruleStopResponseData.getErrorCode(),ruleStopResponseData.getDescription())
+        log.error("stopRule--停用策略--停用--非800,错误码={}，错误信息={}",ruleStopResponseData.getStatusCode(),ruleStopResponseData.getMessage())
         //throw new CtyunOperationException(ruleStopResponseData.getDescription())
       }
     }else{
-      log.info("stopRule--停用策略--停用--非200！{}",response)
-      //throw new CtyunOperationException(response)
+      log.error("stopRule--停用策略--停用--非200！{}",response.getMessage())
+      //throw new CtyunOperationException("stopRule--停用策略--非200！httpCode="+response.httpCode)
     }
     return false
   }
@@ -919,11 +945,11 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       if(ruleStartResponseData.getStatusCode()==800){
         log.info("startRule--启用策略--重启--完成--end")
       }else{
-        log.info("startRule--启用策略--重启--非800,错误码={}，错误信息={}",ruleStartResponseData.getErrorCode(),ruleStartResponseData.getDescription())
+        log.error("startRule--启用策略--重启--非800,错误码={}，错误信息={}",ruleStartResponseData.getStatusCode(),ruleStartResponseData.getMessage())
         //throw new CtyunOperationException(ruleStartResponseData.getDescription())
       }
     }else{
-      log.info("startRule--启用策略--重启--非200！{}",response)
+      log.error("startRule--启用策略--重启--非200！{}",response.getMessage())
      // throw new CtyunOperationException(response.getDescription())
     }
   }
@@ -932,7 +958,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     log.info("modifyAlarmAction--修改告警策略--start")
     try {
       //启动中，先停用再启动
-      Integer oldStatus=2//默认停用状态
+      int oldStatus=2//默认停用状态
       boolean canModify=true//是否可以修改
 
      if(description.status==1){
@@ -958,12 +984,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
           if(ruleUpdateResponseData.getStatusCode()==800){
             log.info("modifyAlarmAction--修改告警策略--修改--完成！")
           }else{
-            log.info("modifyAlarmAction--修改告警策略--修改--非800,错误码={}，错误信息={}",ruleUpdateResponseData.getErrorCode(),ruleUpdateResponseData.getDescription())
-            //throw new CtyunOperationException(ruleUpdateResponseData.getDescription())
+            log.error("modifyAlarmAction--修改告警策略--修改--非800,错误码={}，错误信息={}",ruleUpdateResponseData.getStatusCode(),ruleUpdateResponseData.getMessage())
+            throw new CtyunOperationException("modifyAlarmAction--修改告警策略--修改--非800 "+ruleUpdateResponseData.getStatusCode()+" "+ruleUpdateResponseData.getMessage())
           }
         }else{
-          log.info("modifyAlarmAction--修改告警策略--修改--非200！{}",response)
-          //throw new CtyunOperationException(response.getDescription())
+          log.error("modifyAlarmAction--修改告警策略--修改--非200！{}",response.getMessage())
+          throw new CtyunOperationException("modifyAlarmAction--修改告警策略--非200！httpCode="+response.httpCode)
         }
       }
       //如果原先启动状态，需要再重启，如果原先停用，现在就不用管了
@@ -988,7 +1014,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
 
     } catch (Exception e) {
       log.error("deleteScalingPolicy--删除告警策略--Exception",e)
-      throw new CtyunOperationException(e)
+      throw new CtyunOperationException(e.toString())
     }
   }
   //创建弹性伸缩策略，周期和定时使用
@@ -1000,7 +1026,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
     log.info("modifyScheduledAction--修改定时策略--start")
     try {
       //启动中，先停用再启动
-      Integer oldStatus=2//默认停用状态
+      int oldStatus=2//默认停用状态
       boolean canModify=true//是否可以修改
 
       if(description.status==1){
@@ -1039,12 +1065,12 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
           if(ruleUpdateResponseData.getStatusCode()==800){
             log.info("modifyScheduledAction--修改定时策略，周期和定时使用--修改--完成！")
           }else{
-            log.info("modifyScheduledAction--修改定时策略，周期和定时使用--修改--非800,错误码={}，错误信息={}",ruleUpdateResponseData.getErrorCode(),ruleUpdateResponseData.getDescription())
-            throw new CtyunOperationException(ruleUpdateResponseData.getDescription())
+            log.error("modifyScheduledAction--修改定时策略，周期和定时使用--修改--非800,错误码={}，错误信息={}",ruleUpdateResponseData.getStatusCode(),ruleUpdateResponseData.getMessage())
+            throw new CtyunOperationException("modifyScheduledAction--修改定时策略，周期和定时使用--修改--非800 "+ruleUpdateResponseData.getStatusCode()+" "+ruleUpdateResponseData.getMessage())
           }
         }else{
-          log.info("modifyScheduledAction--修改定时策略，周期和定时使用--修改--非200！{}",response)
-          throw new CtyunOperationException(response.getMessage())
+          log.error("modifyScheduledAction--修改定时策略，周期和定时使用--修改--非200！{}",response.getMessage())
+          throw new CtyunOperationException("modifyScheduledAction--修改定时策略，周期和定时使用--修改--非200！httpCode="+response.httpCode)
         }
       }
       //如果原先启动状态，需要再重启，如果原先停用，现在就不用管了
@@ -1053,7 +1079,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       }
     } catch (Exception e) {
       log.error("modifyScheduledAction--修改定时策略，周期和定时使用--Exception",e)
-      throw new CtyunOperationException(e)
+      throw new CtyunOperationException(e.toString())
     }
   }
 //删除定时策略
@@ -1068,7 +1094,7 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
       response
     } catch (Exception e) {
       log.error("deleteScheduledAction--删除定时策略--Exception",e)
-      throw new CtyunOperationException(e)
+      throw new CtyunOperationException(e.toString())
     }
   }
   //创建弹性伸缩定时策略
@@ -1082,16 +1108,16 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
           log.info("createGroupScheduledRules--创建弹性伸缩定时策略--完成--end")
           return response.getData().getReturnObj().getRuleID()
         }else{
-          log.info("createGroupScheduledRules--创建弹性伸缩定时策略--非800,错误码={}，错误信息={}",groupCreateScheduledRuleResponseData.getErrorCode(),groupCreateScheduledRuleResponseData.getDescription())
-          throw new CtyunOperationException(groupCreateScheduledRuleResponseData.getDescription())
+          log.error("createGroupScheduledRules--创建弹性伸缩定时策略--非800,错误码={}，错误信息={}",groupCreateScheduledRuleResponseData.getStatusCode(),groupCreateScheduledRuleResponseData.getDescription())
+          throw new CtyunOperationException("createGroupScheduledRules--创建弹性伸缩定时策略--非800 "+groupCreateScheduledRuleResponseData.getStatusCode()+" "+groupCreateScheduledRuleResponseData.getDescription())
         }
       }else{
-        log.info("createGroupScheduledRules--创建弹性伸缩定时策略--非200！{}",response)
-        throw new CtyunOperationException(response.getMessage())
+        log.error("createGroupScheduledRules--创建弹性伸缩定时策略--非200！{}",response.getMessage())
+        throw new CtyunOperationException("createGroupScheduledRules--创建弹性伸缩定时策略--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("deleteScheduledAction--创建弹性伸缩定时策略--Exception",e)
-      throw new CtyunOperationException(e)
+      throw new CtyunOperationException(e.toString())
     }
 
   }
@@ -1106,16 +1132,16 @@ class CtyunAutoScalingClient extends AbstractCtyunServiceClient {
           log.info("createGroupCycleRules--创建弹性伸缩周期策略--完成--end")
           return response.getData().getReturnObj().getRuleID()
         }else{
-          log.info("createGroupCycleRules--创建弹性伸缩周期策略--非800,错误码={}，错误信息={}",groupCreateCycleRuleResponseData.getErrorCode(),groupCreateCycleRuleResponseData.getDescription())
-          throw new CtyunOperationException(groupCreateCycleRuleResponseData.getDescription())
+          log.error("createGroupCycleRules--创建弹性伸缩周期策略--非800,错误码={}，错误信息={}",groupCreateCycleRuleResponseData.getStatusCode(),groupCreateCycleRuleResponseData.getDescription())
+          throw new CtyunOperationException("createGroupCycleRules--创建弹性伸缩周期策略--非800 "+groupCreateCycleRuleResponseData.getStatusCode()+" "+groupCreateCycleRuleResponseData.getDescription())
         }
       }else{
-        log.info("createGroupCycleRules--创建弹性伸缩周期策略--非200！{}",response)
-        throw new CtyunOperationException(response.getMessage())
+        log.error("createGroupCycleRules--创建弹性伸缩周期策略--非200！{}",response.getMessage())
+        throw new CtyunOperationException("createGroupCycleRules--创建弹性伸缩周期策略--非200！httpCode="+response.httpCode)
       }
     } catch (Exception e) {
       log.error("createGroupCycleRules--创建弹性伸缩周期策略--Exception",e)
-      throw new CtyunOperationException(e)
+      throw new CtyunOperationException(e.toString())
     }
   }
 }

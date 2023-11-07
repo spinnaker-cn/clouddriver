@@ -69,8 +69,12 @@ class CtyunSecurityGroupProvider implements SecurityGroupProvider<CtyunSecurityG
   CtyunSecurityGroup get(String account, String region, String securityGroupName, String other) {
     log.info("Enter CtyunSecurityGroupProvider get,account=${account},region=${region},securityGroupName=${securityGroupName},vpcId=${other}")
     Set<CtyunSecurityGroup> csgSet=getAllMatchingKeyPattern(Keys.getSecurityGroupKey('*', securityGroupName, account, region), true)
-    CtyunSecurityGroup csg=csgSet?.find {it.vpcId==other}
-    return csg
+    if("*".equals(other)){
+      return csgSet[0]
+    }else{
+      CtyunSecurityGroup csg=csgSet?.find {it.vpcId==other}
+      return csg
+    }
   }
 
   @Override
