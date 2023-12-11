@@ -27,6 +27,9 @@ import org.springframework.beans.factory.annotation.Autowired
 
 import org.springframework.stereotype.Component
 
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
 /*
 curl -X POST \
   http://localhost:7002/huaweicloud/ops \
@@ -292,6 +295,20 @@ class HuaweiCloudDeployHandler implements DeployHandler<HuaweiCloudDeployDescrip
       String postUrl = "https://as.cn-north-4.myhuaweicloud.com/autoscaling-api/v1/$projectId/scaling-groups/$newAsgId/scheduled-tasks";
       task.updateStatus BASE_PHASE, "Create task url: $postUrl"
       scheduleds.forEach({ scheduled ->
+        ((JSONObject) scheduled).put("scaling_group_id",newAsgId)
+        def scheduledPolicy = ((JSONObject) scheduled).get("scheduled_policy")
+        def pattern = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm'Z'");
+        if (scheduledPolicy != null){
+          def startTime = ((JSONObject) scheduledPolicy).get("start_time")
+          if (startTime != null){
+            // 创建计划任务时，云平台自动会加8个小时
+            def now = LocalDateTime.now().plusHours(-8L)
+            if(now.format(pattern).compareTo(LocalDateTime.parse(startTime.toString(), pattern) as String) > 0){
+              def nowDateTime = now.plusMinutes(5L)
+              ((JSONObject) scheduledPolicy).put("start_time", nowDateTime.format(pattern))
+            }
+          }
+        }
         request.setBody(String.valueOf(scheduled));
         try {
           request.setUrl(postUrl);
