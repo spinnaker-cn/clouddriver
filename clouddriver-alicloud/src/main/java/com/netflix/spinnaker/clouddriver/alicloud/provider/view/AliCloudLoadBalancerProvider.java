@@ -31,6 +31,8 @@ import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
@@ -73,6 +75,8 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
     Set<String> loadBalancerKeys = new HashSet<>();
     Set<AliCloudLoadBalancer> loadBalances = new HashSet<>();
 
+    ConcurrentMap<String, AliCloudLoadBalancer> loadBalancerMap = new ConcurrentHashMap<>();
+
     Collection<CacheData> applicationServerGroups =
         getServerGroupCacheDataByApplication(applicationName);
     Collection<CacheData> allHealthyDatas = cacheView.getAll(HEALTH.ns);
@@ -103,25 +107,40 @@ public class AliCloudLoadBalancerProvider implements LoadBalancerProvider<AliClo
           }
         });
 
-    for (CacheData cacheData : loadBalancerData) {
-      Map<String, Object> attributes =
-          objectMapper.convertValue(cacheData.getAttributes(), Map.class);
+    loadBalancerData.parallelStream().forEach(cacheData -> {
+      Map<String, Object> attributes = cacheData.getAttributes();
       String id = cacheData.getId();
-      AliCloudLoadBalancer loadBalancer =
-          new AliCloudLoadBalancer(
-              String.valueOf(attributes.get("account")),
-              String.valueOf(attributes.get("regionIdAlias")),
-              String.valueOf(attributes.get("loadBalancerName")),
-              String.valueOf(attributes.get("vpcId")),
-              String.valueOf(attributes.get("loadBalancerId")));
-      for (Map.Entry<String, CacheData> entry : serverGroupsMap.entrySet()) {
-        if (id.startsWith(entry.getKey())) {
-          addServerGroupToLoadBalancer(allHealthyDatas, loadBalancer, entry.getValue());
-          break;
-        }
-      }
-      loadBalances.add(loadBalancer);
-    }
+      AliCloudLoadBalancer loadBalancer = new AliCloudLoadBalancer(
+        String.valueOf(attributes.get("account")),
+        String.valueOf(attributes.get("regionIdAlias")),
+        String.valueOf(attributes.get("loadBalancerName")),
+        String.valueOf(attributes.get("vpcId")),
+        String.valueOf(attributes.get("loadBalancerId")));
+
+//      serverGroupsMap.entrySet().stream()
+//        .filter(entry -> id.startsWith(entry.getKey()))
+//        .findFirst()
+//        .ifPresent(entry -> addServerGroupToLoadBalancer(allHealthyDatas, loadBalancer, entry.getValue()));
+
+//      loadBalances.add(loadBalancer);
+      serverGroupsMap.entrySet().stream()
+        .filter(entry -> id.startsWith(entry.getKey()))
+        .findFirst()
+        .ifPresent(entry -> {
+          String key = entry.getKey();
+          CacheData value = entry.getValue();
+          loadBalancerMap.compute(id, (k, v) -> {
+            if (v == null) {
+              v = loadBalancer;
+            }
+            addServerGroupToLoadBalancer(allHealthyDatas, v, value);
+            return v;
+          });
+        });
+    });
+
+    loadBalances = new HashSet<>(loadBalancerMap.values());
+
     return loadBalances;
   }
 
