@@ -315,6 +315,14 @@ hecloud:
       regions:
         - name: ${HE_ACCOUNT_REGIONS_NAME}	  
 
+ecloud:
+  enabled: true
+  accounts:
+    - name: my-ecloud-account
+      accessKey: ${ECLOUD_ACCESS_KEY}
+      secretKey: ${ECLOUD_SECRET_KEY}
+      regions: ["CIDC-RP-29"]
+
 spring:
   jackson:
     mapper:
