@@ -1,0 +1,42 @@
+tasks.withType(JavaCompile) {
+  options.encoding = 'UTF-8'
+}
+
+tasks.withType(GroovyCompile) {
+  options.encoding = 'UTF-8'
+}
+tasks.compileGroovy.enabled = false
+sourceSets.main.java.srcDirs = ['src/main/java']
+repositories {
+  maven { url "https://ecloud.10086.cn/api/query/developer/nexus/repository/eCloudSDK/" }
+}
+dependencies {
+  implementation project(":cats:cats-core")
+  implementation project(":clouddriver-core")
+  implementation project(":clouddriver-eureka")
+  implementation project(":clouddriver-security")
+  implementation project(":clouddriver-monitor")
+
+  compileOnly "org.projectlombok:lombok"
+//  testCompile "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spectator:spectator-api"
+  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
+  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.netflix.spinnaker.kork:kork-core"
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
+  implementation "com.netflix.spinnaker.kork:kork-security"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+  implementation 'com.alibaba.fastjson2:fastjson2:2.0.48'
+  implementation 'com.ecloud.sdk:ecloud-sdk-core:1.0.4'
+  implementation 'com.ecloud.sdk:ecloud-sdk-ims:1.0.14'
+  implementation 'com.ecloud.sdk:ecloud-sdk-vlb:1.0.3'
+  implementation 'com.ecloud.sdk:ecloud-sdk-vpc:1.0.18'
+  implementation 'com.google.guava:guava:31.0.1-jre'
+}
