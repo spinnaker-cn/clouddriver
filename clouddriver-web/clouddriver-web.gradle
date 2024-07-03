@@ -16,6 +16,7 @@ configurations.all {
 
 repositories {
   maven { url "http://spinnaker.maven.cn:8000/repository/spinnaker-public/"}
+  maven { url "https://ecloud.10086.cn/api/query/developer/nexus/repository/eCloudSDK/" }
   maven { url "https://adxsnapshots.azurewebsites.net" }
 }
 
