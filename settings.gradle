@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 rootProject.name = "clouddriver"
 
 def cloudProviderProjects = [
@@ -29,7 +28,7 @@ def cloudProviderProjects = [
   'kubernetes': [':clouddriver-kubernetes', ':clouddriver-kubernetes-v1', ':clouddriver-kubernetes-v2', ':clouddriver-docker'],
   'oracle': [':clouddriver-oracle'],
   'tencent': [':clouddriver-tencent'],
-  'ctyun': [':clouddriver-ctyun']
+  'ctyun': [':clouddriver-ctyun'],
   'ecloud': [':clouddriver-ecloud']
 ]
 cloudProviderProjects.put('gcp', cloudProviderProjects['appengine'] + cloudProviderProjects['gce'] + cloudProviderProjects['kubernetes'])
