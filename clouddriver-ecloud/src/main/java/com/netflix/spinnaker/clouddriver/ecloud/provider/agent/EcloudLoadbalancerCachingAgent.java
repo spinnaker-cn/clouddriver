@@ -15,7 +15,6 @@ import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseContent;
 import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseHealthMonitorResp;
 import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseL7PolicyResps;
 import com.ecloud.sdk.vpc.v1.model.GetVpcDetailRespByRouterIdResponseBody;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AccountAware;
@@ -430,9 +429,9 @@ public class EcloudLoadbalancerCachingAgent implements CachingAgent, AccountAwar
         List<EcloudLoadBalancerPool> queryPools = new ArrayList<>();
         for (ListPoolRespResponseContent pool : originPools) {
           EcloudLoadBalancerPool epool = EcloudLbUtil.createEcloudLoadBalancerPool(pool);
-          epool.setName(pool.getPoolName());
-          epool.setRegion(this.region);
-          epool.setCloudProvider(EcloudProvider.ID);
+          //          epool.setName(pool.getPoolName());
+          //          epool.setRegion(this.region);
+          //          epool.setCloudProvider(EcloudProvider.ID);
 
           ListPoolRespResponseHealthMonitorResp poolHealth = pool.getHealthMonitorResp();
           if (poolHealth != null) {
@@ -491,18 +490,14 @@ public class EcloudLoadbalancerCachingAgent implements CachingAgent, AccountAwar
                     itl.setRules(ruleMapGroupByListenerId.get(itl.getListenerId()));
                   });
         }
-        loadBalancer.setServerGroups(new HashSet<>(queryPools));
+        loadBalancer.setPools(queryPools);
       }
       try {
         List<EcloudLoadBalancerHealthCheck> healthChecks = new ArrayList<>();
-        String jsonString = objectMapper.writeValueAsString(loadBalancer.getServerGroups());
-        List<EcloudLoadBalancerPool> serverGroupSet =
-            objectMapper.readValue(
-                jsonString, new TypeReference<List<EcloudLoadBalancerPool>>() {});
-        if (serverGroupSet == null || serverGroupSet.isEmpty()) {
+        if (loadBalancer.getPools() == null || loadBalancer.getPools().isEmpty()) {
           continue;
         }
-        for (EcloudLoadBalancerPool serverGroup : serverGroupSet) {
+        for (EcloudLoadBalancerPool serverGroup : loadBalancer.getPools()) {
           List<EcloudLoadBalancerMember> members = serverGroup.getMembers();
           if (members == null || members.isEmpty()) {
             continue;

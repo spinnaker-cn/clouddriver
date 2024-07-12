@@ -78,9 +78,10 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
     Set<String> scalingGroupNames =
         scalingGroupDataList.stream()
             .map(
-                sg ->
-                    Keys.getServerGroupKey(
-                        (String) sg.get("scalingGroupName"), account.getName(), region))
+                sg -> {
+                  return Keys.getServerGroupKey(
+                      (String) sg.get("scalingGroupName"), account.getName(), region);
+                })
             .collect(Collectors.toSet());
 
     Set<String> pendingOnDemandRequestKeys =
@@ -644,12 +645,25 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
             .getRelationships()
             .computeIfAbsent(Keys.Namespace.LOAD_BALANCERS.ns, k -> new HashSet<>())
             .addAll(loadBalancerKeys);
+
+        // loadBalancer
+        for (String lbKey : loadBalancerKeys) {
+          CacheData lbCache =
+              namespaceCache
+                  .computeIfAbsent(Keys.Namespace.LOAD_BALANCERS.ns, k -> new HashMap<>())
+                  .computeIfAbsent(lbKey, MutableCacheData::new);
+          lbCache
+              .getRelationships()
+              .computeIfAbsent(Keys.Namespace.SERVER_GROUPS.ns, k -> new HashSet<>())
+              .add(serverGroupKey);
+        }
       }
     }
 
     namespaceCache.forEach(
-        (namespace, cacheDataMap) ->
-            cacheResults.put(namespace, new ArrayList<>(cacheDataMap.values())));
+        (namespace, cacheDataMap) -> {
+          cacheResults.put(namespace, new ArrayList<>(cacheDataMap.values()));
+        });
     cacheResults.put(Keys.Namespace.ON_DEMAND.ns, toKeepOnDemandCacheData);
 
     return new DefaultCacheResult(cacheResults, evictions);
@@ -663,7 +677,6 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
       Map<String, List<MutableCacheData>> onDemandCache =
           objectMapper.readValue(
               jsonCacheResults, new TypeReference<Map<String, List<MutableCacheData>>>() {});
-
       onDemandCache.forEach(
           (namespace, cacheDataList) -> {
             if (!"onDemand".equalsIgnoreCase(namespace)) {

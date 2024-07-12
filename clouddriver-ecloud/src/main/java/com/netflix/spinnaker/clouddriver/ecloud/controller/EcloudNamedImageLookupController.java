@@ -22,6 +22,7 @@ import javax.servlet.http.HttpServletRequest;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -175,9 +176,11 @@ public class EcloudNamedImageLookupController {
 
     List<NamedImage> results = new ArrayList<>(byImageName.values());
     results.removeIf(
-        namedImage -> requiredRegion != null && !namedImage.imgIds.containsKey(requiredRegion));
+        namedImage ->
+            !StringUtils.isEmpty(requiredRegion) && !namedImage.imgIds.containsKey(requiredRegion));
     results.removeIf(
-        namedImage -> imageName != null && !imageName.equalsIgnoreCase(namedImage.imageName));
+        namedImage ->
+            !StringUtils.isEmpty(imageName) && !imageName.equalsIgnoreCase(namedImage.imageName));
 
     return results;
   }

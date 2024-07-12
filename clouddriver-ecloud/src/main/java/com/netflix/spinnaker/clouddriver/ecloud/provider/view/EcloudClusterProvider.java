@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.clouddriver.ecloud.provider.view;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -14,11 +12,8 @@ import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudInstance;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudServerGroup;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudTag;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudZone;
-import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancer;
-import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerPool;
 import com.netflix.spinnaker.clouddriver.ecloud.provider.agent.EcloudZoneHelper;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -220,12 +215,12 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
                 Keys.Namespace.INSTANCES.ns, Keys.Namespace.LOAD_BALANCERS.ns));
     Map<String, EcloudServerGroup> serverGroups = translateServerGroups(clusterServerCache);
     cluster.setServerGroups(serverGroups.values().stream().collect(Collectors.toSet()));
-    if (includeDetail) {
-      Collection<CacheData> lbCache =
-          this.resolveRelationshipData(clusterData, Keys.Namespace.LOAD_BALANCERS.ns, null);
-      Set<EcloudLoadBalancer> lbSet = this.translateLoadBalancers(lbCache);
-      cluster.setLoadBalancers(lbSet);
-    }
+    //    if (includeDetail) {
+    //      Collection<CacheData> lbCache =
+    //          this.resolveRelationshipData(clusterData, Keys.Namespace.LOAD_BALANCERS.ns, null);
+    //      Set<EcloudLoadBalancer> lbSet = this.translateLoadBalancers(lbCache);
+    //      cluster.setLoadBalancers(lbSet);
+    //    }
     return cluster;
   }
 
@@ -238,39 +233,7 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
     return serverGroups;
   }
 
-  private Set<EcloudLoadBalancer> translateLoadBalancers(Collection<CacheData> lbData) {
-    Set<EcloudLoadBalancer> lbs = new HashSet<>(16);
-    for (CacheData one : lbData) {
-      EcloudLoadBalancer lb = translateLoadBalancer(one);
-      lbs.add(lb);
-    }
-    return lbs;
-  }
-
-  private EcloudLoadBalancer translateLoadBalancer(CacheData lbData) {
-    EcloudLoadBalancer loadBalancer =
-        objectMapper.convertValue(lbData.getAttributes(), EcloudLoadBalancer.class);
-    loadBalancer.setServerGroups(getLoadBalancerServerGroup(lbData));
-    return loadBalancer;
-  }
-
-  private Set<LoadBalancerServerGroup> getLoadBalancerServerGroup(CacheData loadBalancerCache) {
-    Object originServerGroupsObj = loadBalancerCache.getAttributes().get("serverGroups");
-    if (originServerGroupsObj != null) {
-      try {
-        String jsonString = objectMapper.writeValueAsString(originServerGroupsObj);
-        List<EcloudLoadBalancerPool> originServerGroups =
-            objectMapper.readValue(
-                jsonString, new TypeReference<List<EcloudLoadBalancerPool>>() {});
-        return new HashSet<>(originServerGroups);
-      } catch (JsonProcessingException e) {
-        log.error(e.getMessage(), e);
-      }
-    }
-    return new HashSet<>();
-  }
-
-  private EcloudServerGroup translateServerGroup(CacheData serverGroupData) {
+  public EcloudServerGroup translateServerGroup(CacheData serverGroupData) {
     Map<String, Object> attributes = serverGroupData.getAttributes();
     EcloudServerGroup serverGroup = new EcloudServerGroup();
     String serverGroupName = (String) attributes.get("scalingGroupName");
@@ -426,7 +389,15 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
       lc.setLoginSettings(loginSettings);
       EcloudServerGroup.InternetAccessible internetAccessible =
           new EcloudServerGroup.InternetAccessible();
-      internetAccessible.setPublicIpAssigned(false);
+      Map fip = (Map) sc.get("fipAndBandwidth");
+      if (fip == null) {
+        internetAccessible.setPublicIpAssigned(false);
+      } else {
+        internetAccessible.setPublicIpAssigned(true);
+        internetAccessible.setInternetChargeType((String) fip.get("chargeType"));
+        internetAccessible.setInternetMaxBandwidthOut((Integer) fip.get("bandwidthSize"));
+        internetAccessible.setFipType((String) fip.get("fipType"));
+      }
       lc.setInternetAccessible(internetAccessible);
       EcloudServerGroup.EnhancedService enhancedService = new EcloudServerGroup.EnhancedService();
       Map<String, Boolean> securityService = new HashMap<>();
@@ -529,7 +500,7 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
     return serverGroup;
   }
 
-  private Set<EcloudInstance> translateServerGroupInstances(
+  public Set<EcloudInstance> translateServerGroupInstances(
       CacheData serverGroupData, String account, String region) {
     Collection<CacheData> instanceCache =
         this.resolveRelationshipData(serverGroupData, Keys.Namespace.INSTANCES.ns, null);

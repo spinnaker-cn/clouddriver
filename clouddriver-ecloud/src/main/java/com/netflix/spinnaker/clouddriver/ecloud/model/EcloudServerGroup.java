@@ -219,8 +219,9 @@ public class EcloudServerGroup implements ServerGroup {
   @Setter
   public static class InternetAccessible {
     private String internetChargeType;
-    private String internetMaxBandwidthOut;
+    private Integer internetMaxBandwidthOut;
     private Boolean publicIpAssigned;
+    private String fipType;
   }
 
   @Getter

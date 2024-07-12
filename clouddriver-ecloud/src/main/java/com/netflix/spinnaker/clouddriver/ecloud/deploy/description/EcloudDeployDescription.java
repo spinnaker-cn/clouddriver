@@ -42,7 +42,9 @@ public class EcloudDeployDescription extends AbstractEcloudCredentialsDescriptio
   private Boolean securityReinforce;
   private Disk systemDisk;
   private List<Disk> dataDisks;
+  private Internet internet;
   private String keyPairName;
+  private String roleName;
 
   /** auto-scaling */
   private Integer maxSize;
@@ -158,6 +160,20 @@ public class EcloudDeployDescription extends AbstractEcloudCredentialsDescriptio
     @Override
     public ForwardLoadBalancer clone() throws CloneNotSupportedException {
       return (ForwardLoadBalancer) super.clone();
+    }
+  }
+
+  @Getter
+  @Setter
+  public static class Internet implements Cloneable {
+    private Boolean usePublicIp;
+    private String chargeType;
+    private Integer bandwidthSize;
+    private String fipType;
+
+    @Override
+    public Internet clone() throws CloneNotSupportedException {
+      return (Internet) super.clone();
     }
   }
 

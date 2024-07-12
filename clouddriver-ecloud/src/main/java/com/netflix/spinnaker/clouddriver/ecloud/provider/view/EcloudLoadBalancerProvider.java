@@ -2,10 +2,9 @@ package com.netflix.spinnaker.clouddriver.ecloud.provider.view;
 
 import static com.netflix.spinnaker.clouddriver.ecloud.cache.Keys.Namespace.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.ecloud.cache.Keys.Namespace.LOAD_BALANCERS;
+import static com.netflix.spinnaker.clouddriver.ecloud.cache.Keys.Namespace.SERVER_GROUPS;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -13,14 +12,12 @@ import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.ecloud.EcloudProvider;
 import com.netflix.spinnaker.clouddriver.ecloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancer;
-import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerListener;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerPool;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,25 +64,75 @@ public class EcloudLoadBalancerProvider implements LoadBalancerProvider<EcloudLo
   private EcloudLoadBalancer fromCacheData(CacheData cacheData) {
     EcloudLoadBalancer loadBalancer =
         objectMapper.convertValue(cacheData.getAttributes(), EcloudLoadBalancer.class);
-    loadBalancer.setServerGroups(getLoadBalancerServerGroup(cacheData));
+    LoadBalancerServerGroup lb = getLoadBalancerServerGroups(cacheData);
+    if (lb != null) {
+      loadBalancer.getServerGroups().add(lb);
+    }
     return loadBalancer;
   }
 
-  private Set<LoadBalancerServerGroup> getLoadBalancerServerGroup(CacheData loadBalancerCache) {
-    Object originServerGroupsObj = loadBalancerCache.getAttributes().get("serverGroups");
-    if (originServerGroupsObj != null) {
-      try {
-        String jsonString = objectMapper.writeValueAsString(originServerGroupsObj);
-        List<EcloudLoadBalancerPool> originServerGroups =
-            objectMapper.readValue(
-                jsonString, new TypeReference<List<EcloudLoadBalancerPool>>() {});
+  //  private Set<LoadBalancerServerGroup> getLoadBalancerServerGroup(CacheData loadBalancerCache) {
+  //    Object originServerGroupsObj = loadBalancerCache.getAttributes().get("serverGroups");
+  //    if (originServerGroupsObj != null) {
+  //      try {
+  //        String jsonString = objectMapper.writeValueAsString(originServerGroupsObj);
+  //        List<EcloudLoadBalancerPool> originServerGroups =
+  //          objectMapper.readValue(
+  //            jsonString, new TypeReference<List<EcloudLoadBalancerPool>>() {});
+  //
+  //        return new HashSet<>(originServerGroups);
+  //      } catch (JsonProcessingException e) {
+  //        log.error(e.getMessage());
+  //      }
+  //    }
+  //    return new HashSet<>();
+  //  }
 
-        return new HashSet<>(originServerGroups);
-      } catch (JsonProcessingException e) {
-        log.error(e.getMessage());
-      }
+  public LoadBalancerServerGroup getLoadBalancerServerGroups(CacheData loadBalancerCache) {
+    Collection<String> serverGroupKeys = loadBalancerCache.getRelationships().get(SERVER_GROUPS.ns);
+    if (serverGroupKeys != null && !serverGroupKeys.isEmpty()) {
+      // basically a copy work
+      // only pick the first one and still dont know why
+      String serverGroupKey = new ArrayList<>(serverGroupKeys).get(0);
+      Map<String, String> parts = Keys.parse(serverGroupKey);
+      LoadBalancerServerGroup lbServerGroup = new LoadBalancerServerGroup();
+      lbServerGroup.setCloudProvider(EcloudProvider.ID);
+      lbServerGroup.setAccount(parts.get("account"));
+      lbServerGroup.setName(parts.get("name"));
+      lbServerGroup.setRegion(parts.get("region"));
+      //      Set<LoadBalancerInstance> lbInstances = new HashSet<>();
+      //      List<EcloudLoadBalancerMember> allMemebers = new ArrayList<>();
+      //      Object originServerGroupsObj = loadBalancerCache.getAttributes().get("pools");
+      //      if (originServerGroupsObj != null) {
+      //        try {
+      //           List<EcloudLoadBalancerPool> pools =
+      // objectMapper.readValue(objectMapper.writeValueAsString(originServerGroupsObj),
+      //            new TypeReference<List<EcloudLoadBalancerPool>>() {
+      //            });
+      //          if (!CollectionUtils.isEmpty(pools)) {
+      //            for (EcloudLoadBalancerPool pool : pools) {
+      //              if (!CollectionUtils.isEmpty(pool.getMembers())) {
+      //                allMemebers.addAll(pool.getMembers());
+      //              }
+      //            }
+      //
+      //          }
+      //        } catch (JsonProcessingException e) {
+      //          log.error(e.getMessage());
+      //        }
+      //        for (EcloudLoadBalancerMember member : allMemebers) {
+      //          LoadBalancerInstance lbInstance = new LoadBalancerInstance();
+      //          lbInstance.setId(member.getId());
+      //          lbInstance.setName(member.getVmName());
+      //          lbInstance.setZone(member.getRegion());
+      //          lbInstances.add(lbInstance);
+      //          break;
+      //        }
+      //        lbServerGroup.setInstances(lbInstances);
+      //      }
+      return lbServerGroup;
     }
-    return new HashSet<>();
+    return null;
   }
 
   @Override
@@ -95,7 +142,6 @@ public class EcloudLoadBalancerProvider implements LoadBalancerProvider<EcloudLo
 
   @Override
   public List<? extends Item> list() {
-    log.info("Enter list loadBalancer");
     String searchKey = Keys.getLoadBalancerKey("*", "*", "*");
     Collection<String> identifiers = cacheView.filterIdentifiers(LOAD_BALANCERS.ns, searchKey);
     return getSummaryForLoadBalancers(identifiers).values().stream().collect(Collectors.toList());
@@ -103,7 +149,6 @@ public class EcloudLoadBalancerProvider implements LoadBalancerProvider<EcloudLo
 
   @Override
   public Item get(String id) {
-    log.info("Enter Get loadBalancer id={}", id);
     String searchKey = Keys.getLoadBalancerKey(id, "*", "*");
     Collection<String> identifiers =
         cacheView.filterIdentifiers(LOAD_BALANCERS.ns, searchKey).stream()
@@ -149,7 +194,8 @@ public class EcloudLoadBalancerProvider implements LoadBalancerProvider<EcloudLo
           loadBalancer.setSubnetId((String) loadBalancerFromCache.getAttributes().get("subnetId"));
           loadBalancer.setVpcId((String) loadBalancerFromCache.getAttributes().get("vpcId"));
           loadBalancer.setName((String) loadBalancerFromCache.getAttributes().get("name"));
-
+          loadBalancer.setPools(
+              (List<EcloudLoadBalancerPool>) loadBalancerFromCache.getAttributes().get("pools"));
           summary
               .getOrCreateAccount(account)
               .getOrCreateRegion(region)
@@ -181,10 +227,7 @@ public class EcloudLoadBalancerProvider implements LoadBalancerProvider<EcloudLo
       lbDetail.setSubnetId((String) it.getAttributes().get("subnetId"));
       lbDetail.setVpcId((String) it.getAttributes().get("vpcId"));
       lbDetail.setCreateTime((String) it.getAttributes().get("createdTime"));
-      lbDetail.setLoadBalancerVip((String) it.getAttributes().get("privateIp"));
-      lbDetail.setListeners((List<EcloudLoadBalancerListener>) it.getAttributes().get("listeners"));
-      lbDetail.setServerGroups(
-          (new HashSet<>((List<EcloudLoadBalancerPool>) it.getAttributes().get("serverGroups"))));
+      lbDetail.setPools((List<EcloudLoadBalancerPool>) it.getAttributes().get("pools"));
       lbDetails.add(lbDetail);
     }
     return lbDetails;
@@ -239,6 +282,7 @@ public class EcloudLoadBalancerProvider implements LoadBalancerProvider<EcloudLo
       return mappedAccounts.get(name);
     }
 
+    @Override
     @JsonProperty("accounts")
     public List<ECloudLoadBalancerAccount> getByAccounts() {
       return new ArrayList<>(mappedAccounts.values());
@@ -262,6 +306,7 @@ public class EcloudLoadBalancerProvider implements LoadBalancerProvider<EcloudLo
       return mappedRegions.get(name);
     }
 
+    @Override
     @JsonProperty("regions")
     public List<ECloudLoadBalancerAccountRegion> getByRegions() {
       return new ArrayList<>(mappedRegions.values());
@@ -299,10 +344,6 @@ public class EcloudLoadBalancerProvider implements LoadBalancerProvider<EcloudLo
 
     private String createTime;
 
-    private String loadBalancerVip;
-
-    private List<EcloudLoadBalancerListener> listeners;
-
-    private Set<LoadBalancerServerGroup> serverGroups;
+    private List<EcloudLoadBalancerPool> pools;
   }
 }
