@@ -10,7 +10,6 @@ import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceResponseContent;
 import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseContent;
 import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseHealthMonitorResp;
 import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseL7PolicyResps;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.AccountAware;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
@@ -21,7 +20,6 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.core.provider.agent.HealthProvidingCachingAgent;
-import com.netflix.spinnaker.clouddriver.ecloud.EcloudProvider;
 import com.netflix.spinnaker.clouddriver.ecloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancer;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerHealth;
@@ -37,7 +35,6 @@ import com.netflix.spinnaker.clouddriver.model.HealthState;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -90,7 +87,6 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
     log.info("Enter loadData in agentType={}", this.getAgentType());
-    getLoadBalancerTargetHealth();
     List<EcloudLoadBalancerHealthCheck> targetHealths = getLoadBalancerTargetHealth();
     Collection<String> evictions =
         providerCache.filterIdentifiers(
@@ -145,10 +141,7 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
       }
 
       for (EcloudLoadBalancer lb : lbList) {
-        String jsonString = objectMapper.writeValueAsString(lb.getServerGroups());
-        List<EcloudLoadBalancerPool> serverGroupSet =
-            objectMapper.readValue(
-                jsonString, new TypeReference<List<EcloudLoadBalancerPool>>() {});
+        List<EcloudLoadBalancerPool> serverGroupSet = lb.getPools();
         if (serverGroupSet == null || serverGroupSet.isEmpty()) {
           continue;
         }
@@ -250,9 +243,9 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
         List<EcloudLoadBalancerPool> queryPools = new ArrayList<>();
         for (ListPoolRespResponseContent pool : originPools) {
           EcloudLoadBalancerPool epool = EcloudLbUtil.createEcloudLoadBalancerPool(pool);
-          epool.setName(pool.getPoolName());
-          epool.setRegion(this.region);
-          epool.setCloudProvider(EcloudProvider.ID);
+          //          epool.setName(pool.getPoolName());
+          //          epool.setRegion(this.region);
+          //          epool.setCloudProvider(EcloudProvider.ID);
 
           ListPoolRespResponseHealthMonitorResp poolHealth = pool.getHealthMonitorResp();
           if (poolHealth != null) {
@@ -292,7 +285,7 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
           }
           queryPools.add(epool);
         }
-        loadBalancer.setServerGroups(new HashSet<>(queryPools));
+        loadBalancer.setPools(queryPools);
       }
       elbList.add(loadBalancer);
     }

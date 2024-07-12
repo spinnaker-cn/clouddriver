@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer;
 
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,7 +11,7 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-public class EcloudLoadBalancerPool extends LoadBalancerServerGroup {
+public class EcloudLoadBalancerPool {
   private String modifiedTime;
 
   private String lbAlgorithm;

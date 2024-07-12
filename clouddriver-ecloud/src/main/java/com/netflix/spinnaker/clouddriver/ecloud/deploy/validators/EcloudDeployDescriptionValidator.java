@@ -52,14 +52,13 @@ public class EcloudDeployDescriptionValidator
     }
 
     if (description.getForwardLoadBalancers() != null
-        && description.getForwardLoadBalancers().size() > 1) {
+        && description.getForwardLoadBalancers().size() > 0) {
       Set<String> existedZones = new HashSet<>();
-      for (EcloudDeployDescription.ForwardLoadBalancer lb : description.getForwardLoadBalancers()) {
-        if (existedZones.contains(lb.getZone())) {
-          errors.rejectValue(
-              "loadBalancer", "ecloudDeployDescription.loadBalancer.zone.duplicated");
+      for (EcloudDeployDescription.SubnetRela subnet : description.getSubnets()) {
+        if (existedZones.contains(subnet.getZone())) {
+          errors.rejectValue("subnets", "ecloudDeployDescription.subnet.zone.duplicated");
         } else {
-          existedZones.add(lb.getZone());
+          existedZones.add(subnet.getZone());
         }
       }
     }

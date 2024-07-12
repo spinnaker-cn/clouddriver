@@ -4,6 +4,7 @@ import com.netflix.spinnaker.clouddriver.ecloud.EcloudProvider;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudBasicResource;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.Getter;
@@ -87,7 +88,9 @@ public class EcloudLoadBalancer implements LoadBalancer, EcloudBasicResource {
 
   private List<EcloudLoadBalancerListener> listeners;
 
-  private Set<LoadBalancerServerGroup> serverGroups;
+  private List<EcloudLoadBalancerPool> pools;
+
+  private Set<LoadBalancerServerGroup> serverGroups = new HashSet<>();
 
   private List<EcloudLoadBalancerHealthCheck> healthChecks;
 

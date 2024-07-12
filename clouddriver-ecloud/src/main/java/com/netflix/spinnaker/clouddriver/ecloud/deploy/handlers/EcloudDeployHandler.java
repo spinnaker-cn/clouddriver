@@ -9,6 +9,7 @@ import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
 import com.netflix.spinnaker.clouddriver.ecloud.deploy.EcloudServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.ecloud.deploy.description.EcloudDeployDescription;
+import com.netflix.spinnaker.clouddriver.ecloud.exception.EcloudException;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudRequest;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudServerGroup;
@@ -64,11 +65,11 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
     task.updateStatus(BASE_PHASE, "Produce server group name: " + serverGroupName);
     description.setServerGroupName(serverGroupName);
 
+    String errMsg = null;
     boolean useSourceConfig = false;
     boolean copyScalingPolies = false;
     String scalingConfigId = null;
-    List<EcloudServerGroup.ScalingPolicy> scalingPolicies = null;
-    if (description.getSource() != null) {
+    if (description.getSource() != null && description.getSource().getServerGroupName() != null) {
       String sourceServerGroupName = description.getSource().getServerGroupName();
       String sourceRegion = description.getSource().getRegion();
       String accountName = description.getAccountName();
@@ -77,7 +78,10 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
           ecloudClusterProvider.getServerGroup(accountName, sourceRegion, sourceServerGroupName);
       if (sourceServerGroup == null) {
         task.updateStatus(BASE_PHASE, "Fail to get source serverGroup:" + sourceServerGroup);
-        deploymentResult.getMessages().add("Fail to get source server group config");
+        deploymentResult
+            .getMessages()
+            .add("Fail to get config of source server group:" + sourceServerGroup);
+        task.fail(false);
         return deploymentResult;
       } else {
         log.info("Source Server Group:" + sourceServerGroupName);
@@ -103,52 +107,61 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       }
     }
     if (!useSourceConfig) {
-      scalingConfigId = this.createScalingConfig(description);
+      try {
+        scalingConfigId = this.createScalingConfig(description);
+      } catch (EcloudException e) {
+        errMsg = e.getMessage();
+      }
     }
     if (scalingConfigId == null) {
-      task.updateStatus(BASE_PHASE, "Create server group config " + serverGroupName + " Failed...");
-      deploymentResult.getMessages().add("Fail to create server group config");
+      task.updateStatus(BASE_PHASE, "Create server group config Failed:" + errMsg);
+      task.fail(false);
       return deploymentResult;
     }
     // create server group
     description.setScalingConfigId(scalingConfigId);
     task.updateStatus(BASE_PHASE, "Composing server group " + serverGroupName + "...");
-    String scalingGroupId = this.createScalingGroup(description);
+    String scalingGroupId = null;
+    try {
+      scalingGroupId = this.createScalingGroup(description);
+    } catch (EcloudException e) {
+      errMsg = e.getMessage();
+    }
     if (scalingGroupId == null) {
       // delete scaling config
       if (!useSourceConfig) {
         this.deleteScalingConfig(description);
       }
-      task.updateStatus(BASE_PHASE, "Create server group " + serverGroupName + " Failed...");
-      deploymentResult.getMessages().add("Fail to create server group");
+      task.updateStatus(BASE_PHASE, "Create server group " + serverGroupName + " Failed:" + errMsg);
+      task.fail(false);
       return deploymentResult;
     }
     description.setScalingGroupId(scalingGroupId);
     // create scalingPolicies
     if (copyScalingPolies) {
-      boolean spCreated = this.createScalingPolicies(description);
-      if (!spCreated) {
+      String error = this.createScalingPolicies(description);
+      if (error != null) {
         // destroy scaling group
         this.destroyScalingGroup(description);
         // delete scaling config
         if (!useSourceConfig) {
           this.deleteScalingConfig(description);
         }
-        task.updateStatus(BASE_PHASE, "Create scaling policies " + serverGroupName + " Failed...");
-        deploymentResult.getMessages().add("Fail to create scaling policies");
+        task.updateStatus(BASE_PHASE, error);
+        task.fail(false);
         return deploymentResult;
       }
     }
-    boolean enable = this.enableScalingGroup(description);
-    if (!enable) {
+    String error = this.enableScalingGroup(description);
+    if (error != null) {
       // destroy scaling group
       this.destroyScalingGroup(description);
       // delete scaling config
       if (!useSourceConfig) {
         this.deleteScalingConfig(description);
       }
-      task.updateStatus(BASE_PHASE, "Enable server group " + serverGroupName + " Failed...");
-      deploymentResult.getMessages().add("Fail to enable server group");
+      task.updateStatus(BASE_PHASE, error);
+      task.fail(false);
       return deploymentResult;
     }
     task.updateStatus(
@@ -214,10 +227,25 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       log.info("[Compare Scaling Config: Different KeyPairName]");
       return false;
     }
+    // public ip
+    Map internetAccessible = (Map<String, Object>) launchConfig.get("internetAccessible");
+    boolean publicIpAssigned = (boolean) internetAccessible.get("publicIpAssigned");
+    if (publicIpAssigned != description.getInternet().getUsePublicIp()) {
+      log.info("[Compare Scaling Config: Different FipInfo]");
+      return false;
+    } else if (publicIpAssigned) {
+      String chargeType = (String) internetAccessible.get("internetChargeType");
+      Integer bandwidthSize = (Integer) internetAccessible.get("internetMaxBandwidthOut");
+      if (!chargeType.equals(description.getInternet().getChargeType())
+          || !bandwidthSize.equals(description.getInternet().getBandwidthSize())) {
+        log.info("[Compare Scaling Config: Different FipInfo]");
+        return false;
+      }
+    }
     return true;
   }
 
-  private String createScalingConfig(EcloudDeployDescription description) {
+  private String createScalingConfig(EcloudDeployDescription description) throws EcloudException {
     EcloudRequest request =
         new EcloudRequest(
             "POST",
@@ -279,22 +307,29 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       scalingConfigCreateSecurityGroupList.add(map);
     }
     params.put("scalingConfigCreateSecurityGroupList", scalingConfigCreateSecurityGroupList);
+    // public ip
+    if (description.getInternet().getUsePublicIp()) {
+      Map<String, Object> fipAndBandwidth = new HashMap<>();
+      fipAndBandwidth.put("fipType", description.getInternet().getFipType());
+      fipAndBandwidth.put("bandwidthSize", description.getInternet().getBandwidthSize());
+      fipAndBandwidth.put("chargeType", description.getInternet().getChargeType());
+      params.put("fipAndBandwidth", fipAndBandwidth);
+    }
     log.info("create ScalingConfig:" + JSONObject.toJSONString(params));
     request.setBodyParams(params);
     EcloudResponse response = EcloudOpenApiHelper.execute(request);
     if (response.getErrorMessage() != null) {
-      log.error("Create ScalingConfig Failed:" + response.getErrorMessage());
+      throw new EcloudException(response.getErrorMessage());
     }
     Map body = (Map) response.getBody();
-    if (body != null) {
+    if (body != null && body.get("scalingConfigId") != null) {
       return (String) body.get("scalingConfigId");
     } else {
-      log.error("Create ScalingConfig Return Empty Body!");
+      throw new EcloudException("Create ScalingConfig Return Empty id");
     }
-    return null;
   }
 
-  private String createScalingGroup(EcloudDeployDescription description) {
+  private String createScalingGroup(EcloudDeployDescription description) throws EcloudException {
     EcloudRequest request =
         new EcloudRequest(
             "POST",
@@ -353,14 +388,17 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
     log.info("create ScalingGroup:" + JSONObject.toJSONString(params));
     EcloudResponse response = EcloudOpenApiHelper.execute(request);
     if (response.getErrorMessage() != null) {
-      log.error("Create ScalingGroup Failed:" + response.getErrorMessage());
-      return null;
+      throw new EcloudException(response.getErrorMessage());
     }
     Map body = (Map) response.getBody();
-    return (String) body.get("scalingGroupId");
+    if (body != null && body.get("scalingGroupId") != null) {
+      return (String) body.get("scalingGroupId");
+    } else {
+      throw new EcloudException("create ScalingGroup Return Empty id!");
+    }
   }
 
-  private boolean createScalingPolicies(EcloudDeployDescription description) {
+  private String createScalingPolicies(EcloudDeployDescription description) {
     String sourceServerGroupName = description.getSource().getServerGroupName();
     String sourceRegion = description.getSource().getRegion();
     String accountName = description.getAccountName();
@@ -390,13 +428,11 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       request.setBodyParams(body);
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (rsp.getErrorMessage() != null) {
-        log.error("Create Scaling Rule Failed:" + rsp.getErrorMessage());
-        return false;
+        return "Create Scaling Rule Return Error " + rsp.getErrorMessage();
       }
       Map rspBody = (Map) rsp.getBody();
       if (rspBody == null || rspBody.get("scalingRuleId") == null) {
-        log.error("Create Scaling Rule Return Empty Body!");
-        return false;
+        return "Create Scaling Rule Return Empty Id";
       }
       newScalingRuleMap.put(
           (String) sr.get("scalingRuleId"), (String) rspBody.get("scalingRuleId"));
@@ -426,8 +462,7 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       request.setBodyParams(body);
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (rsp.getErrorMessage() != null) {
-        log.error("Create Alarm Task Failed:" + rsp.getErrorMessage());
-        return false;
+        return "Create Alarm Task Return Error " + rsp.getErrorMessage();
       }
     }
     // copy scheduled tasks
@@ -453,14 +488,13 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       request.setBodyParams(body);
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (rsp.getErrorMessage() != null) {
-        log.error("Create Scheduled Task Failed:" + rsp.getErrorMessage());
-        return false;
+        return "Create Scheduled Task Return Error " + rsp.getErrorMessage();
       }
     }
-    return true;
+    return null;
   }
 
-  private boolean enableScalingGroup(EcloudDeployDescription description) {
+  private String enableScalingGroup(EcloudDeployDescription description) {
     EcloudRequest enableRequest =
         new EcloudRequest(
             "PUT",
@@ -474,10 +508,9 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
     enableRequest.setQueryParams(query);
     EcloudResponse enableRsp = EcloudOpenApiHelper.execute(enableRequest);
     if (enableRsp.getErrorMessage() != null) {
-      log.error("Enable ScalingGroup Failed:" + enableRsp.getErrorMessage());
-      return false;
+      return "Enable Server Group Return Error " + enableRsp.getErrorMessage();
     }
-    return true;
+    return null;
   }
 
   private void destroyScalingGroup(EcloudDeployDescription description) {
