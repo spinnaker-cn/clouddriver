@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ecloud.model;
 
 import com.netflix.spinnaker.clouddriver.model.InstanceType;
-import java.util.List;
 
 /**
  * @author xu.dangling
@@ -14,7 +13,7 @@ public class EcloudInstanceType implements InstanceType {
   private Integer mem;
   private String account;
   private String region;
-  private List<String> soldOutZone;
+  private String zone;
 
   @Override
   public String getName() {
@@ -41,12 +40,12 @@ public class EcloudInstanceType implements InstanceType {
     this.mem = mem;
   }
 
-  public List<String> getSoldOutZone() {
-    return soldOutZone;
+  public String getZone() {
+    return zone;
   }
 
-  public void setSoldOutZone(List<String> soldOutZone) {
-    this.soldOutZone = soldOutZone;
+  public void setZone(String zone) {
+    this.zone = zone;
   }
 
   public String getAccount() {

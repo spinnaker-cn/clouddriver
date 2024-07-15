@@ -33,7 +33,7 @@ public class EcloudInstanceTypeProvider implements InstanceTypeProvider<EcloudIn
   @Override
   public Set<EcloudInstanceType> getAll() {
     Set<EcloudInstanceType> results = new HashSet<>();
-    String globalKey = Keys.getInstanceTypeKey("*", "*", "*");
+    String globalKey = Keys.getInstanceTypeKey("*", "*", "*", "*");
     Collection<String> allInstanceTypeKeys =
         cacheView.filterIdentifiers(Keys.Namespace.INSTANCE_TYPES.ns, globalKey);
     Collection<CacheData> allData =

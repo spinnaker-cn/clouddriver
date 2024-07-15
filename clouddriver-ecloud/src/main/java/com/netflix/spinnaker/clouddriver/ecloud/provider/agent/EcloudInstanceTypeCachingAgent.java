@@ -66,7 +66,6 @@ public class EcloudInstanceTypeCachingAgent extends AbstractEcloudCachingAgent {
             account.getSecretKey());
     prodRequest.setVersion("2016-12-05");
     EcloudResponse prodRsp = EcloudOpenApiHelper.execute(prodRequest);
-    Map<String, EcloudInstanceType> instanceTypeMap = new HashMap<>();
     if (!CollectionUtils.isEmpty(zoneList) && prodRsp.getBody() != null) {
       List<Map> productBodyList = (List<Map>) prodRsp.getBody();
       for (EcloudZone zone : zoneList) {
@@ -94,37 +93,28 @@ public class EcloudInstanceTypeCachingAgent extends AbstractEcloudCachingAgent {
                 continue;
               }
               String soldOut = (String) map.get("soldOut");
-              EcloudInstanceType type = instanceTypeMap.get(specsName);
-              if (type == null) {
-                type = new EcloudInstanceType();
+              if (!"1".equals(soldOut)) {
+                EcloudInstanceType type = new EcloudInstanceType();
                 type.setRegion(region);
                 type.setAccount(account.getName());
                 type.setName(specsName);
+                type.setZone(zone.getRegion());
                 String[] specs = specsName.split("\\.");
                 int cpu = parseCpu(specs[1]);
                 type.setCpu(cpu);
                 type.setMem(cpu * Integer.parseInt(specs[2]));
-                List<String> soldOutZone = new ArrayList<>();
-                type.setSoldOutZone(soldOutZone);
-                if ("1".equals(soldOut)) {
-                  soldOutZone.add(zone.getRegion());
-                }
-                instanceTypeMap.put(type.getName(), type);
-              } else if ("1".equals(soldOut)) {
-                type.getSoldOutZone().add(zone.getRegion());
+                Map attributes = objectMapper.convertValue(type, Map.class);
+                CacheData data =
+                    new DefaultCacheData(
+                        Keys.getInstanceTypeKey(
+                            account.getName(), region, type.getZone(), type.getName()),
+                        attributes,
+                        new HashMap<>(16));
+                instanceTypeData.add(data);
               }
             }
           }
         }
-      }
-      for (EcloudInstanceType type : instanceTypeMap.values()) {
-        Map attributes = objectMapper.convertValue(type, Map.class);
-        CacheData data =
-            new DefaultCacheData(
-                Keys.getInstanceTypeKey(account.getName(), region, type.getName()),
-                attributes,
-                new HashMap<>(16));
-        instanceTypeData.add(data);
       }
     }
     resultMap.put(Keys.Namespace.INSTANCE_TYPES.ns, instanceTypeData);

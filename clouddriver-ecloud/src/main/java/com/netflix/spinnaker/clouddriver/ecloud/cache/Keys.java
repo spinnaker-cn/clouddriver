@@ -253,7 +253,8 @@ public class Keys implements KeyParser {
         + keyId;
   }
 
-  public static String getInstanceTypeKey(String account, String region, String instanceType) {
+  public static String getInstanceTypeKey(
+      String account, String region, String zone, String instanceType) {
     return EcloudProvider.ID
         + SEPARATOR
         + Namespace.INSTANCE_TYPES
@@ -261,6 +262,8 @@ public class Keys implements KeyParser {
         + account
         + SEPARATOR
         + region
+        + SEPARATOR
+        + zone
         + SEPARATOR
         + instanceType;
   }
