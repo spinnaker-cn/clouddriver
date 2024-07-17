@@ -15,7 +15,7 @@ import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
- * @date 2024/4/12
+ * @date 2024/4/12 
  * @Description Reboot Ecloud Instances
  */
 @Slf4j
@@ -57,7 +57,11 @@ public class RebootEcloudInstancesAtomicOperation implements AtomicOperation<Voi
     request.setBodyParams(body);
     EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
     if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
-      log.error("RebootEcloudInstances Failed:" + rsp.getErrorMessage());
+      String info = "RebootEcloudInstances Failed:" + rsp.getErrorMessage();
+      log.error(info);
+      getTask().updateStatus(BASE_PHASE, info);
+      getTask().fail(false);
+      return null;
     }
     getTask().updateStatus(BASE_PHASE, "Complete reboot of instance.");
     return null;

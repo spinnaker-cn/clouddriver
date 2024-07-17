@@ -76,10 +76,18 @@ public class TerminateEcloudInstancesAtomicOperation implements AtomicOperation<
         request.setBodyParams(body);
         EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
         if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
-          log.error("TerminateEcloudInstances Failed:" + rsp.getErrorMessage());
+          String info = "TerminateEcloudInstances Failed:" + rsp.getErrorMessage();
+          log.error(info);
+          getTask().updateStatus(BASE_PHASE, info);
+          getTask().fail(false);
+          return null;
         }
       } else {
-        log.error("TerminateEcloudInstances Failed: NodeIdList Empty!");
+        String info = "TerminateEcloudInstances Failed: NodeIdList Empty!";
+        log.error(info);
+        getTask().updateStatus(BASE_PHASE, info);
+        getTask().fail(false);
+        return null;
       }
       status = new StringBuffer();
       status
@@ -91,7 +99,10 @@ public class TerminateEcloudInstancesAtomicOperation implements AtomicOperation<
       getTask().updateStatus(BASE_PHASE, status.toString());
 
     } else {
-      log.error("ServerGroup Not Found:" + description.getServerGroupName());
+      String info = "ServerGroup Not Found:" + description.getServerGroupName();
+      log.error(info);
+      getTask().updateStatus(BASE_PHASE, info);
+      getTask().fail(false);
     }
     return null;
   }

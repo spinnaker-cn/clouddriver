@@ -63,7 +63,11 @@ public class ResizeEcloudServerGroupAtomicOperation implements AtomicOperation<V
       request.setBodyParams(body);
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
-        log.info("ResizeEcloudServerGroup Failed:" + rsp.getErrorMessage());
+        String info = "ResizeEcloudServerGroup Failed:" + rsp.getErrorMessage();
+        log.error(info);
+        getTask().updateStatus(BASE_PHASE, info);
+        getTask().fail(false);
+        return null;
       }
       getTask()
           .updateStatus(
@@ -74,9 +78,11 @@ public class ResizeEcloudServerGroupAtomicOperation implements AtomicOperation<V
                   + description.getRegion());
 
     } else {
-      log.error("ServerGroup Not Found:" + description.getServerGroupName());
+      String info = "ServerGroup Not Found:" + description.getServerGroupName();
+      log.error(info);
+      getTask().updateStatus(BASE_PHASE, info);
+      getTask().fail(false);
     }
-
     return null;
   }
 

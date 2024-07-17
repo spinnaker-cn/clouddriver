@@ -65,7 +65,11 @@ public class EnableEcloudServerGroupAtomicOperation implements AtomicOperation<V
       enableRequest.setQueryParams(query);
       EcloudResponse enableRsp = EcloudOpenApiHelper.execute(enableRequest);
       if (!StringUtils.isEmpty(enableRsp.getErrorMessage())) {
-        log.error("EnableEcloudServerGroup Failed:" + enableRsp.getErrorMessage());
+        String info = "EnableEcloudServerGroup Failed:" + enableRsp.getErrorMessage();
+        log.error(info);
+        getTask().updateStatus(BASE_PHASE, info);
+        getTask().fail(false);
+        return null;
       }
       List<EcloudServerGroup.ForwardLoadBalancer> lbs = sg.getForwardLoadBalancers();
       if (!CollectionUtils.isEmpty(lbs)) {
@@ -96,7 +100,11 @@ public class EnableEcloudServerGroupAtomicOperation implements AtomicOperation<V
           memberRequest.setBodyParams(memberBody);
           EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
           if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
-            log.error("EnableEcloudServerGroup Failed:" + memberRsp.getErrorMessage());
+            String info = "AddMemberToLb Failed:" + memberRsp.getErrorMessage();
+            log.error(info);
+            getTask().updateStatus(BASE_PHASE, info);
+            getTask().fail(false);
+            return null;
           }
         }
       }
@@ -109,7 +117,10 @@ public class EnableEcloudServerGroupAtomicOperation implements AtomicOperation<V
           .append(".");
       getTask().updateStatus(BASE_PHASE, status.toString());
     } else {
-      log.error("ServerGroup Not Found:" + description.getServerGroupName());
+      String info = "ServerGroup Not Found:" + description.getServerGroupName();
+      log.error(info);
+      getTask().updateStatus(BASE_PHASE, info);
+      getTask().fail(false);
     }
     return null;
   }

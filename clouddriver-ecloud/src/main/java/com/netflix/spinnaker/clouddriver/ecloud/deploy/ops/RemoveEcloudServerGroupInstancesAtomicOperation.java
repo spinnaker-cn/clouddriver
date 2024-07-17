@@ -77,10 +77,18 @@ public class RemoveEcloudServerGroupInstancesAtomicOperation implements AtomicOp
         request.setBodyParams(body);
         EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
         if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
-          log.error("RemoveEcloudServerGroupInstances Failed:" + rsp.getErrorMessage());
+          String info = "RemoveEcloudServerGroupInstances Failed:" + rsp.getErrorMessage();
+          log.error(info);
+          getTask().updateStatus(BASE_PHASE, info);
+          getTask().fail(false);
+          return null;
         }
       } else {
-        log.error("RemoveEcloudServerGroupInstances Failed: NodeIdList Empty!");
+        String info = "RemoveEcloudServerGroupInstances Failed: NodeIdList Empty!";
+        log.error(info);
+        getTask().updateStatus(BASE_PHASE, info);
+        getTask().fail(false);
+        return null;
       }
       status = new StringBuffer();
       status
@@ -92,7 +100,11 @@ public class RemoveEcloudServerGroupInstancesAtomicOperation implements AtomicOp
       getTask().updateStatus(BASE_PHASE, status.toString());
 
     } else {
-      log.error("ServerGroup Not Found:" + description.getServerGroupName());
+      String info = "ServerGroup Not Found:" + description.getServerGroupName();
+      log.error(info);
+      getTask().updateStatus(BASE_PHASE, info);
+      getTask().fail(false);
+      return null;
     }
     return null;
   }
