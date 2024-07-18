@@ -64,7 +64,11 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
       disableRequest.setQueryParams(query);
       EcloudResponse disableRsp = EcloudOpenApiHelper.execute(disableRequest);
       if (!StringUtils.isEmpty(disableRsp.getErrorMessage())) {
-        log.error("DisableEcloudServerGroup Failed:" + disableRsp.getErrorMessage());
+        getTask()
+            .updateStatus(
+                BASE_PHASE, "DisableEcloudServerGroup Failed:" + disableRsp.getErrorMessage());
+        getTask().fail(false);
+        return null;
       }
       List<EcloudServerGroup.ForwardLoadBalancer> lbs = sg.getForwardLoadBalancers();
       if (!CollectionUtils.isEmpty(lbs)) {
@@ -86,10 +90,20 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
                       description.getCredentials().getSecretKey());
               EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
               if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
-                log.error("DisableEcloudServerGroup Failed:" + disableRsp.getErrorMessage());
+                String info = "DeleteLbMember Failed:" + disableRsp.getErrorMessage();
+                log.error(info);
+                getTask().updateStatus(BASE_PHASE, info);
+                getTask().fail(false);
+                return null;
               }
             } else {
-              log.error("DisableEcloudServerGroup Failed: MemberId Not Found");
+              String info =
+                  "DisableEcloudServerGroup Failed: Lb MemberId Not Found at poolId:"
+                      + lb.getPoolId();
+              log.error(info);
+              getTask().updateStatus(BASE_PHASE, info);
+              getTask().fail(false);
+              return null;
             }
           }
         }
@@ -103,7 +117,9 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
           .append(".");
       getTask().updateStatus(BASE_PHASE, status.toString());
     } else {
-      log.error("ServerGroup Not Found:" + description.getServerGroupName());
+      getTask()
+          .updateStatus(BASE_PHASE, "ServerGroup Not Found:" + description.getServerGroupName());
+      getTask().fail(false);
     }
     return null;
   }

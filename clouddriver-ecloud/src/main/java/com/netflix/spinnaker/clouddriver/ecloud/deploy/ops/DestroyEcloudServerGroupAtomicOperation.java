@@ -14,10 +14,12 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
- * @date 2024/4/11 @Description Destroy Ecloud Scaling Group
+ * @date 2024/4/11
+ * @Description Destroy Ecloud Scaling Group
  */
 @Slf4j
 public class DestroyEcloudServerGroupAtomicOperation implements AtomicOperation<Void> {
@@ -56,20 +58,13 @@ public class DestroyEcloudServerGroupAtomicOperation implements AtomicOperation<
               description.getCredentials().getSecretKey());
       request.setVersion("2016-12-05");
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
-      String result = rsp.isHttpSuccess() ? "succesfully" : "unsuccessfully";
-      status = new StringBuffer();
-      status
-          .append("ServerGroups ")
-          .append(description.getServerGroupName())
-          .append(" in region ")
-          .append(description.getRegion())
-          .append(" was destroyed ")
-          .append(result)
-          .append(".");
+      if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
+        getTask().updateStatus(BASE_PHASE, "DestroyServerGroup Failed:" + rsp.getErrorMessage());
+        getTask().fail(false);
+        return null;
+      }
       try {
         String scalingConfigId = (String) serverGroup.getLaunchConfig().get("lauchConfigurationId");
-        String scalingConfigName =
-            (String) serverGroup.getLaunchConfig().get("lauchConfigurationName");
         if (rsp.isHttpSuccess()) {
           EcloudRequest delRequest =
               new EcloudRequest(
@@ -84,7 +79,7 @@ public class DestroyEcloudServerGroupAtomicOperation implements AtomicOperation<
           // Wait till the scaling group is destroyed
           Thread.sleep(30000);
           EcloudResponse response = EcloudOpenApiHelper.execute(delRequest);
-          if (response.getErrorMessage() != null) {
+          if (!StringUtils.isEmpty(response.getErrorMessage())) {
             // scalingConfig may be binded by another serverGroup or the serverGroup has not be
             // fully destroyed yet
             log.error(
@@ -94,11 +89,20 @@ public class DestroyEcloudServerGroupAtomicOperation implements AtomicOperation<
           }
         }
       } catch (Exception e) {
-        log.error(e.getMessage(), e);
+        log.error("DestroyScalingConfig Failed, Ignore the exception", e);
       }
+      status = new StringBuffer();
+      status
+          .append("ServerGroups ")
+          .append(description.getServerGroupName())
+          .append(" in region ")
+          .append(description.getRegion())
+          .append(" was destroyed.");
       getTask().updateStatus(BASE_PHASE, status.toString());
     } else {
-      log.error("ServerGroup Not Found:" + description.getServerGroupName());
+      getTask()
+          .updateStatus(BASE_PHASE, "ServerGroup Not Found:" + description.getServerGroupName());
+      getTask().fail(false);
     }
     return null;
   }
