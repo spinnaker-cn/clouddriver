@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ecloud.deploy.ops;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
@@ -64,6 +65,7 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
       disableRequest.setQueryParams(query);
       EcloudResponse disableRsp = EcloudOpenApiHelper.execute(disableRequest);
       if (!StringUtils.isEmpty(disableRsp.getErrorMessage())) {
+        log.error("Disable scalingGroup failed with response:" + JSONObject.toJSONString(disableRsp));
         getTask()
             .updateStatus(
                 BASE_PHASE, "DisableEcloudServerGroup Failed:" + disableRsp.getErrorMessage());
@@ -90,8 +92,8 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
                       description.getCredentials().getSecretKey());
               EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
               if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
-                String info = "DeleteLbMember Failed:" + disableRsp.getErrorMessage();
-                log.error(info);
+                log.error("Delete LbMemeber failed with response:" + JSONObject.toJSONString(memberRsp));
+                String info = "DeleteLbMember Failed:" + memberRsp.getErrorMessage();
                 getTask().updateStatus(BASE_PHASE, info);
                 getTask().fail(false);
                 return null;
@@ -100,7 +102,6 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
               String info =
                   "DisableEcloudServerGroup Failed: Lb MemberId Not Found at poolId:"
                       + lb.getPoolId();
-              log.error(info);
               getTask().updateStatus(BASE_PHASE, info);
               getTask().fail(false);
               return null;

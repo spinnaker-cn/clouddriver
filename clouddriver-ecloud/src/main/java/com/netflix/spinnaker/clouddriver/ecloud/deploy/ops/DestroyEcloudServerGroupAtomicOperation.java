@@ -1,9 +1,11 @@
 package com.netflix.spinnaker.clouddriver.ecloud.deploy.ops;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
 import com.netflix.spinnaker.clouddriver.ecloud.deploy.description.DestroyEcloudServerGroupDescription;
+import com.netflix.spinnaker.clouddriver.ecloud.exception.EcloudException;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudRequest;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudServerGroup;
@@ -59,37 +61,40 @@ public class DestroyEcloudServerGroupAtomicOperation implements AtomicOperation<
       request.setVersion("2016-12-05");
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
+        log.error("Destroy scalingGroup failed with response:" + JSONObject.toJSONString(rsp));
         getTask().updateStatus(BASE_PHASE, "DestroyServerGroup Failed:" + rsp.getErrorMessage());
         getTask().fail(false);
         return null;
       }
       try {
         String scalingConfigId = (String) serverGroup.getLaunchConfig().get("lauchConfigurationId");
-        if (rsp.isHttpSuccess()) {
-          EcloudRequest delRequest =
-              new EcloudRequest(
-                  "DELETE",
-                  description.getRegion(),
-                  "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingConfig",
-                  description.getCredentials().getAccessKey(),
-                  description.getCredentials().getSecretKey());
-          Map<String, String> queryParams = new HashMap<>();
-          queryParams.put("scalingConfigIds", scalingConfigId);
-          delRequest.setQueryParams(queryParams);
-          // Wait till the scaling group is destroyed
-          Thread.sleep(30000);
-          EcloudResponse response = EcloudOpenApiHelper.execute(delRequest);
-          if (!StringUtils.isEmpty(response.getErrorMessage())) {
-            // scalingConfig may be binded by another serverGroup or the serverGroup has not be
-            // fully destroyed yet
-            log.error(
-                "Failed to delete ScalingConfig :"
-                    + response.getErrorMessage()
-                    + ", ignore the error");
-          }
+        if (scalingConfigId == null) {
+          throw new EcloudException("ScalingConfigId Not Found");
+        }
+        EcloudRequest delRequest =
+            new EcloudRequest(
+                "DELETE",
+                description.getRegion(),
+                "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingConfig",
+                description.getCredentials().getAccessKey(),
+                description.getCredentials().getSecretKey());
+        Map<String, String> queryParams = new HashMap<>();
+        queryParams.put("scalingConfigIds", scalingConfigId);
+        delRequest.setQueryParams(queryParams);
+        // Wait till the scaling group is destroyed
+        Thread.sleep(30000);
+        EcloudResponse response = EcloudOpenApiHelper.execute(delRequest);
+        if (!StringUtils.isEmpty(response.getErrorMessage())) {
+          // scalingConfig may be binded by another serverGroup or the serverGroup has not be
+          // fully destroyed yet
+          log.error("Destroy scalingConfig failed with response:" + JSONObject.toJSONString(rsp));
+          throw new EcloudException(response.getErrorMessage());
         }
       } catch (Exception e) {
-        log.error("DestroyScalingConfig Failed, Ignore the exception", e);
+        log.error("DestroyScalingConfig Failed", e);
+        getTask().updateStatus(BASE_PHASE, "DeleteScalingConfig Failed:" + e.getMessage());
+        getTask().fail(false);
+        return null;
       }
       status = new StringBuffer();
       status

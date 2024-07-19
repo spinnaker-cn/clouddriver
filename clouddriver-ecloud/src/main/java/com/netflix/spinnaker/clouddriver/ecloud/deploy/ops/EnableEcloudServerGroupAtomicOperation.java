@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ecloud.deploy.ops;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
@@ -65,9 +66,8 @@ public class EnableEcloudServerGroupAtomicOperation implements AtomicOperation<V
       enableRequest.setQueryParams(query);
       EcloudResponse enableRsp = EcloudOpenApiHelper.execute(enableRequest);
       if (!StringUtils.isEmpty(enableRsp.getErrorMessage())) {
-        String info = "EnableEcloudServerGroup Failed:" + enableRsp.getErrorMessage();
-        log.error(info);
-        getTask().updateStatus(BASE_PHASE, info);
+        log.error("Enable ServerGroup failed with response:" + JSONObject.toJSONString(enableRsp));
+        getTask().updateStatus(BASE_PHASE, "EnableEcloudServerGroup Failed:" + enableRsp.getErrorMessage());
         getTask().fail(false);
         return null;
       }
@@ -100,9 +100,8 @@ public class EnableEcloudServerGroupAtomicOperation implements AtomicOperation<V
           memberRequest.setBodyParams(memberBody);
           EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
           if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
-            String info = "AddMemberToLb Failed:" + memberRsp.getErrorMessage();
-            log.error(info);
-            getTask().updateStatus(BASE_PHASE, info);
+            log.error("Add Lb Member failed with response:" + JSONObject.toJSONString(memberRsp));
+            getTask().updateStatus(BASE_PHASE, "AddMemberToLb Failed:" + memberRsp.getErrorMessage());
             getTask().fail(false);
             return null;
           }

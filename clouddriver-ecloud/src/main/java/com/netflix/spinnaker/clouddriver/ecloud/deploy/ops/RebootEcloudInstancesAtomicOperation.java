@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ecloud.deploy.ops;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
@@ -15,7 +16,7 @@ import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
- * @date 2024/4/12 
+ * @date 2024/4/12
  * @Description Reboot Ecloud Instances
  */
 @Slf4j
@@ -57,9 +58,8 @@ public class RebootEcloudInstancesAtomicOperation implements AtomicOperation<Voi
     request.setBodyParams(body);
     EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
     if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
-      String info = "RebootEcloudInstances Failed:" + rsp.getErrorMessage();
-      log.error(info);
-      getTask().updateStatus(BASE_PHASE, info);
+      log.error("Reboot Instances failed with response:" + JSONObject.toJSONString(rsp));
+      getTask().updateStatus(BASE_PHASE, "RebootEcloudInstances Failed:" + rsp.getErrorMessage());
       getTask().fail(false);
       return null;
     }
