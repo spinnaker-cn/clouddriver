@@ -2,6 +2,7 @@ package com.netflix.spinnaker.clouddriver.ecloud.provider.agent;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -11,6 +12,7 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.ecloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
+import com.netflix.spinnaker.clouddriver.ecloud.exception.EcloudException;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudInstanceType;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudRequest;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
@@ -24,10 +26,12 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
- * @date 2024/4/8 @Description
+ * @date 2024/4/8
+ * @Description
  */
 @Slf4j
 public class EcloudInstanceTypeCachingAgent extends AbstractEcloudCachingAgent {
@@ -84,6 +88,10 @@ public class EcloudInstanceTypeCachingAgent extends AbstractEcloudCachingAgent {
                   account.getSecretKey());
           request.setQueryParams(queryParams);
           EcloudResponse flavorRsp = EcloudOpenApiHelper.execute(request);
+          if (!StringUtils.isEmpty(flavorRsp.getErrorMessage())) {
+            log.error("ListSpecsName Failed:" + JSONObject.toJSONString(flavorRsp));
+            throw new EcloudException("ListSpecsName Failed");
+          }
           if (flavorRsp.getBody() != null) {
             List<Map> body = (List<Map>) flavorRsp.getBody();
             for (Map map : body) {

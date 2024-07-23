@@ -3,9 +3,9 @@ package com.netflix.spinnaker.clouddriver.ecloud.deploy.ops;
 import com.alibaba.fastjson2.JSON;
 import com.ecloud.sdk.config.Config;
 import com.ecloud.sdk.vlb.v1.Client;
-import com.ecloud.sdk.vlb.v1.model.DeleteListenerPath;
-import com.ecloud.sdk.vlb.v1.model.DeleteListenerRequest;
-import com.ecloud.sdk.vlb.v1.model.DeleteListenerResponse;
+import com.ecloud.sdk.vlb.v1.model.DeleteLoadBalanceListenerPath;
+import com.ecloud.sdk.vlb.v1.model.DeleteLoadBalanceListenerRequest;
+import com.ecloud.sdk.vlb.v1.model.DeleteLoadBalanceListenerResponse;
 import com.ecloud.sdk.vlb.v1.model.ElbOrderDeleteQuery;
 import com.ecloud.sdk.vlb.v1.model.ElbOrderDeleteRequest;
 import com.ecloud.sdk.vlb.v1.model.ElbOrderDeleteResponse;
@@ -91,10 +91,10 @@ public class DeleteEcloudLoadBalancerAtomicOperation implements AtomicOperation<
                 + listenerId
                 + " ...");
 
-    DeleteListenerRequest deleteListenerRequest = new DeleteListenerRequest();
-    DeleteListenerPath deleteListenerPath = new DeleteListenerPath();
+    DeleteLoadBalanceListenerRequest deleteListenerRequest = new DeleteLoadBalanceListenerRequest();
+    DeleteLoadBalanceListenerPath deleteListenerPath = new DeleteLoadBalanceListenerPath();
     deleteListenerPath.setListenerId(listenerId);
-    DeleteListenerResponse result = client.deleteListener(deleteListenerRequest);
+    DeleteLoadBalanceListenerResponse result = client.deleteLoadBalanceListener(deleteListenerRequest);
     getTask()
         .updateStatus(
             BASE_PHASE,

@@ -2,6 +2,7 @@ package com.netflix.spinnaker.clouddriver.ecloud.provider.agent;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.frigga.Names;
@@ -18,10 +19,13 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.ecloud.EcloudProvider;
 import com.netflix.spinnaker.clouddriver.ecloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
+import com.netflix.spinnaker.clouddriver.ecloud.exception.EcloudException;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudRequest;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
 import com.netflix.spinnaker.clouddriver.ecloud.provider.view.MutableCacheData;
 import com.netflix.spinnaker.clouddriver.ecloud.security.EcloudCredentials;
+import org.springframework.util.StringUtils;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -313,6 +317,10 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
           continue;
         }
       }
+      else {
+        logger.error("ListScalingGroup Failed:" + JSONObject.toJSONString(listRsp));
+        throw new EcloudException("ListScalingGroup Failed");
+      }
       break;
     }
     return allSgDatas;
@@ -400,6 +408,10 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
           continue;
         }
       }
+      else {
+        logger.error("ListScalingNodes Failed:" + JSONObject.toJSONString(listRsp));
+        throw new EcloudException("ListScalingNodes Failed");
+      }
       break;
     }
     return nodeList;
@@ -419,21 +431,21 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
     queryParams.put("pageSize", "50");
     queryParams.put("page", "1");
     queryParams.put("scalingGroupId", scalingGroupId);
-    try {
-      EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
-      if (listRsp.getBody() != null) {
-        Map body = (Map) listRsp.getBody();
-        if (body != null && body.get("scalingRules") != null) {
-          Map<String, Map> scalingRuleMap = new HashMap<>();
-          List<Map> scalingRules = (List<Map>) body.get("scalingRules");
-          for (Map scalingRule : scalingRules) {
-            scalingRuleMap.put((String) scalingRule.get("scalingRuleId"), scalingRule);
-          }
-          return scalingRuleMap;
+    EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
+    if (listRsp.getBody() != null) {
+      Map body = (Map) listRsp.getBody();
+      if (body != null && body.get("scalingRules") != null) {
+        Map<String, Map> scalingRuleMap = new HashMap<>();
+        List<Map> scalingRules = (List<Map>) body.get("scalingRules");
+        for (Map scalingRule : scalingRules) {
+          scalingRuleMap.put((String) scalingRule.get("scalingRuleId"), scalingRule);
         }
+        return scalingRuleMap;
       }
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
+    }
+    if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
+      logger.error("ListScalingRules Failed:" + JSONObject.toJSONString(listRsp));
+      throw new EcloudException("ListScalingRules Failed");
     }
     return null;
   }
@@ -451,16 +463,16 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
     listRequest.setQueryParams(queryParams);
     queryParams.put("page", "1");
     queryParams.put("pageSize", "50");
-    try {
-      EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
-      if (listRsp.getBody() != null) {
-        Map body = (Map) listRsp.getBody();
-        if (body != null && body.get("content") != null) {
-          return (List<Map>) body.get("content");
-        }
+    EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
+    if (listRsp.getBody() != null) {
+      Map body = (Map) listRsp.getBody();
+      if (body != null && body.get("content") != null) {
+        return (List<Map>) body.get("content");
       }
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
+    }
+    if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
+      logger.error("ListAlarmTasks Failed:" + JSONObject.toJSONString(listRsp));
+      throw new EcloudException("ListAlarmTasks Failed");
     }
     return null;
   }
@@ -480,16 +492,16 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
     listRequest.setQueryParams(queryParams);
     queryParams.put("page", "1");
     queryParams.put("pageSize", "50");
-    try {
-      EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
-      if (listRsp.getBody() != null) {
-        Map body = (Map) listRsp.getBody();
-        if (body != null && body.get("content") != null) {
-          return (List<Map>) body.get("content");
-        }
+    EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
+    if (listRsp.getBody() != null) {
+      Map body = (Map) listRsp.getBody();
+      if (body != null && body.get("content") != null) {
+        return (List<Map>) body.get("content");
       }
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
+    }
+    if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
+      logger.error("ListScheduledTasks Failed:" + JSONObject.toJSONString(listRsp));
+      throw new EcloudException("ListScheduledTasks Failed");
     }
     return null;
   }
@@ -503,14 +515,14 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
             account.getAccessKey(),
             account.getSecretKey());
     listRequest.setVersion("2016-12-05");
-    try {
-      EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
-      if (listRsp.getBody() != null) {
-        List<Map> body = (List<Map>) listRsp.getBody();
-        return body;
-      }
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
+    EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
+    if (listRsp.getBody() != null) {
+      List<Map> body = (List<Map>) listRsp.getBody();
+      return body;
+    }
+    if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
+      logger.error("ListLoadBalancer Failed:" + JSONObject.toJSONString(listRsp));
+      throw new EcloudException("ListLoadBalancer Failed");
     }
     return null;
   }
@@ -528,16 +540,15 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
     queryParams.put("page", "1");
     queryParams.put("size", "10");
     listRequest.setQueryParams(queryParams);
-    try {
-      EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
-      if (listRsp.getBody() != null) {
-        Map body = (Map) listRsp.getBody();
-        if (body != null && body.get("content") != null) {
-          return (List<Map>) body.get("content");
-        }
+    EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
+    if (listRsp.getBody() != null) {
+      Map body = (Map) listRsp.getBody();
+      if (body != null && body.get("content") != null) {
+        return (List<Map>) body.get("content");
       }
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
+    }
+    if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
+      logger.error("ListScalingActivity Failed:" + JSONObject.toJSONString(listRsp));
     }
     return null;
   }
@@ -676,7 +687,8 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
           (String) onDemandServerGroupCache.getAttributes().get("cacheResults");
       Map<String, List<MutableCacheData>> onDemandCache =
           objectMapper.readValue(
-              jsonCacheResults, new TypeReference<Map<String, List<MutableCacheData>>>() {});
+              jsonCacheResults, new TypeReference<Map<String, List<MutableCacheData>>>() {
+            });
       onDemandCache.forEach(
           (namespace, cacheDataList) -> {
             if (!"onDemand".equalsIgnoreCase(namespace)) {

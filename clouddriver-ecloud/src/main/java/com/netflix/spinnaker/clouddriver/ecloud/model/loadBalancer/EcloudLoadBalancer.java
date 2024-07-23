@@ -72,7 +72,7 @@ public class EcloudLoadBalancer implements LoadBalancer, EcloudBasicResource {
 
   private Boolean deleted;
 
-  private String ipVersion;
+  private Integer ipVersion;
 
   private String name;
 

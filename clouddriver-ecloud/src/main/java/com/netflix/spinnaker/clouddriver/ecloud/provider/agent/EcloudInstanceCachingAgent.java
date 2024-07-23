@@ -3,6 +3,7 @@ package com.netflix.spinnaker.clouddriver.ecloud.provider.agent;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -13,6 +14,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.ecloud.EcloudProvider;
 import com.netflix.spinnaker.clouddriver.ecloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
+import com.netflix.spinnaker.clouddriver.ecloud.exception.EcloudException;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudRequest;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
 import com.netflix.spinnaker.clouddriver.ecloud.security.EcloudCredentials;
@@ -22,12 +24,17 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
- * @date 2024/4/8 @Description
+ * @date 2024/4/8
+ * @Description
  */
+@Slf4j
 public class EcloudInstanceCachingAgent extends AbstractEcloudCachingAgent {
 
   static final Collection<AgentDataType> types =
@@ -145,6 +152,10 @@ public class EcloudInstanceCachingAgent extends AbstractEcloudCachingAgent {
           page++;
           continue;
         }
+      }
+      else if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
+        log.error("ListScalingNode Failed:" + JSONObject.toJSONString(listRsp));
+        throw new EcloudException("ListScalingNode Failed");
       }
       break;
     }

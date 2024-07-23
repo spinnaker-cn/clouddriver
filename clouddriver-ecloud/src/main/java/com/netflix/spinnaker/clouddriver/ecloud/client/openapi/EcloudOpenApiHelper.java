@@ -69,7 +69,7 @@ public class EcloudOpenApiHelper {
     HttpEntity<String> entity = new HttpEntity<String>(jsonBody, httpHeaders);
     ResponseEntity<Map> rsp = null;
     String statusCode = null;
-    log.info("OpenApi url is: " + fullUrl);
+    log.info("OpenApi method:{}, url: {} ", request.getMethod(), fullUrl);
     try {
       rsp =
           restTemplate.exchange(

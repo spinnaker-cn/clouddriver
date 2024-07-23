@@ -4,12 +4,12 @@ import static com.netflix.spinnaker.clouddriver.ecloud.cache.Keys.Namespace.HEAL
 
 import com.ecloud.sdk.config.Config;
 import com.ecloud.sdk.vlb.v1.Client;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenerRespResponseContent;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalancePoolMemberResponseContent;
-import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceResponseContent;
-import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseContent;
-import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseHealthMonitorResp;
-import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseL7PolicyResps;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenersRespResponseContent;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalancerPoolMemberResponseContent;
+import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceRespResponseContent;
+import com.ecloud.sdk.vlb.v1.model.ListPoolResponseContent;
+import com.ecloud.sdk.vlb.v1.model.ListPoolResponseHealthMonitorResp;
+import com.ecloud.sdk.vlb.v1.model.ListPoolResponseL7PolicyResps;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.AccountAware;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
@@ -86,7 +86,6 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    log.info("Enter loadData in agentType={}", this.getAgentType());
     List<EcloudLoadBalancerHealthCheck> targetHealths = getLoadBalancerTargetHealth();
     Collection<String> evictions =
         providerCache.filterIdentifiers(
@@ -134,48 +133,44 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
 
   private List<EcloudLoadBalancerHealthCheck> getLoadBalancerTargetHealth() {
     List<EcloudLoadBalancerHealthCheck> healthChecks = new ArrayList<>();
-    try {
-      List<EcloudLoadBalancer> lbList = loadLoadBalancerData();
-      if (lbList == null || lbList.isEmpty()) {
-        return healthChecks;
-      }
+    List<EcloudLoadBalancer> lbList = loadLoadBalancerData();
+    if (lbList == null || lbList.isEmpty()) {
+      return healthChecks;
+    }
 
-      for (EcloudLoadBalancer lb : lbList) {
-        List<EcloudLoadBalancerPool> serverGroupSet = lb.getPools();
-        if (serverGroupSet == null || serverGroupSet.isEmpty()) {
+    for (EcloudLoadBalancer lb : lbList) {
+      List<EcloudLoadBalancerPool> serverGroupSet = lb.getPools();
+      if (serverGroupSet == null || serverGroupSet.isEmpty()) {
+        continue;
+      }
+      for (EcloudLoadBalancerPool serverGroup : serverGroupSet) {
+        List<EcloudLoadBalancerMember> members = serverGroup.getMembers();
+        if (members == null || members.isEmpty()) {
           continue;
         }
-        for (EcloudLoadBalancerPool serverGroup : serverGroupSet) {
-          List<EcloudLoadBalancerMember> members = serverGroup.getMembers();
-          if (members == null || members.isEmpty()) {
-            continue;
-          }
-          for (EcloudLoadBalancerMember member : members) {
-            EcloudLoadBalancerHealthCheck healthCheck = new EcloudLoadBalancerHealthCheck();
-            healthCheck.setLoadbalancerId(lb.getLoadBalancerId());
-            healthCheck.setPoolId(serverGroup.getPoolId());
-            healthCheck.setListenerId(serverGroup.getListenerId());
-            healthCheck.setInstanceId(member.getVmHostId());
-            healthCheck.setMemberId(member.getId());
-            healthCheck.setPort(member.getPort());
-            healthCheck.setHealthStatus(HealthState.fromString(member.getHealthStatus()));
-            healthCheck.setHealthDelay(serverGroup.getHealthMonitorResp().getHealthDelay());
-            healthCheck.setHealthExpectedCode(
-                serverGroup.getHealthMonitorResp().getHealthExpectedCode());
-            healthCheck.setHealthMaxRetries(
-                serverGroup.getHealthMonitorResp().getHealthMaxRetries());
-            healthCheck.setHealthHttpMethod(
-                serverGroup.getHealthMonitorResp().getHealthHttpMethod());
-            healthCheck.setHealthId(serverGroup.getHealthMonitorResp().getHealthId());
-            healthCheck.setHealthType(serverGroup.getHealthMonitorResp().getHealthType());
-            healthCheck.setHealthUrlPath(serverGroup.getHealthMonitorResp().getHealthUrlPath());
-            healthCheck.setHealthTimeout(serverGroup.getHealthMonitorResp().getHealthTimeout());
-            healthChecks.add(healthCheck);
-          }
+        for (EcloudLoadBalancerMember member : members) {
+          EcloudLoadBalancerHealthCheck healthCheck = new EcloudLoadBalancerHealthCheck();
+          healthCheck.setLoadbalancerId(lb.getLoadBalancerId());
+          healthCheck.setPoolId(serverGroup.getPoolId());
+          healthCheck.setListenerId(serverGroup.getListenerId());
+          healthCheck.setInstanceId(member.getVmHostId());
+          healthCheck.setMemberId(member.getId());
+          healthCheck.setPort(member.getPort());
+          healthCheck.setHealthStatus(HealthState.fromString(member.getHealthStatus()));
+          healthCheck.setHealthDelay(serverGroup.getHealthMonitorResp().getHealthDelay());
+          healthCheck.setHealthExpectedCode(
+              serverGroup.getHealthMonitorResp().getHealthExpectedCode());
+          healthCheck.setHealthMaxRetries(
+              serverGroup.getHealthMonitorResp().getHealthMaxRetries());
+          healthCheck.setHealthHttpMethod(
+              serverGroup.getHealthMonitorResp().getHealthHttpMethod());
+          healthCheck.setHealthId(serverGroup.getHealthMonitorResp().getHealthId());
+          healthCheck.setHealthType(serverGroup.getHealthMonitorResp().getHealthType());
+          healthCheck.setHealthUrlPath(serverGroup.getHealthMonitorResp().getHealthUrlPath());
+          healthCheck.setHealthTimeout(serverGroup.getHealthMonitorResp().getHealthTimeout());
+          healthChecks.add(healthCheck);
         }
       }
-    } catch (Exception e) {
-      log.error(e.getMessage());
     }
     return healthChecks;
   }
@@ -187,33 +182,33 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
     config.setPoolId(this.region);
     Client client = new Client(config);
 
-    List<ListLoadbalanceResponseContent> lbList = EcloudLbUtil.getAllLoadBalancer(client);
+    List<ListLoadbalanceRespResponseContent> lbList = EcloudLbUtil.getAllLoadBalancer(client);
 
     List<String> lbIds = new ArrayList<>();
-    for (ListLoadbalanceResponseContent lb : lbList) {
+    for (ListLoadbalanceRespResponseContent lb : lbList) {
       lbIds.add(lb.getId());
     }
-    List<ListLoadBalanceListenerRespResponseContent> listenerList =
+    List<ListLoadBalanceListenersRespResponseContent> listenerList =
         EcloudLbUtil.getListenerByLbList(client, lbIds);
 
-    List<ListPoolRespResponseContent> poolList = EcloudLbUtil.getPoolByLbList(client, lbIds);
+    List<ListPoolResponseContent> poolList = EcloudLbUtil.getPoolByLbList(client, lbIds);
 
-    List<ListLoadBalancePoolMemberResponseContent> memberList =
+    List<ListLoadBalancerPoolMemberResponseContent> memberList =
         EcloudLbUtil.getMemberByPoolIdList(client, poolList);
 
-    Map<String, List<ListLoadBalanceListenerRespResponseContent>> listenerMapGroupByLbId =
+    Map<String, List<ListLoadBalanceListenersRespResponseContent>> listenerMapGroupByLbId =
         listenerList.stream()
             .collect(
                 Collectors.groupingBy(
-                    ListLoadBalanceListenerRespResponseContent::getLoadBalanceId));
+                  ListLoadBalanceListenersRespResponseContent::getLoadBalanceId));
 
-    Map<String, List<ListPoolRespResponseContent>> poolMapGroupByLbId =
+    Map<String, List<ListPoolResponseContent>> poolMapGroupByLbId =
         poolList.stream()
-            .collect(Collectors.groupingBy(ListPoolRespResponseContent::getLoadBalanceId));
+            .collect(Collectors.groupingBy(ListPoolResponseContent::getLoadBalanceId));
 
-    Map<String, List<ListLoadBalancePoolMemberResponseContent>> membersMapGroupByPoolId =
+    Map<String, List<ListLoadBalancerPoolMemberResponseContent>> membersMapGroupByPoolId =
         memberList.stream()
-            .collect(Collectors.groupingBy(ListLoadBalancePoolMemberResponseContent::getPoolId));
+            .collect(Collectors.groupingBy(ListLoadBalancerPoolMemberResponseContent::getPoolId));
 
     List<EcloudLoadBalancer> elbList = new ArrayList<>();
     if (lbList == null || lbList.isEmpty()) {
@@ -221,16 +216,16 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
       return elbList;
     }
 
-    for (ListLoadbalanceResponseContent it : lbList) {
+    for (ListLoadbalanceRespResponseContent it : lbList) {
       EcloudLoadBalancer loadBalancer = EcloudLbUtil.createEcloudLoadBalancer(it);
       loadBalancer.setRegion(this.region);
       loadBalancer.setAccountName(this.getAccountName());
 
-      List<ListLoadBalanceListenerRespResponseContent> originListeners =
+      List<ListLoadBalanceListenersRespResponseContent> originListeners =
           listenerMapGroupByLbId.get(it.getId());
       if (originListeners != null && !originListeners.isEmpty()) {
         List<EcloudLoadBalancerListener> queryListeners = new ArrayList<>();
-        for (ListLoadBalanceListenerRespResponseContent tempListener : originListeners) {
+        for (ListLoadBalanceListenersRespResponseContent tempListener : originListeners) {
           EcloudLoadBalancerListener e =
               EcloudLbUtil.createEcloudLoadBalancerListener(tempListener);
           queryListeners.add(e);
@@ -238,16 +233,16 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
         loadBalancer.setListeners(queryListeners);
       }
 
-      List<ListPoolRespResponseContent> originPools = poolMapGroupByLbId.get(it.getId());
+      List<ListPoolResponseContent> originPools = poolMapGroupByLbId.get(it.getId());
       if (originPools != null && !originPools.isEmpty()) {
         List<EcloudLoadBalancerPool> queryPools = new ArrayList<>();
-        for (ListPoolRespResponseContent pool : originPools) {
+        for (ListPoolResponseContent pool : originPools) {
           EcloudLoadBalancerPool epool = EcloudLbUtil.createEcloudLoadBalancerPool(pool);
           //          epool.setName(pool.getPoolName());
           //          epool.setRegion(this.region);
           //          epool.setCloudProvider(EcloudProvider.ID);
 
-          ListPoolRespResponseHealthMonitorResp poolHealth = pool.getHealthMonitorResp();
+          ListPoolResponseHealthMonitorResp poolHealth = pool.getHealthMonitorResp();
           if (poolHealth != null) {
             EcloudLoadBalancerHealth ehealth = new EcloudLoadBalancerHealth();
             ehealth.setHealthDelay(poolHealth.getHealthDelay());
@@ -262,11 +257,11 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
             epool.setHealthMonitorResp(ehealth);
           }
 
-          List<ListLoadBalancePoolMemberResponseContent> originMembers =
+          List<ListLoadBalancerPoolMemberResponseContent> originMembers =
               membersMapGroupByPoolId.get(pool.getPoolId());
           if (originMembers != null && !originMembers.isEmpty()) {
             List<EcloudLoadBalancerMember> queryMembers = new ArrayList<>();
-            for (ListLoadBalancePoolMemberResponseContent mem : originMembers) {
+            for (ListLoadBalancerPoolMemberResponseContent mem : originMembers) {
               EcloudLoadBalancerMember eMem = EcloudLbUtil.createEcloudLoadBalancerMember(mem);
               eMem.setRegion(this.region);
               queryMembers.add(eMem);
@@ -275,9 +270,9 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
           }
 
           List<EcloudLoadBalancerL7Policy> eL7s = new ArrayList<>();
-          List<ListPoolRespResponseL7PolicyResps> pL7s = pool.getL7PolicyResps();
+          List<ListPoolResponseL7PolicyResps> pL7s = pool.getL7PolicyResps();
           if (pL7s != null && !pL7s.isEmpty()) {
-            for (ListPoolRespResponseL7PolicyResps pL7 : pL7s) {
+            for (ListPoolResponseL7PolicyResps pL7 : pL7s) {
               EcloudLoadBalancerL7Policy eL7 = EcloudLbUtil.createEcloudLoadBalancerL7Policy(pL7);
               eL7s.add(eL7);
             }
@@ -294,6 +289,6 @@ public class EcloudLoadbalancerInstanceStateCachingAgent
 
   @Override
   public String getHealthId() {
-    return this.healthId;
+    return healthId;
   }
 }

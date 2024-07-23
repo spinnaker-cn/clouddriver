@@ -95,6 +95,8 @@ public class EnableEcloudServerGroupAtomicOperation implements AtomicOperation<V
                   "/api/openapi-vlb/lb-console/acl/v3/member/" + lb.getPoolId() + "/openApiMembers",
                   description.getCredentials().getAccessKey(),
                   description.getCredentials().getSecretKey());
+          Map<String, Object> queryParams = new HashMap<>();
+          queryParams.put("needBatch", true);
           Map<String, Object> memberBody = new HashMap<>();
           memberBody.put("poolMemberCreateReqs", poolMemberCreateReqs);
           memberRequest.setBodyParams(memberBody);

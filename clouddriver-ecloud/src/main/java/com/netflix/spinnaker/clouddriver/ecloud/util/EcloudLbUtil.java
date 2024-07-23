@@ -2,27 +2,28 @@ package com.netflix.spinnaker.clouddriver.ecloud.util;
 
 import com.alibaba.fastjson2.JSON;
 import com.ecloud.sdk.vlb.v1.Client;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenerRespPath;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenerRespQuery;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenerRespRequest;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenerRespResponse;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenerRespResponseContent;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalancePoolMemberPath;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalancePoolMemberQuery;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalancePoolMemberRequest;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalancePoolMemberResponse;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalancePoolMemberResponseContent;
-import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceQuery;
-import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceRequest;
-import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceResponse;
-import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceResponseContent;
-import com.ecloud.sdk.vlb.v1.model.ListPoolRespPath;
-import com.ecloud.sdk.vlb.v1.model.ListPoolRespQuery;
-import com.ecloud.sdk.vlb.v1.model.ListPoolRespRequest;
-import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponse;
-import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseContent;
-import com.ecloud.sdk.vlb.v1.model.ListPoolRespResponseL7PolicyResps;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenersRespPath;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenersRespQuery;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenersRespRequest;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenersRespResponse;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenersRespResponseContent;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalancerPoolMemberPath;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalancerPoolMemberQuery;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalancerPoolMemberRequest;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalancerPoolMemberResponse;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalancerPoolMemberResponseContent;
+import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceRespQuery;
+import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceRespRequest;
+import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceRespResponse;
+import com.ecloud.sdk.vlb.v1.model.ListLoadbalanceRespResponseContent;
+import com.ecloud.sdk.vlb.v1.model.ListPoolPath;
+import com.ecloud.sdk.vlb.v1.model.ListPoolQuery;
+import com.ecloud.sdk.vlb.v1.model.ListPoolRequest;
+import com.ecloud.sdk.vlb.v1.model.ListPoolResponse;
+import com.ecloud.sdk.vlb.v1.model.ListPoolResponseContent;
+import com.ecloud.sdk.vlb.v1.model.ListPoolResponseL7PolicyResps;
 import com.netflix.spinnaker.clouddriver.ecloud.enums.LbSpecEnum;
+import com.netflix.spinnaker.clouddriver.ecloud.exception.EcloudException;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancer;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerL7Policy;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerListener;
@@ -40,28 +41,25 @@ import org.springframework.util.CollectionUtils;
  */
 @Slf4j
 public final class EcloudLbUtil {
-  private EcloudLbUtil() {}
+  private EcloudLbUtil() {
+  }
 
-  public static List<ListLoadbalanceResponseContent> getAllLoadBalancer(Client client) {
-    List<ListLoadbalanceResponseContent> lbList = new ArrayList<>();
+  public static List<ListLoadbalanceRespResponseContent> getAllLoadBalancer(Client client) {
+    List<ListLoadbalanceRespResponseContent> lbList = new ArrayList<>();
     int page = 1;
     int size = 50;
     while (true) {
-      ListLoadbalanceRequest request = new ListLoadbalanceRequest();
-      ListLoadbalanceQuery query = new ListLoadbalanceQuery();
+      ListLoadbalanceRespRequest request = new ListLoadbalanceRespRequest();
+      ListLoadbalanceRespQuery query = new ListLoadbalanceRespQuery();
       query.setPage(page);
       query.setPageSize(size);
-      request.setListLoadbalanceQuery(query);
-      ListLoadbalanceResponse rsp = null;
-      try {
-        rsp = client.listLoadbalance(request);
-      } catch (Exception e) {
-        log.error(e.getMessage());
-      }
+      request.setListLoadbalanceRespQuery(query);
+      ListLoadbalanceRespResponse rsp = null;
+      rsp = client.listLoadbalanceResp(request);
       if (rsp != null
           && rsp.getBody() != null
-          && ListLoadbalanceResponse.StateEnum.OK.getValue().equals(rsp.getState().getValue())) {
-        List<ListLoadbalanceResponseContent> currLbList = rsp.getBody().getContent();
+          && ListLoadbalanceRespResponse.StateEnum.OK.getValue().equals(rsp.getState().getValue())) {
+        List<ListLoadbalanceRespResponseContent> currLbList = rsp.getBody().getContent();
         if (!CollectionUtils.isEmpty(currLbList)) {
           lbList.addAll(currLbList);
           if (lbList.size() < rsp.getBody().getTotal()) {
@@ -71,17 +69,18 @@ public final class EcloudLbUtil {
         }
       } else {
         log.error(
-            "res is null or res_body is null or res_state is not OK,res detail={}",
+            "GetLoadBalancer return null or res_body is null or res_state is not OK,res detail={}",
             JSON.toJSONString(rsp));
+        throw new EcloudException("GetLoadBalancer return null or body is null or res_state is not OK");
       }
       break;
     }
     return lbList;
   }
 
-  public static List<ListLoadBalanceListenerRespResponseContent> getListenerByLbList(
+  public static List<ListLoadBalanceListenersRespResponseContent> getListenerByLbList(
       Client client, List<String> lbIds) {
-    List<ListLoadBalanceListenerRespResponseContent> listenerList = new ArrayList<>();
+    List<ListLoadBalanceListenersRespResponseContent> listenerList = new ArrayList<>();
     if (lbIds == null || lbIds.isEmpty()) {
       return listenerList;
     }
@@ -89,26 +88,22 @@ public final class EcloudLbUtil {
       int page = 1;
       int size = 50;
       while (true) {
-        ListLoadBalanceListenerRespRequest request = new ListLoadBalanceListenerRespRequest();
-        ListLoadBalanceListenerRespPath queryPath = new ListLoadBalanceListenerRespPath();
+        ListLoadBalanceListenersRespRequest request = new ListLoadBalanceListenersRespRequest();
+        ListLoadBalanceListenersRespPath queryPath = new ListLoadBalanceListenersRespPath();
         queryPath.setLoadBalanceId(lbId);
-        ListLoadBalanceListenerRespQuery query = new ListLoadBalanceListenerRespQuery();
+        ListLoadBalanceListenersRespQuery query = new ListLoadBalanceListenersRespQuery();
         query.setPage(page);
         query.setPageSize(size);
-        request.setListLoadBalanceListenerRespPath(queryPath);
-        request.setListLoadBalanceListenerRespQuery(query);
-        ListLoadBalanceListenerRespResponse rsp = null;
-        try {
-          rsp = client.listLoadBalanceListenerResp(request);
-        } catch (Exception e) {
-          log.error(e.getMessage());
-        }
+        request.setListLoadBalanceListenersRespPath(queryPath);
+        request.setListLoadBalanceListenersRespQuery(query);
+        ListLoadBalanceListenersRespResponse rsp = null;
+        rsp = client.listLoadBalanceListenersResp(request);
         if (rsp != null
             && rsp.getBody() != null
-            && ListLoadBalanceListenerRespResponse.StateEnum.OK
+            && ListLoadBalanceListenersRespResponse.StateEnum.OK
                 .getValue()
                 .equals(rsp.getState().getValue())) {
-          List<ListLoadBalanceListenerRespResponseContent> currLbList = rsp.getBody().getContent();
+          List<ListLoadBalanceListenersRespResponseContent> currLbList = rsp.getBody().getContent();
           if (!CollectionUtils.isEmpty(currLbList)) {
             listenerList.addAll(currLbList);
             if (listenerList.size() < rsp.getBody().getTotal()) {
@@ -120,6 +115,7 @@ public final class EcloudLbUtil {
           log.error(
               "res is null or res_body is null or res_state is not OK,res detail={}",
               JSON.toJSONString(rsp));
+          throw new EcloudException("GetListener return null or body is null or res_state is not OK");
         }
         break;
       }
@@ -127,9 +123,9 @@ public final class EcloudLbUtil {
     return listenerList;
   }
 
-  public static List<ListPoolRespResponseContent> getPoolByLbList(
+  public static List<ListPoolResponseContent> getPoolByLbList(
       Client client, List<String> lbIds) {
-    List<ListPoolRespResponseContent> poolList = new ArrayList<>();
+    List<ListPoolResponseContent> poolList = new ArrayList<>();
     if (lbIds == null || lbIds.isEmpty()) {
       return poolList;
     }
@@ -138,24 +134,20 @@ public final class EcloudLbUtil {
       int page = 1;
       int size = 50;
       while (true) {
-        ListPoolRespRequest request = new ListPoolRespRequest();
-        ListPoolRespQuery query = new ListPoolRespQuery();
+        ListPoolRequest request = new ListPoolRequest();
+        ListPoolQuery query = new ListPoolQuery();
         query.setPage(page);
         query.setPageSize(size);
-        ListPoolRespPath queryPath = new ListPoolRespPath();
+        ListPoolPath queryPath = new ListPoolPath();
         queryPath.setLoadBalanceId(lbId);
-        request.setListPoolRespQuery(query);
-        request.setListPoolRespPath(queryPath);
-        ListPoolRespResponse rsp = null;
-        try {
-          rsp = client.listPoolResp(request);
-        } catch (Exception e) {
-          log.error(e.getMessage());
-        }
+        request.setListPoolQuery(query);
+        request.setListPoolPath(queryPath);
+        ListPoolResponse rsp = null;
+        rsp = client.listPool(request);
         if (rsp != null
             && rsp.getBody() != null
-            && ListPoolRespResponse.StateEnum.OK.getValue().equals(rsp.getState().getValue())) {
-          List<ListPoolRespResponseContent> currLbList = rsp.getBody().getContent();
+            && ListPoolResponse.StateEnum.OK.getValue().equals(rsp.getState().getValue())) {
+          List<ListPoolResponseContent> currLbList = rsp.getBody().getContent();
           if (!CollectionUtils.isEmpty(currLbList)) {
             poolList.addAll(currLbList);
             if (poolList.size() < rsp.getBody().getTotal()) {
@@ -164,9 +156,9 @@ public final class EcloudLbUtil {
             }
           }
         } else {
-          log.error(
-              "res is null or res_body is null or res_state is not OK,res detail={}",
+          log.error("res is null or res_body is null or res_state is not OK,res detail={}",
               JSON.toJSONString(rsp));
+          throw new EcloudException("GetPool return null or body is null or res_state is not OK");
         }
         break;
       }
@@ -174,38 +166,34 @@ public final class EcloudLbUtil {
     return poolList;
   }
 
-  public static List<ListLoadBalancePoolMemberResponseContent> getMemberByPoolIdList(
-      Client client, List<ListPoolRespResponseContent> poolList) {
-    List<ListLoadBalancePoolMemberResponseContent> memberList = new ArrayList<>();
+  public static List<ListLoadBalancerPoolMemberResponseContent> getMemberByPoolIdList(
+      Client client, List<ListPoolResponseContent> poolList) {
+    List<ListLoadBalancerPoolMemberResponseContent> memberList = new ArrayList<>();
     if (poolList == null || poolList.isEmpty()) {
       return memberList;
     }
 
-    for (ListPoolRespResponseContent pool : poolList) {
+    for (ListPoolResponseContent pool : poolList) {
       String poolId = pool.getPoolId();
       int page = 1;
       int size = 50;
       while (true) {
-        ListLoadBalancePoolMemberRequest request = new ListLoadBalancePoolMemberRequest();
-        ListLoadBalancePoolMemberQuery query = new ListLoadBalancePoolMemberQuery();
+        ListLoadBalancerPoolMemberRequest request = new ListLoadBalancerPoolMemberRequest();
+        ListLoadBalancerPoolMemberQuery query = new ListLoadBalancerPoolMemberQuery();
         query.setPage(page);
         query.setPageSize(size);
-        ListLoadBalancePoolMemberPath queryPath = new ListLoadBalancePoolMemberPath();
+        ListLoadBalancerPoolMemberPath queryPath = new ListLoadBalancerPoolMemberPath();
         queryPath.setPoolId(poolId);
-        request.setListLoadBalancePoolMemberPath(queryPath);
-        request.setListLoadBalancePoolMemberQuery(query);
-        ListLoadBalancePoolMemberResponse rsp = null;
-        try {
-          rsp = client.listLoadBalancePoolMember(request);
-        } catch (Exception e) {
-          log.error(e.getMessage());
-        }
+        request.setListLoadBalancerPoolMemberPath(queryPath);
+        request.setListLoadBalancerPoolMemberQuery(query);
+        ListLoadBalancerPoolMemberResponse rsp = null;
+        rsp = client.listLoadBalancerPoolMember(request);
         if (rsp != null
             && rsp.getBody() != null
-            && ListLoadBalancePoolMemberResponse.StateEnum.OK
+            && ListLoadBalancerPoolMemberResponse.StateEnum.OK
                 .getValue()
                 .equals(rsp.getState().getValue())) {
-          List<ListLoadBalancePoolMemberResponseContent> currLbList = rsp.getBody().getContent();
+          List<ListLoadBalancerPoolMemberResponseContent> currLbList = rsp.getBody().getContent();
           if (!CollectionUtils.isEmpty(currLbList)) {
             memberList.addAll(currLbList);
             if (memberList.size() < rsp.getBody().getTotal()) {
@@ -217,6 +205,7 @@ public final class EcloudLbUtil {
           log.error(
               "res is null or res_body is null or res_state is not OK,res detail={}",
               JSON.toJSONString(rsp));
+          throw new EcloudException("GetPool return null or body is null or res_state is not OK");
         }
         break;
       }
@@ -224,7 +213,7 @@ public final class EcloudLbUtil {
     return memberList;
   }
 
-  public static EcloudLoadBalancer createEcloudLoadBalancer(ListLoadbalanceResponseContent it) {
+  public static EcloudLoadBalancer createEcloudLoadBalancer(ListLoadbalanceRespResponseContent it) {
     EcloudLoadBalancer loadBalancer = new EcloudLoadBalancer();
     loadBalancer.setSubnetId(it.getSubnetId());
     loadBalancer.setVpcName(it.getVpcName());
@@ -234,24 +223,24 @@ public final class EcloudLbUtil {
     loadBalancer.setNodeIp(it.getNodeIp());
     loadBalancer.setVipPortId(it.getVipPortId());
     loadBalancer.setSubnetName(it.getSubnetName());
-    loadBalancer.setIsMultiAz(it.isgetIsMultiAz());
-    loadBalancer.setIsExclusive(it.isgetIsExclusive());
+    loadBalancer.setIsMultiAz(it.getIsMultiAz());
+    loadBalancer.setIsExclusive(it.getIsExclusive());
     loadBalancer.setIpId(it.getIpId());
     loadBalancer.setProvider(it.getProvider() != null ? it.getProvider().getValue() : "");
     loadBalancer.setRouterId(it.getRouterId());
     loadBalancer.setCreateTime(it.getCreatedTime());
     loadBalancer.setId(it.getId());
     loadBalancer.setLoadBalancerId(it.getId());
-    loadBalancer.setAdminStateUp(it.isgetAdminStateUp());
+    loadBalancer.setAdminStateUp(it.getAdminStateUp());
     loadBalancer.setMeasureType(it.getMeasureType());
     loadBalancer.setEcStatus(it.getEcStatus() != null ? it.getEcStatus().getValue() : "");
-    loadBalancer.setVisible(it.isgetVisible());
+    loadBalancer.setVisible(it.getVisible());
     loadBalancer.setProposer(it.getProposer());
     loadBalancer.setPublicIp(it.getPublicIp());
     loadBalancer.setUserName(it.getUserName());
     loadBalancer.setFlavor(it.getFlavor());
-    loadBalancer.setDeleted(it.isgetDeleted());
-    loadBalancer.setIpVersion(it.getIpVersion() != null ? it.getIpVersion().getValue() : "");
+    loadBalancer.setDeleted(it.getDeleted());
+    loadBalancer.setIpVersion(it.getIpVersion().getValue());
     loadBalancer.setName(it.getName());
     loadBalancer.setLoadBalancerName(it.getName());
     loadBalancer.setOpStatus(it.getOpStatus() != null ? it.getOpStatus().getValue() : "");
@@ -261,7 +250,7 @@ public final class EcloudLbUtil {
   }
 
   public static EcloudLoadBalancerListener createEcloudLoadBalancerListener(
-      ListLoadBalanceListenerRespResponseContent tempListener) {
+      ListLoadBalanceListenersRespResponseContent tempListener) {
     EcloudLoadBalancerListener e = new EcloudLoadBalancerListener();
     e.setHealthDelay(tempListener.getHealthDelay());
     e.setModifiedTime(tempListener.getModifiedTime());
@@ -269,19 +258,19 @@ public final class EcloudLbUtil {
     e.setRedirectToListenerId(tempListener.getRedirectToListenerId());
     e.setSniContainerIds(tempListener.getSniContainerIds());
     e.setDescription(tempListener.getDescription());
-    e.setIsMultiAz(tempListener.isgetIsMultiAz());
+    e.setIsMultiAz(tempListener.getIsMultiAz());
     e.setRedirectToListenerName(tempListener.getRedirectToListenerName());
     e.setProtocol(tempListener.getProtocol() != null ? tempListener.getProtocol().getValue() : "");
     e.setSniContainerIdList(tempListener.getSniContainerIdList());
     e.setCreatedTime(tempListener.getCreatedTime());
-    e.setHttp2(tempListener.isgetHttp2());
+    e.setHttp2(tempListener.getHttp2());
     e.setId(tempListener.getId());
     e.setListenerId(tempListener.getId());
     e.setDefaultTlsContainerId(tempListener.getDefaultTlsContainerId());
-    e.setMutualAuthenticationUp(tempListener.isgetMutualAuthenticationUp());
+    e.setMutualAuthenticationUp(tempListener.getMutualAuthenticationUp());
     e.setCookieName(tempListener.getCookieName());
     e.setPoolName(tempListener.getPoolName());
-    e.setSniUp(tempListener.isgetSniUp());
+    e.setSniUp(tempListener.getSniUp());
     e.setLbAlgorithm(
         tempListener.getLbAlgorithm() != null ? tempListener.getLbAlgorithm().getValue() : "");
     e.setHealthHttpMethod(tempListener.getHealthHttpMethod());
@@ -295,7 +284,7 @@ public final class EcloudLbUtil {
     e.setHealthExpectedCode(tempListener.getHealthExpectedCode());
     e.setGroupName(tempListener.getGroupName());
     e.setConnectionLimit(tempListener.getConnectionLimit());
-    e.setDeleted(tempListener.isgetDeleted());
+    e.setDeleted(tempListener.getDeleted());
     e.setHealthMaxRetries(tempListener.getHealthMaxRetries());
     e.setName(tempListener.getName());
     e.setListenerName(tempListener.getName());
@@ -304,7 +293,7 @@ public final class EcloudLbUtil {
         tempListener.getSessionPersistence() != null
             ? tempListener.getSessionPersistence().getValue()
             : "");
-    e.setGroupEnabled(tempListener.isgetGroupEnabled());
+    e.setGroupEnabled(tempListener.getGroupEnabled());
     e.setHealthUrlPath(tempListener.getHealthUrlPath());
     e.setCaContainerId(tempListener.getCaContainerId());
     e.setOpStatus(tempListener.getOpStatus() != null ? tempListener.getOpStatus().getValue() : "");
@@ -315,15 +304,15 @@ public final class EcloudLbUtil {
   }
 
   public static EcloudLoadBalancerPool createEcloudLoadBalancerPool(
-      ListPoolRespResponseContent pool) {
+      ListPoolResponseContent pool) {
     EcloudLoadBalancerPool epool = new EcloudLoadBalancerPool();
     epool.setModifiedTime(pool.getModifiedTime());
     epool.setLbAlgorithm(pool.getLbAlgorithm() != null ? pool.getLbAlgorithm().getValue() : "");
     epool.setLoadBalanceId(pool.getLoadBalanceId());
-    epool.setIsMultiAz(pool.isgetIsMultiAz());
+    epool.setIsMultiAz(pool.getIsMultiAz());
     epool.setListenerId(pool.getListenerId());
     epool.setProtocol(pool.getProtocol() != null ? pool.getProtocol().getValue() : "");
-    epool.setDeleted(pool.isgetDeleted());
+    epool.setDeleted(pool.getDeleted());
     epool.setListenerName(pool.getListenerName());
     epool.setPoolId(pool.getPoolId());
     epool.setSessionPersistence(
@@ -337,16 +326,16 @@ public final class EcloudLbUtil {
   }
 
   public static EcloudLoadBalancerL7Policy createEcloudLoadBalancerL7Policy(
-      ListPoolRespResponseL7PolicyResps pL7) {
+    ListPoolResponseL7PolicyResps pL7) {
     EcloudLoadBalancerL7Policy eL7 = new EcloudLoadBalancerL7Policy();
     eL7.setModifiedTime(pL7.getModifiedTime());
     eL7.setDescription(pL7.getDescription());
     eL7.setL7PolicyDomainName(pL7.getL7PolicyDomainName());
-    eL7.setIsMultiAz(pL7.isgetIsMultiAz());
+    eL7.setIsMultiAz(pL7.getIsMultiAz());
     eL7.setL7RuleValue(pL7.getL7RuleValue());
     eL7.setListenerId(pL7.getListenerId());
     eL7.setCompareType(pL7.getCompareType() != null ? pL7.getCompareType().getValue() : "");
-    eL7.setDeleted(pL7.isgetDeleted());
+    eL7.setDeleted(pL7.getDeleted());
     eL7.setL7PolicyUrl(pL7.getL7PolicyUrl());
     eL7.setL7PolicyName(pL7.getL7PolicyName());
     eL7.setRuleType(pL7.getRuleType() != null ? pL7.getRuleType().getValue() : "");
@@ -354,14 +343,14 @@ public final class EcloudLbUtil {
     eL7.setCreatedTime(pL7.getCreatedTime());
     eL7.setL7PolicyId(pL7.getL7PolicyId());
     eL7.setPosition(pL7.getPosition());
-    eL7.setAdminStateUp(pL7.isgetAdminStateUp());
+    eL7.setAdminStateUp(pL7.getAdminStateUp());
     eL7.setMultiAzUuid(pL7.getMultiAzUuid());
     eL7.setPoolName(pL7.getPoolName());
     return eL7;
   }
 
   public static EcloudLoadBalancerMember createEcloudLoadBalancerMember(
-      ListLoadBalancePoolMemberResponseContent mem) {
+      ListLoadBalancerPoolMemberResponseContent mem) {
     EcloudLoadBalancerMember eMem = new EcloudLoadBalancerMember();
     eMem.setSubnetId(mem.getSubnetId());
     eMem.setVmName(mem.getVmName());
@@ -371,7 +360,7 @@ public final class EcloudLbUtil {
     eMem.setDescription(mem.getDescription());
     eMem.setWeight(mem.getWeight());
     eMem.setType(mem.getType());
-    eMem.setIsMultiAz(mem.isgetIsMultiAz());
+    eMem.setIsMultiAz(mem.getIsMultiAz());
     eMem.setHealthStatus(mem.getHealthStatus());
     eMem.setPort(mem.getPort());
     eMem.setPoolId(mem.getPoolId());
