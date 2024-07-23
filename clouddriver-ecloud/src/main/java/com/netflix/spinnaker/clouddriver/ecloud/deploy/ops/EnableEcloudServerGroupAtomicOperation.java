@@ -53,6 +53,33 @@ public class EnableEcloudServerGroupAtomicOperation implements AtomicOperation<V
         ecloudClusterProvider.getServerGroup(
             description.getAccount(), description.getRegion(), description.getServerGroupName());
     if (sg != null) {
+      // check the state of sg
+      EcloudRequest checkReq =
+        new EcloudRequest(
+          "GET",
+          description.getRegion(),
+          "/api/v4/autoScaling/scalingGroup/" + sg.getScalingGroupId(),
+          description.getCredentials().getAccessKey(),
+          description.getCredentials().getSecretKey());
+      EcloudResponse checkRsp = EcloudOpenApiHelper.execute(checkReq);
+      if (!StringUtils.isEmpty(checkRsp.getErrorMessage())) {
+        log.error("Check ServerGroup failed with response:" + JSONObject.toJSONString(checkRsp));
+        getTask()
+          .updateStatus(BASE_PHASE, "QueryServerGroup Failed:" + checkRsp.getErrorMessage());
+        getTask().fail(false);
+        return null;
+      }
+      Map checkBody = (Map) checkRsp.getBody();
+      if (checkBody != null && "ACTIVE".equalsIgnoreCase((String) checkBody.get("status"))) {
+        status
+            .append("ServerGroup ")
+            .append(description.getServerGroupName())
+            .append(" in region ")
+            .append(description.getRegion())
+            .append(" is already enabled.");
+        getTask().updateStatus(BASE_PHASE, status.toString());
+        return null;
+      }
       List<EcloudServerGroup.ForwardLoadBalancer> lbs = sg.getForwardLoadBalancers();
       if (!CollectionUtils.isEmpty(lbs)) {
         Set<EcloudInstance> instanceSet = sg.getInstances();
