@@ -52,26 +52,6 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
         ecloudClusterProvider.getServerGroup(
             description.getAccount(), description.getRegion(), description.getServerGroupName());
     if (sg != null) {
-      EcloudRequest disableRequest =
-          new EcloudRequest(
-              "PUT",
-              description.getRegion(),
-              "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/"
-                  + sg.getScalingGroupId(),
-              description.getCredentials().getAccessKey(),
-              description.getCredentials().getSecretKey());
-      Map<String, String> query = new HashMap<>();
-      query.put("action", "disable");
-      disableRequest.setQueryParams(query);
-      EcloudResponse disableRsp = EcloudOpenApiHelper.execute(disableRequest);
-      if (!StringUtils.isEmpty(disableRsp.getErrorMessage())) {
-        log.error("Disable scalingGroup failed with response:" + JSONObject.toJSONString(disableRsp));
-        getTask()
-            .updateStatus(
-                BASE_PHASE, "DisableEcloudServerGroup Failed:" + disableRsp.getErrorMessage());
-        getTask().fail(false);
-        return null;
-      }
       List<EcloudServerGroup.ForwardLoadBalancer> lbs = sg.getForwardLoadBalancers();
       if (!CollectionUtils.isEmpty(lbs)) {
         Set<EcloudInstance> instanceSet = sg.getInstances();
@@ -92,7 +72,8 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
                       description.getCredentials().getSecretKey());
               EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
               if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
-                log.error("Delete LbMemeber failed with response:" + JSONObject.toJSONString(memberRsp));
+                log.error(
+                    "Delete LbMemeber failed with response:" + JSONObject.toJSONString(memberRsp));
                 String info = "DeleteLbMember Failed:" + memberRsp.getErrorMessage();
                 getTask().updateStatus(BASE_PHASE, info);
                 getTask().fail(false);
@@ -108,6 +89,27 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
             }
           }
         }
+      }
+      EcloudRequest disableRequest =
+        new EcloudRequest(
+          "PUT",
+          description.getRegion(),
+          "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/"
+            + sg.getScalingGroupId(),
+          description.getCredentials().getAccessKey(),
+          description.getCredentials().getSecretKey());
+      Map<String, String> query = new HashMap<>();
+      query.put("action", "disable");
+      disableRequest.setQueryParams(query);
+      EcloudResponse disableRsp = EcloudOpenApiHelper.execute(disableRequest);
+      if (!StringUtils.isEmpty(disableRsp.getErrorMessage())) {
+        log.error(
+          "Disable scalingGroup failed with response:" + JSONObject.toJSONString(disableRsp));
+        getTask()
+          .updateStatus(
+            BASE_PHASE, "DisableEcloudServerGroup Failed:" + disableRsp.getErrorMessage());
+        getTask().fail(false);
+        return null;
       }
       status = new StringBuffer();
       status

@@ -41,8 +41,7 @@ import org.springframework.util.CollectionUtils;
  */
 @Slf4j
 public final class EcloudLbUtil {
-  private EcloudLbUtil() {
-  }
+  private EcloudLbUtil() {}
 
   public static List<ListLoadbalanceRespResponseContent> getAllLoadBalancer(Client client) {
     List<ListLoadbalanceRespResponseContent> lbList = new ArrayList<>();
@@ -58,7 +57,9 @@ public final class EcloudLbUtil {
       rsp = client.listLoadbalanceResp(request);
       if (rsp != null
           && rsp.getBody() != null
-          && ListLoadbalanceRespResponse.StateEnum.OK.getValue().equals(rsp.getState().getValue())) {
+          && ListLoadbalanceRespResponse.StateEnum.OK
+              .getValue()
+              .equals(rsp.getState().getValue())) {
         List<ListLoadbalanceRespResponseContent> currLbList = rsp.getBody().getContent();
         if (!CollectionUtils.isEmpty(currLbList)) {
           lbList.addAll(currLbList);
@@ -71,7 +72,8 @@ public final class EcloudLbUtil {
         log.error(
             "GetLoadBalancer return null or res_body is null or res_state is not OK,res detail={}",
             JSON.toJSONString(rsp));
-        throw new EcloudException("GetLoadBalancer return null or body is null or res_state is not OK");
+        throw new EcloudException(
+            "GetLoadBalancer return null or body is null or res_state is not OK");
       }
       break;
     }
@@ -115,7 +117,8 @@ public final class EcloudLbUtil {
           log.error(
               "res is null or res_body is null or res_state is not OK,res detail={}",
               JSON.toJSONString(rsp));
-          throw new EcloudException("GetListener return null or body is null or res_state is not OK");
+          throw new EcloudException(
+              "GetListener return null or body is null or res_state is not OK");
         }
         break;
       }
@@ -123,8 +126,7 @@ public final class EcloudLbUtil {
     return listenerList;
   }
 
-  public static List<ListPoolResponseContent> getPoolByLbList(
-      Client client, List<String> lbIds) {
+  public static List<ListPoolResponseContent> getPoolByLbList(Client client, List<String> lbIds) {
     List<ListPoolResponseContent> poolList = new ArrayList<>();
     if (lbIds == null || lbIds.isEmpty()) {
       return poolList;
@@ -156,7 +158,8 @@ public final class EcloudLbUtil {
             }
           }
         } else {
-          log.error("res is null or res_body is null or res_state is not OK,res detail={}",
+          log.error(
+              "res is null or res_body is null or res_state is not OK,res detail={}",
               JSON.toJSONString(rsp));
           throw new EcloudException("GetPool return null or body is null or res_state is not OK");
         }
@@ -303,8 +306,7 @@ public final class EcloudLbUtil {
     return e;
   }
 
-  public static EcloudLoadBalancerPool createEcloudLoadBalancerPool(
-      ListPoolResponseContent pool) {
+  public static EcloudLoadBalancerPool createEcloudLoadBalancerPool(ListPoolResponseContent pool) {
     EcloudLoadBalancerPool epool = new EcloudLoadBalancerPool();
     epool.setModifiedTime(pool.getModifiedTime());
     epool.setLbAlgorithm(pool.getLbAlgorithm() != null ? pool.getLbAlgorithm().getValue() : "");
@@ -326,7 +328,7 @@ public final class EcloudLbUtil {
   }
 
   public static EcloudLoadBalancerL7Policy createEcloudLoadBalancerL7Policy(
-    ListPoolResponseL7PolicyResps pL7) {
+      ListPoolResponseL7PolicyResps pL7) {
     EcloudLoadBalancerL7Policy eL7 = new EcloudLoadBalancerL7Policy();
     eL7.setModifiedTime(pL7.getModifiedTime());
     eL7.setDescription(pL7.getDescription());

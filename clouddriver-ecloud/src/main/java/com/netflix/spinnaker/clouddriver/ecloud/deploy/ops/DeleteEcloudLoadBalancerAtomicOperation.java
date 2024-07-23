@@ -94,7 +94,8 @@ public class DeleteEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     DeleteLoadBalanceListenerRequest deleteListenerRequest = new DeleteLoadBalanceListenerRequest();
     DeleteLoadBalanceListenerPath deleteListenerPath = new DeleteLoadBalanceListenerPath();
     deleteListenerPath.setListenerId(listenerId);
-    DeleteLoadBalanceListenerResponse result = client.deleteLoadBalanceListener(deleteListenerRequest);
+    DeleteLoadBalanceListenerResponse result =
+        client.deleteLoadBalanceListener(deleteListenerRequest);
     getTask()
         .updateStatus(
             BASE_PHASE,

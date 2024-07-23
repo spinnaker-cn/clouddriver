@@ -53,24 +53,6 @@ public class EnableEcloudServerGroupAtomicOperation implements AtomicOperation<V
         ecloudClusterProvider.getServerGroup(
             description.getAccount(), description.getRegion(), description.getServerGroupName());
     if (sg != null) {
-      EcloudRequest enableRequest =
-          new EcloudRequest(
-              "PUT",
-              description.getRegion(),
-              "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/"
-                  + sg.getScalingGroupId(),
-              description.getCredentials().getAccessKey(),
-              description.getCredentials().getSecretKey());
-      Map<String, String> query = new HashMap<>();
-      query.put("action", "enable");
-      enableRequest.setQueryParams(query);
-      EcloudResponse enableRsp = EcloudOpenApiHelper.execute(enableRequest);
-      if (!StringUtils.isEmpty(enableRsp.getErrorMessage())) {
-        log.error("Enable ServerGroup failed with response:" + JSONObject.toJSONString(enableRsp));
-        getTask().updateStatus(BASE_PHASE, "EnableEcloudServerGroup Failed:" + enableRsp.getErrorMessage());
-        getTask().fail(false);
-        return null;
-      }
       List<EcloudServerGroup.ForwardLoadBalancer> lbs = sg.getForwardLoadBalancers();
       if (!CollectionUtils.isEmpty(lbs)) {
         Set<EcloudInstance> instanceSet = sg.getInstances();
@@ -103,11 +85,32 @@ public class EnableEcloudServerGroupAtomicOperation implements AtomicOperation<V
           EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
           if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
             log.error("Add Lb Member failed with response:" + JSONObject.toJSONString(memberRsp));
-            getTask().updateStatus(BASE_PHASE, "AddMemberToLb Failed:" + memberRsp.getErrorMessage());
+            getTask()
+                .updateStatus(BASE_PHASE, "AddMemberToLb Failed:" + memberRsp.getErrorMessage());
             getTask().fail(false);
             return null;
           }
         }
+      }
+      EcloudRequest enableRequest =
+        new EcloudRequest(
+          "PUT",
+          description.getRegion(),
+          "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/"
+            + sg.getScalingGroupId(),
+          description.getCredentials().getAccessKey(),
+          description.getCredentials().getSecretKey());
+      Map<String, String> query = new HashMap<>();
+      query.put("action", "enable");
+      enableRequest.setQueryParams(query);
+      EcloudResponse enableRsp = EcloudOpenApiHelper.execute(enableRequest);
+      if (!StringUtils.isEmpty(enableRsp.getErrorMessage())) {
+        log.error("Enable ServerGroup failed with response:" + JSONObject.toJSONString(enableRsp));
+        getTask()
+          .updateStatus(
+            BASE_PHASE, "EnableEcloudServerGroup Failed:" + enableRsp.getErrorMessage());
+        getTask().fail(false);
+        return null;
       }
       status = new StringBuffer();
       status

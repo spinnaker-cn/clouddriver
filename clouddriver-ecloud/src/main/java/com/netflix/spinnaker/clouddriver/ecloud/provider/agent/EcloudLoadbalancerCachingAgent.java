@@ -377,11 +377,10 @@ public class EcloudLoadbalancerCachingAgent implements CachingAgent, AccountAwar
         listenerList.stream()
             .collect(
                 Collectors.groupingBy(
-                  ListLoadBalanceListenersRespResponseContent::getLoadBalanceId));
+                    ListLoadBalanceListenersRespResponseContent::getLoadBalanceId));
 
     Map<String, List<ListPoolResponseContent>> poolMapGroupByLbId =
-        poolList.stream()
-            .collect(Collectors.groupingBy(ListPoolResponseContent::getLoadBalanceId));
+        poolList.stream().collect(Collectors.groupingBy(ListPoolResponseContent::getLoadBalanceId));
 
     Map<String, List<ListLoadBalancerPoolMemberResponseContent>> membersMapGroupByPoolId =
         memberList.stream()
@@ -511,10 +510,8 @@ public class EcloudLoadbalancerCachingAgent implements CachingAgent, AccountAwar
           healthCheck.setHealthDelay(serverGroup.getHealthMonitorResp().getHealthDelay());
           healthCheck.setHealthExpectedCode(
               serverGroup.getHealthMonitorResp().getHealthExpectedCode());
-          healthCheck.setHealthMaxRetries(
-              serverGroup.getHealthMonitorResp().getHealthMaxRetries());
-          healthCheck.setHealthHttpMethod(
-              serverGroup.getHealthMonitorResp().getHealthHttpMethod());
+          healthCheck.setHealthMaxRetries(serverGroup.getHealthMonitorResp().getHealthMaxRetries());
+          healthCheck.setHealthHttpMethod(serverGroup.getHealthMonitorResp().getHealthHttpMethod());
           healthCheck.setHealthId(serverGroup.getHealthMonitorResp().getHealthId());
           healthCheck.setHealthType(serverGroup.getHealthMonitorResp().getHealthType());
           healthCheck.setHealthUrlPath(serverGroup.getHealthMonitorResp().getHealthUrlPath());

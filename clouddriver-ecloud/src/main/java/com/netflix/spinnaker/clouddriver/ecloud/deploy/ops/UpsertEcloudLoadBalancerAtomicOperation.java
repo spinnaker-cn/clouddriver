@@ -97,13 +97,12 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     body.setLoadBalanceName(description.getLoadBalancerName());
     body.setSubnetId(description.getSubnetId());
     body.setChargePeriodEnum(
-      ElbOrderCreateLbBody.ChargePeriodEnumEnum.valueOf(description.getChargePeriod()));
+        ElbOrderCreateLbBody.ChargePeriodEnumEnum.valueOf(description.getChargePeriod()));
     body.setIpId(description.getIpId());
     body.setIpAddress(description.getIpAddress());
     body.setAutoRenew(description.getAutoRenew());
     body.setReturnUrl(description.getReturnUrl());
-    body.setProductType(
-      ElbOrderCreateLbBody.ProductTypeEnum.valueOf(description.getForwardType()));
+    body.setProductType(ElbOrderCreateLbBody.ProductTypeEnum.valueOf(description.getForwardType()));
 
     request.setElbOrderCreateLbBody(body);
     ElbOrderCreateLbResponse result = client.elbOrderCreateLb(request);
@@ -169,8 +168,7 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
             "Start update loadBalancer loadBalancerId=" + description.getLoadBalancerId() + " ...");
     GetLoadBalanceDetailRespRequest getLoadBalanceDetailRespRequest =
         new GetLoadBalanceDetailRespRequest();
-    GetLoadBalanceDetailRespPath getLoadBalanceDetailRespPath =
-        new GetLoadBalanceDetailRespPath();
+    GetLoadBalanceDetailRespPath getLoadBalanceDetailRespPath = new GetLoadBalanceDetailRespPath();
     getLoadBalanceDetailRespPath.setLoadBalanceId(description.getLoadBalancerId());
     GetLoadBalanceDetailRespResponse result =
         client.getLoadBalanceDetailResp(getLoadBalanceDetailRespRequest);
@@ -223,10 +221,12 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
                     + " in "
                     + description.getLoadBalancerId()
                     + " ...");
-        DeleteLoadBalanceListenerRequest deleteListenerRequest = new DeleteLoadBalanceListenerRequest();
+        DeleteLoadBalanceListenerRequest deleteListenerRequest =
+            new DeleteLoadBalanceListenerRequest();
         DeleteLoadBalanceListenerPath deleteListenerPath = new DeleteLoadBalanceListenerPath();
         deleteListenerPath.setListenerId(oldListener.getId());
-        DeleteLoadBalanceListenerResponse ret = client.deleteLoadBalanceListener(deleteListenerRequest);
+        DeleteLoadBalanceListenerResponse ret =
+            client.deleteLoadBalanceListener(deleteListenerRequest);
         getTask()
             .updateStatus(
                 BASE_PHASE,
@@ -287,13 +287,13 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     CreateLoadBalancerListenerAsyncBody body = new CreateLoadBalancerListenerAsyncBody();
     body.setHealthDelay(listener.getHealthDelay());
     body.setGroupType(
-      CreateLoadBalancerListenerAsyncBody.GroupTypeEnum.valueOf(listener.getGroupType()));
+        CreateLoadBalancerListenerAsyncBody.GroupTypeEnum.valueOf(listener.getGroupType()));
     body.setRedirectToListenerId(listener.getRedirectToListenerId());
     body.setSniContainerIds(listener.getSniContainerIdList());
     body.setDescription(listener.getDescription());
     body.setIsMultiAz(listener.getIsMultiAz());
     body.setProtocol(
-      CreateLoadBalancerListenerAsyncBody.ProtocolEnum.valueOf(listener.getProtocol()));
+        CreateLoadBalancerListenerAsyncBody.ProtocolEnum.valueOf(listener.getProtocol()));
     body.setHttp2(listener.getHttp2());
     body.setDefaultTlsContainerId(listener.getDefaultTlsContainerId());
     body.setMutualAuthenticationUp(listener.getMutualAuthenticationUp());
@@ -301,10 +301,10 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     body.setPoolName(listener.getPoolName());
     body.setSniUp(listener.getSniUp());
     body.setLbAlgorithm(
-      CreateLoadBalancerListenerAsyncBody.LbAlgorithmEnum.valueOf(listener.getLbAlgorithm()));
+        CreateLoadBalancerListenerAsyncBody.LbAlgorithmEnum.valueOf(listener.getLbAlgorithm()));
     body.setHealthHttpMethod(listener.getHealthHttpMethod());
     body.setHealthType(
-      CreateLoadBalancerListenerAsyncBody.HealthTypeEnum.valueOf(listener.getHealthType()));
+        CreateLoadBalancerListenerAsyncBody.HealthTypeEnum.valueOf(listener.getHealthType()));
     body.setLoadBalanceId(listener.getLoadBalanceId());
     body.setProtocolPort(listener.getProtocolPort());
     body.setHealthExpectedCode(listener.getHealthExpectedCode());
@@ -313,7 +313,7 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     body.setName(listener.getName());
     body.setPoolId(listener.getPoolId());
     body.setSessionPersistence(
-      CreateLoadBalancerListenerAsyncBody.SessionPersistenceEnum.valueOf(
+        CreateLoadBalancerListenerAsyncBody.SessionPersistenceEnum.valueOf(
             listener.getSessionPersistence()));
     body.setGroupEnabled(listener.getGroupEnabled());
     body.setHealthUrlPath(listener.getHealthUrlPath());
@@ -323,7 +323,8 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     body.setMultiAzUuid(listener.getMultiAzUuid());
 
     request.setCreateLoadBalancerListenerAsyncBody(body);
-    CreateLoadBalancerListenerAsyncResponse result = client.createLoadBalancerListenerAsync(request);
+    CreateLoadBalancerListenerAsyncResponse result =
+        client.createLoadBalancerListenerAsync(request);
 
     //
     // def listenerId = lbClient.createLBListener(loadBalancerId, listener)[0];

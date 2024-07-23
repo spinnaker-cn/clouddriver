@@ -24,8 +24,6 @@ import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudRequest;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
 import com.netflix.spinnaker.clouddriver.ecloud.provider.view.MutableCacheData;
 import com.netflix.spinnaker.clouddriver.ecloud.security.EcloudCredentials;
-import org.springframework.util.StringUtils;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
@@ -316,8 +315,7 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
           page++;
           continue;
         }
-      }
-      else {
+      } else {
         logger.error("ListScalingGroup Failed:" + JSONObject.toJSONString(listRsp));
         throw new EcloudException("ListScalingGroup Failed");
       }
@@ -407,8 +405,7 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
           page++;
           continue;
         }
-      }
-      else {
+      } else {
         logger.error("ListScalingNodes Failed:" + JSONObject.toJSONString(listRsp));
         throw new EcloudException("ListScalingNodes Failed");
       }
@@ -687,8 +684,7 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
           (String) onDemandServerGroupCache.getAttributes().get("cacheResults");
       Map<String, List<MutableCacheData>> onDemandCache =
           objectMapper.readValue(
-              jsonCacheResults, new TypeReference<Map<String, List<MutableCacheData>>>() {
-            });
+              jsonCacheResults, new TypeReference<Map<String, List<MutableCacheData>>>() {});
       onDemandCache.forEach(
           (namespace, cacheDataList) -> {
             if (!"onDemand".equalsIgnoreCase(namespace)) {
