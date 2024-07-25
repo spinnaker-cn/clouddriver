@@ -10,6 +10,7 @@ import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudRequest;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudServerGroup;
 import com.netflix.spinnaker.clouddriver.ecloud.provider.view.EcloudClusterProvider;
+import com.netflix.spinnaker.clouddriver.ecloud.util.EcloudLbUtil;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -112,8 +113,18 @@ public class EnableEcloudServerGroupAtomicOperation implements AtomicOperation<V
           EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
           if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
             log.error("Add Lb Member failed with response:" + JSONObject.toJSONString(memberRsp));
-            getTask()
-                .updateStatus(BASE_PHASE, "AddMemberToLb Failed:" + memberRsp.getErrorMessage());
+            if ("CSLOPENSTACK_LB_LOAD_BALANCE_BIZ_MEMBER_CREATE_SAME_PORT_OF_VM_HAS_ADDED".equals(memberRsp.getErrorCode())) {
+              // already added, ignore the exception
+              continue;
+            }
+            getTask().updateStatus(BASE_PHASE, "AddMemberToLb Failed:" + memberRsp.getErrorMessage());
+            getTask().fail(false);
+            return null;
+          }
+          boolean lbOk = EcloudLbUtil.checkLbTaskStatus(description.getRegion(), description.getCredentials().getAccessKey(),
+            description.getCredentials().getSecretKey(), memberRsp.getRequestId());
+          if (!lbOk) {
+            getTask().updateStatus(BASE_PHASE, "Check LoadBalance Status Failed. Operation interupted.");
             getTask().fail(false);
             return null;
           }

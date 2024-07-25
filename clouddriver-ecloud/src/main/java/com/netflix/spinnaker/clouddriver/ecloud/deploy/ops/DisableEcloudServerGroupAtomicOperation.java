@@ -10,7 +10,10 @@ import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudRequest;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudServerGroup;
 import com.netflix.spinnaker.clouddriver.ecloud.provider.view.EcloudClusterProvider;
+import com.netflix.spinnaker.clouddriver.ecloud.util.EcloudLbUtil;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,37 +86,44 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
       if (!CollectionUtils.isEmpty(lbs)) {
         Set<EcloudInstance> instanceSet = sg.getInstances();
         for (EcloudServerGroup.ForwardLoadBalancer lb : lbs) {
+          List<String> members = new ArrayList<>();
           for (EcloudInstance inst : instanceSet) {
             if (inst.getLbMemberMap() != null
-                && inst.getLbMemberMap().get(lb.getPoolId()) != null) {
-              String memberId = inst.getLbMemberMap().get(lb.getPoolId());
-              EcloudRequest memberRequest =
-                  new EcloudRequest(
-                      "DELETE",
-                      description.getRegion(),
-                      "/api/openapi-vlb/lb-console/acl/v3/member/"
-                          + lb.getPoolId()
-                          + "/member/"
-                          + memberId,
-                      description.getCredentials().getAccessKey(),
-                      description.getCredentials().getSecretKey());
-              EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
-              if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
-                log.error(
-                    "Delete LbMemeber failed with response:" + JSONObject.toJSONString(memberRsp));
-                String info = "DeleteLbMember Failed:" + memberRsp.getErrorMessage();
-                getTask().updateStatus(BASE_PHASE, info);
-                getTask().fail(false);
-                return null;
-              }
-            } else {
-              String info =
-                  "DisableEcloudServerGroup Failed: Lb MemberId Not Found at poolId:"
-                      + lb.getPoolId();
-              getTask().updateStatus(BASE_PHASE, info);
+              && inst.getLbMemberMap().get(lb.getPoolId()) != null) {
+              members.add(inst.getLbMemberMap().get(lb.getPoolId()));
+            }
+            else {
+              getTask().updateStatus(BASE_PHASE, "DisableEcloudServerGroup Failed: instance "
+                + inst.getName() + "Not Found at poolId:" + lb.getPoolId());
               getTask().fail(false);
               return null;
             }
+          }
+          EcloudRequest memberRequest =
+              new EcloudRequest(
+                  "DELETE",
+                  description.getRegion(),
+                  "/api/openapi-vlb/lb-console/acl/v3/member/" + lb.getPoolId() + "/member/batchDelete",
+                  description.getCredentials().getAccessKey(),
+                  description.getCredentials().getSecretKey());
+          Map<String, Object> memberBody = new HashMap<>();
+          memberBody.put("memberIds", members);
+          memberRequest.setBodyParams(memberBody);
+          EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
+          if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
+            log.error(
+                "Delete LbMemeber failed with response:" + JSONObject.toJSONString(memberRsp));
+            String info = "DeleteLbMember Failed:" + memberRsp.getErrorMessage();
+            getTask().updateStatus(BASE_PHASE, info);
+            getTask().fail(false);
+            return null;
+          }
+          boolean lbOk = EcloudLbUtil.checkLbTaskStatus(description.getRegion(), description.getCredentials().getAccessKey(),
+              description.getCredentials().getSecretKey(), memberRsp.getRequestId());
+          if (!lbOk) {
+            getTask().updateStatus(BASE_PHASE, "Check LoadBalance Status Failed. Operation interupted.");
+            getTask().fail(false);
+            return null;
           }
         }
       }

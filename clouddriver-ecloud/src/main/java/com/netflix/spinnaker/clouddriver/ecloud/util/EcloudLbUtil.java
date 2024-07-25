@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.clouddriver.ecloud.util;
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import com.ecloud.sdk.vlb.v1.Client;
 import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenersRespPath;
 import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenersRespQuery;
@@ -22,17 +23,24 @@ import com.ecloud.sdk.vlb.v1.model.ListPoolRequest;
 import com.ecloud.sdk.vlb.v1.model.ListPoolResponse;
 import com.ecloud.sdk.vlb.v1.model.ListPoolResponseContent;
 import com.ecloud.sdk.vlb.v1.model.ListPoolResponseL7PolicyResps;
+import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
 import com.netflix.spinnaker.clouddriver.ecloud.enums.LbSpecEnum;
 import com.netflix.spinnaker.clouddriver.ecloud.exception.EcloudException;
+import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudRequest;
+import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancer;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerL7Policy;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerListener;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerMember;
 import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerPool;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 /**
  * @author han.pengfei
@@ -214,6 +222,46 @@ public final class EcloudLbUtil {
       }
     }
     return memberList;
+  }
+
+  public static boolean checkLbTaskStatus(String region, String ak, String sk, String requestId) {
+    if (requestId == null) {
+      return false;
+    }
+    for (int i=0; i < 10; i ++) {
+      // check the state of sg
+      EcloudRequest checkReq =
+        new EcloudRequest(
+          "GET",
+          region,
+          "/api/openapi-vlb/lb-console/acl/v3/loadBalancer/asyncRequest/status",
+          ak, sk);
+      Map<String, String> queryParams = new HashMap<>();
+      queryParams.put("requestId", requestId);
+      checkReq.setQueryParams(queryParams);
+      EcloudResponse checkRsp = EcloudOpenApiHelper.execute(checkReq);
+      if (!StringUtils.isEmpty(checkRsp.getErrorMessage())) {
+        log.error("Check LoadBalancer Status failed with response:" + JSONObject.toJSONString(checkRsp));
+      }
+      else {
+        Map body = (Map) checkRsp.getBody();
+        if (body != null) {
+          String resultStatus = (String) body.get("resultStatus");
+          if ("SUCCESS".equals(resultStatus)) {
+            return true;
+          }
+          else if ("FAILED".equals(body.get(resultStatus))) {
+            return false;
+          }
+        }
+      }
+      try {
+        Thread.sleep(6000);
+      } catch (InterruptedException e) {
+      }
+    }
+    log.error("Check LoadBalancer Status times exceeded, fail the operation!");
+    return false;
   }
 
   public static EcloudLoadBalancer createEcloudLoadBalancer(ListLoadbalanceRespResponseContent it) {

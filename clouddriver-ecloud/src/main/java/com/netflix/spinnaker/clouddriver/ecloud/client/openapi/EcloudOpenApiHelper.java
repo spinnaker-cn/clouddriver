@@ -18,7 +18,8 @@ import org.springframework.web.client.RestTemplate;
 
 /**
  * @author xu.dangling
- * @date 2024/4/15 @Description
+ * @date 2024/4/15
+ * @Description
  */
 @Slf4j
 public class EcloudOpenApiHelper {
@@ -30,7 +31,7 @@ public class EcloudOpenApiHelper {
   static {
     ClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
     ((SimpleClientHttpRequestFactory) requestFactory).setConnectTimeout(30000);
-    ((SimpleClientHttpRequestFactory) requestFactory).setReadTimeout(30000);
+    ((SimpleClientHttpRequestFactory) requestFactory).setReadTimeout(60000);
     restTemplate = new RestTemplate();
     restTemplate.setRequestFactory(requestFactory);
   }
@@ -69,6 +70,7 @@ public class EcloudOpenApiHelper {
     HttpEntity<String> entity = new HttpEntity<String>(jsonBody, httpHeaders);
     ResponseEntity<Map> rsp = null;
     String statusCode = null;
+    String errorMessage = null;
     log.info("OpenApi method:{}, url: {} ", request.getMethod(), fullUrl);
     try {
       rsp =
@@ -78,9 +80,11 @@ public class EcloudOpenApiHelper {
     } catch (RestClientResponseException e) {
       log.error(e.getMessage(), e);
       statusCode = e.getRawStatusCode() + "";
+      errorMessage = e.getMessage();
     } catch (Exception e) {
       log.error(e.getMessage(), e);
       statusCode = "500";
+      errorMessage = e.getMessage();
     }
     EcloudResponse eRsp = new EcloudResponse(statusCode);
     if (rsp != null && rsp.getBody() != null) {
@@ -88,6 +92,9 @@ public class EcloudOpenApiHelper {
       eRsp.setErrorCode((String) rsp.getBody().get("errorCode"));
       eRsp.setErrorMessage((String) rsp.getBody().get("errorMessage"));
       eRsp.setBody(rsp.getBody().get("body"));
+    }
+    else if (errorMessage != null) {
+      eRsp.setErrorMessage(errorMessage);
     }
     return eRsp;
   }
