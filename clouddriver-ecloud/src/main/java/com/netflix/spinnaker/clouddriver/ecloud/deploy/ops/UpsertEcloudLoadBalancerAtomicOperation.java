@@ -3,19 +3,19 @@ package com.netflix.spinnaker.clouddriver.ecloud.deploy.ops;
 import com.alibaba.fastjson2.JSON;
 import com.ecloud.sdk.config.Config;
 import com.ecloud.sdk.vlb.v1.Client;
-import com.ecloud.sdk.vlb.v1.model.CreateLoadBalanceListenerAsyncBody;
-import com.ecloud.sdk.vlb.v1.model.CreateLoadBalanceListenerAsyncRequest;
-import com.ecloud.sdk.vlb.v1.model.CreateLoadBalanceListenerAsyncResponse;
-import com.ecloud.sdk.vlb.v1.model.DeleteListenerPath;
-import com.ecloud.sdk.vlb.v1.model.DeleteListenerRequest;
-import com.ecloud.sdk.vlb.v1.model.DeleteListenerResponse;
-import com.ecloud.sdk.vlb.v1.model.ElbOrderCreateAsyncBody;
-import com.ecloud.sdk.vlb.v1.model.ElbOrderCreateAsyncRequest;
-import com.ecloud.sdk.vlb.v1.model.ElbOrderCreateAsyncResponse;
-import com.ecloud.sdk.vlb.v1.model.GetLoadBalanceDetailResp1Path;
-import com.ecloud.sdk.vlb.v1.model.GetLoadBalanceDetailResp1Request;
-import com.ecloud.sdk.vlb.v1.model.GetLoadBalanceDetailResp1Response;
-import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenerRespResponseContent;
+import com.ecloud.sdk.vlb.v1.model.CreateLoadBalancerListenerAsyncBody;
+import com.ecloud.sdk.vlb.v1.model.CreateLoadBalancerListenerAsyncRequest;
+import com.ecloud.sdk.vlb.v1.model.CreateLoadBalancerListenerAsyncResponse;
+import com.ecloud.sdk.vlb.v1.model.DeleteLoadBalanceListenerPath;
+import com.ecloud.sdk.vlb.v1.model.DeleteLoadBalanceListenerRequest;
+import com.ecloud.sdk.vlb.v1.model.DeleteLoadBalanceListenerResponse;
+import com.ecloud.sdk.vlb.v1.model.ElbOrderCreateLbBody;
+import com.ecloud.sdk.vlb.v1.model.ElbOrderCreateLbRequest;
+import com.ecloud.sdk.vlb.v1.model.ElbOrderCreateLbResponse;
+import com.ecloud.sdk.vlb.v1.model.GetLoadBalanceDetailRespPath;
+import com.ecloud.sdk.vlb.v1.model.GetLoadBalanceDetailRespRequest;
+import com.ecloud.sdk.vlb.v1.model.GetLoadBalanceDetailRespResponse;
+import com.ecloud.sdk.vlb.v1.model.ListLoadBalanceListenersRespResponseContent;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecloud.deploy.description.UpsertEcloudLoadBalancerDescription;
@@ -90,26 +90,25 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
                 + description.getLoadBalancerName()
                 + "...");
 
-    ElbOrderCreateAsyncRequest request = new ElbOrderCreateAsyncRequest();
-    ElbOrderCreateAsyncBody body = new ElbOrderCreateAsyncBody();
+    ElbOrderCreateLbRequest request = new ElbOrderCreateLbRequest();
+    ElbOrderCreateLbBody body = new ElbOrderCreateLbBody();
     body.setDuration(description.getDuration());
     body.setFlavor(description.getFlavor());
     body.setLoadBalanceName(description.getLoadBalancerName());
     body.setSubnetId(description.getSubnetId());
     body.setChargePeriodEnum(
-        ElbOrderCreateAsyncBody.ChargePeriodEnumEnum.valueOf(description.getChargePeriod()));
+        ElbOrderCreateLbBody.ChargePeriodEnumEnum.valueOf(description.getChargePeriod()));
     body.setIpId(description.getIpId());
     body.setIpAddress(description.getIpAddress());
     body.setAutoRenew(description.getAutoRenew());
     body.setReturnUrl(description.getReturnUrl());
-    body.setProductType(
-        ElbOrderCreateAsyncBody.ProductTypeEnum.valueOf(description.getForwardType()));
+    body.setProductType(ElbOrderCreateLbBody.ProductTypeEnum.valueOf(description.getForwardType()));
 
-    request.setElbOrderCreateAsyncBody(body);
-    ElbOrderCreateAsyncResponse result = client.elbOrderCreateAsync(request);
+    request.setElbOrderCreateLbBody(body);
+    ElbOrderCreateLbResponse result = client.elbOrderCreateLb(request);
 
     if (result == null
-        || !ElbOrderCreateAsyncResponse.StateEnum.OK.getValue().equals(result.getState().getValue())
+        || !ElbOrderCreateLbResponse.StateEnum.OK.getValue().equals(result.getState().getValue())
         || result.getBody() == null) {
       getTask()
           .updateStatus(
@@ -167,15 +166,14 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
         .updateStatus(
             BASE_PHASE,
             "Start update loadBalancer loadBalancerId=" + description.getLoadBalancerId() + " ...");
-    GetLoadBalanceDetailResp1Request getLoadBalanceDetailResp1Request =
-        new GetLoadBalanceDetailResp1Request();
-    GetLoadBalanceDetailResp1Path getLoadBalanceDetailResp1Path =
-        new GetLoadBalanceDetailResp1Path();
-    getLoadBalanceDetailResp1Path.setLoadBalanceId(description.getLoadBalancerId());
-    GetLoadBalanceDetailResp1Response result =
-        client.getLoadBalanceDetailResp1(getLoadBalanceDetailResp1Request);
+    GetLoadBalanceDetailRespRequest getLoadBalanceDetailRespRequest =
+        new GetLoadBalanceDetailRespRequest();
+    GetLoadBalanceDetailRespPath getLoadBalanceDetailRespPath = new GetLoadBalanceDetailRespPath();
+    getLoadBalanceDetailRespPath.setLoadBalanceId(description.getLoadBalancerId());
+    GetLoadBalanceDetailRespResponse result =
+        client.getLoadBalanceDetailResp(getLoadBalanceDetailRespRequest);
     if (result == null
-        || !GetLoadBalanceDetailResp1Response.StateEnum.OK
+        || !GetLoadBalanceDetailRespResponse.StateEnum.OK
             .getValue()
             .equals(result.getState().getValue())
         || result.getBody() == null) {
@@ -198,7 +196,7 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
 
     List<EcloudLoadBalancerListener> newListeners = description.getListeners();
 
-    List<ListLoadBalanceListenerRespResponseContent> queryListeners =
+    List<ListLoadBalanceListenersRespResponseContent> queryListeners =
         EcloudLbUtil.getListenerByLbList(
             client, Collections.singletonList(description.getLoadBalancerId()));
 
@@ -209,7 +207,7 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     // def queryLBTargetList = lbClient.getLBTargetList(loadBalancerId, listenerIdList)
 
     // delete listener
-    for (ListLoadBalanceListenerRespResponseContent oldListener : queryListeners) {
+    for (ListLoadBalanceListenersRespResponseContent oldListener : queryListeners) {
       Optional<EcloudLoadBalancerListener> keepListener =
           newListeners.stream()
               .filter(newListener -> newListener.getId().equals(oldListener.getId()))
@@ -223,10 +221,12 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
                     + " in "
                     + description.getLoadBalancerId()
                     + " ...");
-        DeleteListenerRequest deleteListenerRequest = new DeleteListenerRequest();
-        DeleteListenerPath deleteListenerPath = new DeleteListenerPath();
+        DeleteLoadBalanceListenerRequest deleteListenerRequest =
+            new DeleteLoadBalanceListenerRequest();
+        DeleteLoadBalanceListenerPath deleteListenerPath = new DeleteLoadBalanceListenerPath();
         deleteListenerPath.setListenerId(oldListener.getId());
-        DeleteListenerResponse ret = client.deleteListener(deleteListenerRequest);
+        DeleteLoadBalanceListenerResponse ret =
+            client.deleteLoadBalanceListener(deleteListenerRequest);
         getTask()
             .updateStatus(
                 BASE_PHASE,
@@ -242,7 +242,7 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     if (newListeners != null && !newListeners.isEmpty()) {
       for (EcloudLoadBalancerListener inputListener : newListeners) {
         if (inputListener.getId() != null && !inputListener.getId().isEmpty()) {
-          Optional<ListLoadBalanceListenerRespResponseContent> oldListenerOpt =
+          Optional<ListLoadBalanceListenersRespResponseContent> oldListenerOpt =
               queryListeners.stream()
                   .filter(listener -> listener.getId().equals(inputListener.getId()))
                   .findFirst();
@@ -283,17 +283,17 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
                 + loadBalancerId
                 + " ...");
 
-    CreateLoadBalanceListenerAsyncRequest request = new CreateLoadBalanceListenerAsyncRequest();
-    CreateLoadBalanceListenerAsyncBody body = new CreateLoadBalanceListenerAsyncBody();
+    CreateLoadBalancerListenerAsyncRequest request = new CreateLoadBalancerListenerAsyncRequest();
+    CreateLoadBalancerListenerAsyncBody body = new CreateLoadBalancerListenerAsyncBody();
     body.setHealthDelay(listener.getHealthDelay());
     body.setGroupType(
-        CreateLoadBalanceListenerAsyncBody.GroupTypeEnum.valueOf(listener.getGroupType()));
+        CreateLoadBalancerListenerAsyncBody.GroupTypeEnum.valueOf(listener.getGroupType()));
     body.setRedirectToListenerId(listener.getRedirectToListenerId());
     body.setSniContainerIds(listener.getSniContainerIdList());
     body.setDescription(listener.getDescription());
     body.setIsMultiAz(listener.getIsMultiAz());
     body.setProtocol(
-        CreateLoadBalanceListenerAsyncBody.ProtocolEnum.valueOf(listener.getProtocol()));
+        CreateLoadBalancerListenerAsyncBody.ProtocolEnum.valueOf(listener.getProtocol()));
     body.setHttp2(listener.getHttp2());
     body.setDefaultTlsContainerId(listener.getDefaultTlsContainerId());
     body.setMutualAuthenticationUp(listener.getMutualAuthenticationUp());
@@ -301,10 +301,10 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     body.setPoolName(listener.getPoolName());
     body.setSniUp(listener.getSniUp());
     body.setLbAlgorithm(
-        CreateLoadBalanceListenerAsyncBody.LbAlgorithmEnum.valueOf(listener.getLbAlgorithm()));
+        CreateLoadBalancerListenerAsyncBody.LbAlgorithmEnum.valueOf(listener.getLbAlgorithm()));
     body.setHealthHttpMethod(listener.getHealthHttpMethod());
     body.setHealthType(
-        CreateLoadBalanceListenerAsyncBody.HealthTypeEnum.valueOf(listener.getHealthType()));
+        CreateLoadBalancerListenerAsyncBody.HealthTypeEnum.valueOf(listener.getHealthType()));
     body.setLoadBalanceId(listener.getLoadBalanceId());
     body.setProtocolPort(listener.getProtocolPort());
     body.setHealthExpectedCode(listener.getHealthExpectedCode());
@@ -313,7 +313,7 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     body.setName(listener.getName());
     body.setPoolId(listener.getPoolId());
     body.setSessionPersistence(
-        CreateLoadBalanceListenerAsyncBody.SessionPersistenceEnum.valueOf(
+        CreateLoadBalancerListenerAsyncBody.SessionPersistenceEnum.valueOf(
             listener.getSessionPersistence()));
     body.setGroupEnabled(listener.getGroupEnabled());
     body.setHealthUrlPath(listener.getHealthUrlPath());
@@ -322,8 +322,9 @@ public class UpsertEcloudLoadBalancerAtomicOperation implements AtomicOperation<
     body.setHealthTimeout(listener.getHealthTimeout());
     body.setMultiAzUuid(listener.getMultiAzUuid());
 
-    request.setCreateLoadBalanceListenerAsyncBody(body);
-    CreateLoadBalanceListenerAsyncResponse result = client.createLoadBalanceListenerAsync(request);
+    request.setCreateLoadBalancerListenerAsyncBody(body);
+    CreateLoadBalancerListenerAsyncResponse result =
+        client.createLoadBalancerListenerAsync(request);
 
     //
     // def listenerId = lbClient.createLBListener(loadBalancerId, listener)[0];

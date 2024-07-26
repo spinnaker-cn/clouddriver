@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ecloud.deploy.ops;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
@@ -77,16 +78,13 @@ public class RemoveEcloudServerGroupInstancesAtomicOperation implements AtomicOp
         request.setBodyParams(body);
         EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
         if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
-          String info = "RemoveEcloudServerGroupInstances Failed:" + rsp.getErrorMessage();
-          log.error(info);
-          getTask().updateStatus(BASE_PHASE, info);
+          log.error("Remove instance failed with response:" + JSONObject.toJSONString(rsp));
+          getTask().updateStatus(BASE_PHASE, "RemoveEcloudServerGroupInstances Failed:" + rsp.getErrorMessage());
           getTask().fail(false);
           return null;
         }
       } else {
-        String info = "RemoveEcloudServerGroupInstances Failed: NodeIdList Empty!";
-        log.error(info);
-        getTask().updateStatus(BASE_PHASE, info);
+        getTask().updateStatus(BASE_PHASE, "RemoveEcloudServerGroupInstances Failed: NodeIdList Empty!");
         getTask().fail(false);
         return null;
       }

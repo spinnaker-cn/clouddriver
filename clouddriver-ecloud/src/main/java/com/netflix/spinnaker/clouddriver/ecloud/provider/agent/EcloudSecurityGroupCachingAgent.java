@@ -82,7 +82,6 @@ public class EcloudSecurityGroupCachingAgent implements CachingAgent, OnDemandAg
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    log.info("Enter ECloudSecurityGroupCachingAgent loadData in {}", this.getAgentType());
     long currentTime = System.currentTimeMillis();
     Set<EcloudSecurityGroupDescription> securityGroupDescSet = loadSecurityGroupAll();
     log.info(

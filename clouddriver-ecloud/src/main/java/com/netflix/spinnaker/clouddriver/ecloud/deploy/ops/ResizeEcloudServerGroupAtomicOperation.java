@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ecloud.deploy.ops;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
@@ -63,9 +64,8 @@ public class ResizeEcloudServerGroupAtomicOperation implements AtomicOperation<V
       request.setBodyParams(body);
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
-        String info = "ResizeEcloudServerGroup Failed:" + rsp.getErrorMessage();
-        log.error(info);
-        getTask().updateStatus(BASE_PHASE, info);
+        log.error("Resize server group failed with response:" + JSONObject.toJSONString(rsp));
+        getTask().updateStatus(BASE_PHASE, "ResizeEcloudServerGroup Failed:" + rsp.getErrorMessage());
         getTask().fail(false);
         return null;
       }

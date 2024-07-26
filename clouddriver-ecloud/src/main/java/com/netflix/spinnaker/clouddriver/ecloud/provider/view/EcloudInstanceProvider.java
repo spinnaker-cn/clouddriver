@@ -94,9 +94,12 @@ public class EcloudInstanceProvider implements InstanceProvider<EcloudInstance, 
                 }
               }
             }
+            else {
+              // the instance may be removed from lb, regarded as down
+              healthState = HealthState.Down;
+            }
           }
           if (healthState == null) {
-            // the instance may be removed from lb, regarded as down
             healthState = HealthState.Down;
           }
           instance.setLbMemberMap(lbMemberMap);

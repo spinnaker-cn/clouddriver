@@ -60,7 +60,6 @@ public class EcloudVpcCachingAgent implements CachingAgent, AccountAware {
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    log.info("Describing items in agentType=", this.getAgentType());
     Config config = new Config();
     config.setAccessKey(this.account.getAccessKey());
     config.setSecretKey(this.account.getSecretKey());

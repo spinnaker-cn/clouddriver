@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ecloud.deploy.ops;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
@@ -18,7 +19,7 @@ import org.springframework.util.StringUtils;
 @Slf4j
 public class UpsertEcloudScalingPolicyAtomicOperation implements AtomicOperation<Void> {
 
-  private static final String BASE_PHASE = "RESIZE_SERVER_GROUP";
+  private static final String BASE_PHASE = "UPSERT_SCALING_POLICY";
 
   @Autowired EcloudClusterProvider ecloudClusterProvider;
 
@@ -63,7 +64,10 @@ public class UpsertEcloudScalingPolicyAtomicOperation implements AtomicOperation
       request.setVersion("2016-12-05");
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
-        log.error("UpsertEcloudScalingPolicy Failed:" + rsp.getErrorMessage());
+        log.error("Upsert ScalingPolicy Failed with response:" + JSONObject.toJSONString(rsp));
+        getTask().updateStatus(BASE_PHASE, "Upsert ScalingPolicy Failed:" + rsp.getErrorMessage());
+        getTask().fail(false);
+        return null;
       }
       getTask()
           .updateStatus(
@@ -73,9 +77,10 @@ public class UpsertEcloudScalingPolicyAtomicOperation implements AtomicOperation
                   + " in "
                   + description.getRegion());
     } else {
-      log.error("ServerGroup Not Found:" + description.getServerGroupName());
+      String info = "ServerGroup Not Found:" + description.getServerGroupName();
+      getTask().updateStatus(BASE_PHASE, info);
+      getTask().fail(false);
     }
-
     return null;
   }
 

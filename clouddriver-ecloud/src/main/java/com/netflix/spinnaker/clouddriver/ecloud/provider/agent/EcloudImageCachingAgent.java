@@ -54,7 +54,6 @@ public class EcloudImageCachingAgent implements CachingAgent, AccountAware {
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    log.info("start load image data");
     EcloudImageClient client = new EcloudImageClient(account, region);
     Map<String, Collection<CacheData>> cacheResults = new HashMap<>();
     Map<String, Map<String, CacheData>> namespaceCache = new HashMap<>();
@@ -122,7 +121,6 @@ public class EcloudImageCachingAgent implements CachingAgent, AccountAware {
         (namespace, cacheDataMap) -> cacheResults.put(namespace, cacheDataMap.values()));
 
     CacheResult defaultCacheResult = new DefaultCacheResult(cacheResults, evictions);
-    log.info("finish loads image data.");
     log.info(
         "Caching "
             + namespaceCache.get(Keys.Namespace.IMAGES.ns).size()
