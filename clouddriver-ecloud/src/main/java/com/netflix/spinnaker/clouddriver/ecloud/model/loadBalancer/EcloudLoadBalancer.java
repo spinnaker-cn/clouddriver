@@ -92,8 +92,6 @@ public class EcloudLoadBalancer implements LoadBalancer, EcloudBasicResource {
 
   private Set<LoadBalancerServerGroup> serverGroups = new HashSet<>();
 
-  private List<EcloudLoadBalancerHealthCheck> healthChecks;
-
   @Override
   public String getType() {
     return EcloudProvider.ID;

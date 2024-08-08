@@ -20,8 +20,8 @@ import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
- * @date 2024/4/11
  * @Description Destroy Ecloud Scaling Group
+ * @date 2024/4/11
  */
 @Slf4j
 public class DestroyEcloudServerGroupAtomicOperation implements AtomicOperation<Void> {
@@ -62,37 +62,58 @@ public class DestroyEcloudServerGroupAtomicOperation implements AtomicOperation<
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
         log.error("Destroy scalingGroup failed with response:" + JSONObject.toJSONString(rsp));
-        getTask().updateStatus(BASE_PHASE, "DestroyServerGroup Failed:" + rsp.getErrorMessage());
+        StringBuffer msg = new StringBuffer();
+        msg.append("DestroyServerGroup Failed:").append(rsp.getErrorMessage()).append("(").append(rsp.getRequestId()).append(")");
+        getTask().updateStatus(BASE_PHASE,  msg.toString());
         getTask().fail(false);
         return null;
       }
-      try {
-        String scalingConfigId = (String) serverGroup.getLaunchConfig().get("lauchConfigurationId");
-        if (scalingConfigId == null) {
-          throw new EcloudException("ScalingConfigId Not Found");
+      // check the serverGroup till it's been actually destroyed, expire after 30 minutes
+      Long start = System.currentTimeMillis();
+      while (System.currentTimeMillis() - start < 30 * 60 * 1000) {
+        try {
+          Thread.sleep(120000);
+        } catch (InterruptedException e) {
+          log.error(e.getMessage(), e);
         }
-        EcloudRequest delRequest =
+        EcloudRequest checkRequest =
             new EcloudRequest(
-                "DELETE",
+                "GET",
                 description.getRegion(),
-                "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingConfig",
+                "/api/v4/autoScaling/scalingGroup/" + scalingGroupId,
                 description.getCredentials().getAccessKey(),
                 description.getCredentials().getSecretKey());
-        Map<String, String> queryParams = new HashMap<>();
-        queryParams.put("scalingConfigIds", scalingConfigId);
-        delRequest.setQueryParams(queryParams);
-        // Wait till the scaling group is destroyed
-        Thread.sleep(30000);
-        EcloudResponse response = EcloudOpenApiHelper.execute(delRequest);
-        if (!StringUtils.isEmpty(response.getErrorMessage())) {
-          // scalingConfig may be binded by another serverGroup or the serverGroup has not be
-          // fully destroyed yet
-          log.error("Destroy scalingConfig failed with response:" + JSONObject.toJSONString(rsp));
-          throw new EcloudException(response.getErrorMessage());
+        EcloudResponse checkResponse = EcloudOpenApiHelper.execute(checkRequest);
+        if ("CSLOPENSTACK_AUTOSCALING_SCALING_GROUP_NOT_EXIST"
+            .equals(checkResponse.getErrorCode())) {
+          break;
+        } else if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
+          log.error("Check scalingGroup failed with response:" + JSONObject.toJSONString(rsp));
+        } else {
+          log.info(
+              "ScalingGroup:{} may not be destroyed, check again after 120s...", scalingGroupId);
         }
-      } catch (Exception e) {
-        log.error("DestroyScalingConfig Failed", e);
-        getTask().updateStatus(BASE_PHASE, "DeleteScalingConfig Failed:" + e.getMessage());
+      }
+      String scalingConfigId = (String) serverGroup.getLaunchConfig().get("lauchConfigurationId");
+      if (scalingConfigId == null) {
+        throw new EcloudException("ScalingConfigId Not Found");
+      }
+      EcloudRequest delRequest =
+          new EcloudRequest(
+              "DELETE",
+              description.getRegion(),
+              "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingConfig",
+              description.getCredentials().getAccessKey(),
+              description.getCredentials().getSecretKey());
+      Map<String, String> queryParams = new HashMap<>();
+      queryParams.put("scalingConfigIds", scalingConfigId);
+      delRequest.setQueryParams(queryParams);
+      EcloudResponse delRsp = EcloudOpenApiHelper.execute(delRequest);
+      if (!StringUtils.isEmpty(delRsp.getErrorMessage())) {
+        log.error("Destroy scalingConfig failed with response:" + JSONObject.toJSONString(delRsp));
+        StringBuffer msg = new StringBuffer();
+        msg.append("DeleteScalingConfig Failed:").append(delRsp.getErrorMessage()).append("(").append(delRsp.getRequestId()).append(")");
+        getTask().updateStatus(BASE_PHASE, msg.toString());
         getTask().fail(false);
         return null;
       }

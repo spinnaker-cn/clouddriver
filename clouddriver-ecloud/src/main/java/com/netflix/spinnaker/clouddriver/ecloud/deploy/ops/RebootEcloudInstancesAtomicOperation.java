@@ -59,7 +59,13 @@ public class RebootEcloudInstancesAtomicOperation implements AtomicOperation<Voi
     EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
     if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
       log.error("Reboot Instances failed with response:" + JSONObject.toJSONString(rsp));
-      getTask().updateStatus(BASE_PHASE, "RebootEcloudInstances Failed:" + rsp.getErrorMessage());
+      StringBuffer info = new StringBuffer();
+      info.append("RebootEcloudInstances Failed:")
+          .append(rsp.getErrorMessage())
+          .append("(")
+          .append(rsp.getRequestId())
+          .append(")");
+      getTask().updateStatus(BASE_PHASE, info.toString());
       getTask().fail(false);
       return null;
     }

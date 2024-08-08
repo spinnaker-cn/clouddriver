@@ -21,8 +21,8 @@ import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
- * @date 2024/4/12
  * @Description Remove Ecloud Server Group Instances
+ * @date 2024/4/12
  */
 @Slf4j
 public class RemoveEcloudServerGroupInstancesAtomicOperation implements AtomicOperation<Void> {
@@ -79,12 +79,19 @@ public class RemoveEcloudServerGroupInstancesAtomicOperation implements AtomicOp
         EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
         if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
           log.error("Remove instance failed with response:" + JSONObject.toJSONString(rsp));
-          getTask().updateStatus(BASE_PHASE, "RemoveEcloudServerGroupInstances Failed:" + rsp.getErrorMessage());
+          StringBuffer msg = new StringBuffer();
+          msg.append("RemoveEcloudServerGroupInstances Failed:")
+              .append(rsp.getErrorMessage())
+              .append("(")
+              .append(rsp.getRequestId())
+              .append(")");
+          getTask().updateStatus(BASE_PHASE, msg.toString());
           getTask().fail(false);
           return null;
         }
       } else {
-        getTask().updateStatus(BASE_PHASE, "RemoveEcloudServerGroupInstances Failed: NodeIdList Empty!");
+        getTask()
+            .updateStatus(BASE_PHASE, "RemoveEcloudServerGroupInstances Failed: NodeIdList Empty!");
         getTask().fail(false);
         return null;
       }

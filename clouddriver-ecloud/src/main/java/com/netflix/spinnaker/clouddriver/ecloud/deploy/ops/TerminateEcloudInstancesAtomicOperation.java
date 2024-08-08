@@ -21,7 +21,8 @@ import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
- * @date 2024/4/12 @Description To terminate an ecs of a scalingGroup is to do the removal
+ * @date 2024/4/12
+ * @Description To terminate an ecs of a scalingGroup is to do the removal
  */
 @Slf4j
 public class TerminateEcloudInstancesAtomicOperation implements AtomicOperation<Void> {
@@ -77,7 +78,13 @@ public class TerminateEcloudInstancesAtomicOperation implements AtomicOperation<
         EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
         if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
           log.error("Terminate Instances failed with response:" + JSONObject.toJSONString(rsp));
-          getTask().updateStatus(BASE_PHASE, "TerminateEcloudInstances Failed:" + rsp.getErrorMessage());
+          StringBuffer msg = new StringBuffer();
+          msg.append("TerminateEcloudInstances Failed:")
+              .append(rsp.getErrorMessage())
+              .append("(")
+              .append(rsp.getRequestId())
+              .append(")");
+          getTask().updateStatus(BASE_PHASE, msg.toString());
           getTask().fail(false);
           return null;
         }
