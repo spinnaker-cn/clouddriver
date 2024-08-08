@@ -65,7 +65,14 @@ public class UpsertEcloudScalingPolicyAtomicOperation implements AtomicOperation
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
         log.error("Upsert ScalingPolicy Failed with response:" + JSONObject.toJSONString(rsp));
-        getTask().updateStatus(BASE_PHASE, "Upsert ScalingPolicy Failed:" + rsp.getErrorMessage());
+        StringBuffer errMsg = new StringBuffer();
+        errMsg
+            .append("Upsert ScalingPolicy Failed:")
+            .append(rsp.getErrorMessage())
+            .append("(")
+            .append(rsp.getRequestId())
+            .append(")");
+        getTask().updateStatus(BASE_PHASE, errMsg.toString());
         getTask().fail(false);
         return null;
       }

@@ -18,8 +18,8 @@ import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
- * @date 2024/4/12
  * @Description Update Ecloud Scaling Group
+ * @date 2024/4/12
  */
 @Slf4j
 public class ResizeEcloudServerGroupAtomicOperation implements AtomicOperation<Void> {
@@ -65,7 +65,13 @@ public class ResizeEcloudServerGroupAtomicOperation implements AtomicOperation<V
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (!StringUtils.isEmpty(rsp.getErrorMessage())) {
         log.error("Resize server group failed with response:" + JSONObject.toJSONString(rsp));
-        getTask().updateStatus(BASE_PHASE, "ResizeEcloudServerGroup Failed:" + rsp.getErrorMessage());
+        StringBuffer msg = new StringBuffer();
+        msg.append("Resize server group failed:")
+            .append(rsp.getErrorMessage())
+            .append("(")
+            .append(rsp.getRequestId())
+            .append(")");
+        getTask().updateStatus(BASE_PHASE, msg.toString());
         getTask().fail(false);
         return null;
       }

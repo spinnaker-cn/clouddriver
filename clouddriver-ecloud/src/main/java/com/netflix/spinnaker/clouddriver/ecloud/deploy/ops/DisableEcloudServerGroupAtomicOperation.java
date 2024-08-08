@@ -12,7 +12,6 @@ import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudServerGroup;
 import com.netflix.spinnaker.clouddriver.ecloud.provider.view.EcloudClusterProvider;
 import com.netflix.spinnaker.clouddriver.ecloud.util.EcloudLbUtil;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,8 +24,8 @@ import org.springframework.util.StringUtils;
 
 /**
  * @author xu.dangling
- * @date 2024/4/11
  * @Description Disable Ecloud Scaling Group
+ * @date 2024/4/11
  */
 @Slf4j
 public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<Void> {
@@ -57,28 +56,33 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
     if (sg != null) {
       // check the state of sg
       EcloudRequest checkReq =
-        new EcloudRequest(
-          "GET",
-          description.getRegion(),
-          "/api/v4/autoScaling/scalingGroup/" + sg.getScalingGroupId(),
-          description.getCredentials().getAccessKey(),
-          description.getCredentials().getSecretKey());
+          new EcloudRequest(
+              "GET",
+              description.getRegion(),
+              "/api/v4/autoScaling/scalingGroup/" + sg.getScalingGroupId(),
+              description.getCredentials().getAccessKey(),
+              description.getCredentials().getSecretKey());
       EcloudResponse checkRsp = EcloudOpenApiHelper.execute(checkReq);
       if (!StringUtils.isEmpty(checkRsp.getErrorMessage())) {
         log.error("Check ServerGroup failed with response:" + JSONObject.toJSONString(checkRsp));
-        getTask()
-          .updateStatus(BASE_PHASE, "QueryServerGroup Failed:" + checkRsp.getErrorMessage());
+        StringBuffer info = new StringBuffer();
+        info.append("QueryServerGroup Failed:")
+            .append(checkRsp.getErrorMessage())
+            .append("(")
+            .append(checkRsp.getRequestId())
+            .append(")");
+        getTask().updateStatus(BASE_PHASE, info.toString());
         getTask().fail(false);
         return null;
       }
       Map checkBody = (Map) checkRsp.getBody();
       if (checkBody != null && "INACTIVE".equalsIgnoreCase((String) checkBody.get("status"))) {
         status
-          .append("ServerGroup ")
-          .append(description.getServerGroupName())
-          .append(" in region ")
-          .append(description.getRegion())
-          .append(" is already disabled.");
+            .append("ServerGroup ")
+            .append(description.getServerGroupName())
+            .append(" in region ")
+            .append(description.getRegion())
+            .append(" is already disabled.");
         getTask().updateStatus(BASE_PHASE, status.toString());
         return null;
       }
@@ -89,12 +93,16 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
           List<String> members = new ArrayList<>();
           for (EcloudInstance inst : instanceSet) {
             if (inst.getLbMemberMap() != null
-              && inst.getLbMemberMap().get(lb.getPoolId()) != null) {
+                && inst.getLbMemberMap().get(lb.getPoolId()) != null) {
               members.add(inst.getLbMemberMap().get(lb.getPoolId()));
-            }
-            else {
-              getTask().updateStatus(BASE_PHASE, "DisableEcloudServerGroup Failed: instance "
-                + inst.getName() + "Not Found at poolId:" + lb.getPoolId());
+            } else {
+              getTask()
+                  .updateStatus(
+                      BASE_PHASE,
+                      "DisableEcloudServerGroup Failed: instance "
+                          + inst.getName()
+                          + "Not Found at poolId:"
+                          + lb.getPoolId());
               getTask().fail(false);
               return null;
             }
@@ -103,7 +111,9 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
               new EcloudRequest(
                   "DELETE",
                   description.getRegion(),
-                  "/api/openapi-vlb/lb-console/acl/v3/member/" + lb.getPoolId() + "/member/batchDelete",
+                  "/api/openapi-vlb/lb-console/acl/v3/member/"
+                      + lb.getPoolId()
+                      + "/member/batchDelete",
                   description.getCredentials().getAccessKey(),
                   description.getCredentials().getSecretKey());
           Map<String, Object> memberBody = new HashMap<>();
@@ -113,38 +123,50 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
           if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
             log.error(
                 "Delete LbMemeber failed with response:" + JSONObject.toJSONString(memberRsp));
-            String info = "DeleteLbMember Failed:" + memberRsp.getErrorMessage();
-            getTask().updateStatus(BASE_PHASE, info);
+            StringBuffer info = new StringBuffer();
+            info.append("DeleteLbMember Failed:")
+                .append(memberRsp.getErrorMessage())
+                .append("(")
+                .append(memberRsp.getRequestId())
+                .append(")");
+            getTask().updateStatus(BASE_PHASE, info.toString());
             getTask().fail(false);
             return null;
           }
-          boolean lbOk = EcloudLbUtil.checkLbTaskStatus(description.getRegion(), description.getCredentials().getAccessKey(),
-              description.getCredentials().getSecretKey(), memberRsp.getRequestId());
+          boolean lbOk =
+              EcloudLbUtil.checkLbTaskStatus(
+                  description.getRegion(),
+                  description.getCredentials().getAccessKey(),
+                  description.getCredentials().getSecretKey(),
+                  memberRsp.getRequestId());
           if (!lbOk) {
-            getTask().updateStatus(BASE_PHASE, "Check LoadBalance Status Failed. Operation interupted.");
-            getTask().fail(false);
-            return null;
+            log.error(
+                "Check LoadBalance Status Failed. RemoveMemberFromLb Operation may fail later.");
           }
         }
       }
       EcloudRequest disableRequest =
-        new EcloudRequest(
-          "PUT",
-          description.getRegion(),
-          "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/"
-            + sg.getScalingGroupId(),
-          description.getCredentials().getAccessKey(),
-          description.getCredentials().getSecretKey());
+          new EcloudRequest(
+              "PUT",
+              description.getRegion(),
+              "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/"
+                  + sg.getScalingGroupId(),
+              description.getCredentials().getAccessKey(),
+              description.getCredentials().getSecretKey());
       Map<String, String> query = new HashMap<>();
       query.put("action", "disable");
       disableRequest.setQueryParams(query);
       EcloudResponse disableRsp = EcloudOpenApiHelper.execute(disableRequest);
       if (!StringUtils.isEmpty(disableRsp.getErrorMessage())) {
         log.error(
-          "Disable scalingGroup failed with response:" + JSONObject.toJSONString(disableRsp));
-        getTask()
-          .updateStatus(
-            BASE_PHASE, "DisableEcloudServerGroup Failed:" + disableRsp.getErrorMessage());
+            "Disable scalingGroup failed with response:" + JSONObject.toJSONString(disableRsp));
+        StringBuffer info = new StringBuffer();
+        info.append("DisableEcloudServerGroup Failed:")
+            .append(disableRsp.getErrorMessage())
+            .append("(")
+            .append(disableRsp.getRequestId())
+            .append(")");
+        getTask().updateStatus(BASE_PHASE, info.toString());
         getTask().fail(false);
         return null;
       }

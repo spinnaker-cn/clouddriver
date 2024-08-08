@@ -16,8 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class CloneEcloudServerGroupAtomicOperation implements AtomicOperation<DeploymentResult> {
 
-  private static final Logger log =
-      LoggerFactory.getLogger(CloneEcloudServerGroupAtomicOperation.class);
   private static final String BASE_PHASE = "CLONE_SERVER_GROUP";
 
   private EcloudDeployDescription description;

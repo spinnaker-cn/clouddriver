@@ -80,6 +80,7 @@ public class EcloudInstanceProvider implements InstanceProvider<EcloudInstance, 
         List<Map> lbInfos = (List<Map>) serverGroupEntry.getAttributes().get("loadBalancers");
         if (lbInfos != null && !lbInfos.isEmpty()) {
           Map<String, String> lbMemberMap = new HashMap<>();
+          boolean allup = true;
           for (Map lbInfo : lbInfos) {
             String lbId = (String) lbInfo.get("loadBalancerId");
             String poolId = (String) lbInfo.get("loadBalancerPoolId");
@@ -89,18 +90,30 @@ public class EcloudInstanceProvider implements InstanceProvider<EcloudInstance, 
               Map targetHealth = (Map) health.getAttributes().get("targetHealth");
               if (targetHealth != null) {
                 lbMemberMap.put(poolId, (String) targetHealth.get("memberId"));
-                if (!HealthState.Down.equals(healthState)) {
+                String healthStatus = (String) targetHealth.get("healthStatus");
+                if ("DOWN".equalsIgnoreCase(healthStatus)) {
+                  healthState = HealthState.Down;
+                  allup = false;
+                  break;
+                } else if (!"UP".equalsIgnoreCase(healthStatus)) {
+                  allup = false;
                   healthState = HealthState.fromString((String) targetHealth.get("healthStatus"));
+                } else if (allup) {
+                  // healthState UP only when all lb are up
+                  healthState = HealthState.Up;
                 }
+              } else {
+                allup = false;
+                healthState = HealthState.Down;
               }
-            }
-            else {
+            } else {
               // the instance may be removed from lb, regarded as down
+              allup = false;
               healthState = HealthState.Down;
             }
           }
           if (healthState == null) {
-            healthState = HealthState.Down;
+            healthState = HealthState.Unknown;
           }
           instance.setLbMemberMap(lbMemberMap);
         }

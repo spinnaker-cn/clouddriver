@@ -36,7 +36,7 @@ dependencies {
   implementation 'com.alibaba.fastjson2:fastjson2:2.0.48'
   implementation 'com.ecloud.sdk:ecloud-sdk-core:1.0.4'
   implementation 'com.ecloud.sdk:ecloud-sdk-ims:1.0.14'
-  implementation 'com.ecloud.sdk:ecloud-sdk-vlb:1.0.4'
+  implementation 'com.ecloud.sdk:ecloud-sdk-vlb:1.0.7'
   implementation 'com.ecloud.sdk:ecloud-sdk-vpc:1.0.18'
   implementation 'com.google.guava:guava:31.0.1-jre'
 }
