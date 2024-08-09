@@ -280,9 +280,9 @@ public final class EcloudLbUtil {
           }
         }
       }
-      log.info("Check LoadbalancerTask status({}) again after 120s...", requestId);
+      log.info("Check LoadbalancerTask status({}) again after 30s...", requestId);
       try {
-        Thread.sleep(120000);
+        Thread.sleep(30000);
       } catch (InterruptedException e) {
       }
     }

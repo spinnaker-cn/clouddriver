@@ -8,6 +8,9 @@ import com.netflix.spinnaker.clouddriver.ecloud.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudInstance;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudTag;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudZone;
+import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancer;
+import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerMember;
+import com.netflix.spinnaker.clouddriver.ecloud.model.loadBalancer.EcloudLoadBalancerPool;
 import com.netflix.spinnaker.clouddriver.ecloud.provider.agent.EcloudZoneHelper;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider;
@@ -25,7 +28,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * @author xu.dangling
- * @date 2024/4/11 @Description
+ * @Description
+ * @date 2024/4/11
  */
 @Slf4j
 @Component
@@ -80,16 +84,33 @@ public class EcloudInstanceProvider implements InstanceProvider<EcloudInstance, 
         List<Map> lbInfos = (List<Map>) serverGroupEntry.getAttributes().get("loadBalancers");
         if (lbInfos != null && !lbInfos.isEmpty()) {
           Map<String, String> lbMemberMap = new HashMap<>();
+          for (Map lbInfo : lbInfos) {
+            String lbId = (String) lbInfo.get("loadBalancerId");
+            CacheData lbCache = cacheView.get(Keys.Namespace.LOAD_BALANCERS.ns, Keys.getLoadBalancerKey(lbId, account, region));
+            EcloudLoadBalancer loadBalancer =
+              objectMapper.convertValue(lbCache.getAttributes(), EcloudLoadBalancer.class);
+            if (loadBalancer != null && loadBalancer.getPools() != null) {
+              for (EcloudLoadBalancerPool pool : loadBalancer.getPools()) {
+                if (pool.getMembers() != null) {
+                  for (EcloudLoadBalancerMember member : pool.getMembers()) {
+                    if (member.getVmHostId().equals(id)) {
+                      lbMemberMap.put(pool.getPoolId(), member.getId());
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          instance.setLbMemberMap(lbMemberMap);
           boolean allup = true;
           for (Map lbInfo : lbInfos) {
             String lbId = (String) lbInfo.get("loadBalancerId");
             String poolId = (String) lbInfo.get("loadBalancerPoolId");
-            String healthCheckKey = Keys.getTargetHealthKey(lbId, poolId, id, account, region);
-            CacheData health = cacheView.get(Keys.Namespace.HEALTH_CHECKS.ns, healthCheckKey);
+            CacheData health = cacheView.get(Keys.Namespace.HEALTH_CHECKS.ns, Keys.getTargetHealthKey(lbId, poolId, id, account, region));
             if (health != null) {
               Map targetHealth = (Map) health.getAttributes().get("targetHealth");
               if (targetHealth != null) {
-                lbMemberMap.put(poolId, (String) targetHealth.get("memberId"));
                 String healthStatus = (String) targetHealth.get("healthStatus");
                 if ("DOWN".equalsIgnoreCase(healthStatus)) {
                   healthState = HealthState.Down;
@@ -115,7 +136,6 @@ public class EcloudInstanceProvider implements InstanceProvider<EcloudInstance, 
           if (healthState == null) {
             healthState = HealthState.Unknown;
           }
-          instance.setLbMemberMap(lbMemberMap);
         }
         instance.setVpcId((String) serverGroupEntry.getAttributes().get("realVpcId"));
         Map sc = (Map) serverGroupEntry.getAttributes().get("scalingConfig");
