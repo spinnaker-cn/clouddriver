@@ -28,7 +28,6 @@ import org.springframework.stereotype.Component;
 
 /**
  * @author xu.dangling
- * @Description
  * @date 2024/4/11
  */
 @Slf4j
@@ -86,9 +85,12 @@ public class EcloudInstanceProvider implements InstanceProvider<EcloudInstance, 
           Map<String, String> lbMemberMap = new HashMap<>();
           for (Map lbInfo : lbInfos) {
             String lbId = (String) lbInfo.get("loadBalancerId");
-            CacheData lbCache = cacheView.get(Keys.Namespace.LOAD_BALANCERS.ns, Keys.getLoadBalancerKey(lbId, account, region));
+            CacheData lbCache =
+                cacheView.get(
+                    Keys.Namespace.LOAD_BALANCERS.ns,
+                    Keys.getLoadBalancerKey(lbId, account, region));
             EcloudLoadBalancer loadBalancer =
-              objectMapper.convertValue(lbCache.getAttributes(), EcloudLoadBalancer.class);
+                objectMapper.convertValue(lbCache.getAttributes(), EcloudLoadBalancer.class);
             if (loadBalancer != null && loadBalancer.getPools() != null) {
               for (EcloudLoadBalancerPool pool : loadBalancer.getPools()) {
                 if (pool.getMembers() != null) {
@@ -107,7 +109,10 @@ public class EcloudInstanceProvider implements InstanceProvider<EcloudInstance, 
           for (Map lbInfo : lbInfos) {
             String lbId = (String) lbInfo.get("loadBalancerId");
             String poolId = (String) lbInfo.get("loadBalancerPoolId");
-            CacheData health = cacheView.get(Keys.Namespace.HEALTH_CHECKS.ns, Keys.getTargetHealthKey(lbId, poolId, id, account, region));
+            CacheData health =
+                cacheView.get(
+                    Keys.Namespace.HEALTH_CHECKS.ns,
+                    Keys.getTargetHealthKey(lbId, poolId, id, account, region));
             if (health != null) {
               Map targetHealth = (Map) health.getAttributes().get("targetHealth");
               if (targetHealth != null) {
@@ -154,12 +159,14 @@ public class EcloudInstanceProvider implements InstanceProvider<EcloudInstance, 
     }
     if (healthState == null) {
       // lb not found
-      healthState = HealthState.Down;
+      healthState = HealthState.Unknown;
       int status = (int) attributes.get("status");
-      if (status == 1) {
-        healthState = HealthState.Up;
-      } else if (status == 18) {
+      if (status == 2 || status == 3) {
+        healthState = HealthState.Starting;
+      } else if (status == 1 || status == 18) {
         healthState = HealthState.Unknown;
+      } else if (status == 15) {
+        healthState = HealthState.Down;
       }
     }
     instance.setHealthState(healthState);

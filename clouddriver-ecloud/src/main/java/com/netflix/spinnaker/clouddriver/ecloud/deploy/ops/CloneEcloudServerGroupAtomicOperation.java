@@ -6,12 +6,9 @@ import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.ecloud.deploy.description.EcloudDeployDescription;
 import com.netflix.spinnaker.clouddriver.ecloud.deploy.handlers.EcloudDeployHandler;
 import com.netflix.spinnaker.clouddriver.ecloud.exception.ExceptionUtils;
-import com.netflix.spinnaker.clouddriver.ecloud.provider.view.EcloudClusterProvider;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class CloneEcloudServerGroupAtomicOperation implements AtomicOperation<DeploymentResult> {
@@ -20,9 +17,8 @@ public class CloneEcloudServerGroupAtomicOperation implements AtomicOperation<De
 
   private EcloudDeployDescription description;
 
-  @Autowired private EcloudClusterProvider ecloudClusterProvider;
-
-  @Autowired private EcloudDeployHandler ecloudDeployHandler;
+  @Autowired
+  private EcloudDeployHandler ecloudDeployHandler;
 
   public CloneEcloudServerGroupAtomicOperation(EcloudDeployDescription description) {
     this.description = description;

@@ -225,14 +225,25 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
     EcloudResponse response = EcloudOpenApiHelper.execute(request);
     if (response.getErrorMessage() != null) {
       log.error("Create scaling config failed with response:" + JSONObject.toJSONString(response));
-      throw new EcloudException(response.getErrorMessage());
+      StringBuffer errMsg = new StringBuffer();
+      errMsg
+          .append(response.getErrorMessage())
+          .append("(")
+          .append(response.getRequestId())
+          .append(")");
+      throw new EcloudException(errMsg.toString());
     }
     Map body = (Map) response.getBody();
     if (body != null && body.get("scalingConfigId") != null) {
       return (String) body.get("scalingConfigId");
     } else {
       log.error("Create scaling config failed with response:" + JSONObject.toJSONString(response));
-      throw new EcloudException("Create ScalingConfig Return Empty id");
+      StringBuffer errMsg = new StringBuffer();
+      errMsg
+          .append("Create ScalingConfig Return Empty id(")
+          .append(response.getRequestId())
+          .append(")");
+      throw new EcloudException(errMsg.toString());
     }
   }
 
@@ -296,14 +307,25 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
     EcloudResponse response = EcloudOpenApiHelper.execute(request);
     if (response.getErrorMessage() != null) {
       log.error("Create scalingGroup failed with response:" + JSONObject.toJSONString(response));
-      throw new EcloudException(response.getErrorMessage());
+      StringBuffer errMsg = new StringBuffer();
+      errMsg
+          .append(response.getErrorMessage())
+          .append("(")
+          .append(response.getRequestId())
+          .append(")");
+      throw new EcloudException(errMsg.toString());
     }
     Map body = (Map) response.getBody();
     if (body != null && body.get("scalingGroupId") != null) {
       return (String) body.get("scalingGroupId");
     } else {
       log.error("Create scalingGroup failed with response:" + JSONObject.toJSONString(response));
-      throw new EcloudException("create ScalingGroup Return Empty id!");
+      StringBuffer errMsg = new StringBuffer();
+      errMsg
+          .append("create ScalingGroup Return Empty id!(")
+          .append(response.getRequestId())
+          .append(")");
+      throw new EcloudException(errMsg.toString());
     }
   }
 
