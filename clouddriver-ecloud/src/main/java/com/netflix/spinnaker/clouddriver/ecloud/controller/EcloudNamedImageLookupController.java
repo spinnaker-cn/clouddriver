@@ -179,8 +179,7 @@ public class EcloudNamedImageLookupController {
         namedImage ->
             !StringUtils.isEmpty(requiredRegion) && !namedImage.imgIds.containsKey(requiredRegion));
     results.removeIf(
-        namedImage ->
-            !StringUtils.isEmpty(imageName) && !imageName.equalsIgnoreCase(namedImage.imageName));
+        namedImage -> !StringUtils.isEmpty(imageName) && !namedImage.imageName.contains(imageName));
 
     return results;
   }
