@@ -360,7 +360,11 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (rsp.getErrorMessage() != null) {
         log.error("Create scaling rule failed with response:" + JSONObject.toJSONString(rsp));
-        return "Create Scaling Rule Return Error " + rsp.getErrorMessage();
+        return "Create Scaling Rule Return Error "
+            + rsp.getErrorMessage()
+            + "("
+            + rsp.getRequestId()
+            + ")";
       }
       Map rspBody = (Map) rsp.getBody();
       if (rspBody == null || rspBody.get("scalingRuleId") == null) {
@@ -396,7 +400,11 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (rsp.getErrorMessage() != null) {
         log.error("Create alarm task failed with response:" + JSONObject.toJSONString(rsp));
-        return "Create Alarm Task Return Error " + rsp.getErrorMessage();
+        return "Create Alarm Task Return Error "
+            + rsp.getErrorMessage()
+            + "("
+            + rsp.getRequestId()
+            + ")";
       }
     }
     // copy scheduled tasks
@@ -416,6 +424,7 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       body.put("period", task.get("period"));
       body.put("periodValue", task.get("periodValue"));
       body.put("expireTime", task.get("expireTime"));
+      body.put("retryExpireTime", task.get("retryExpireTime"));
       body.put("description", task.get("description"));
       body.put("scalingRuleId", newScalingRuleMap.get(task.get("scalingRuleId")));
       body.put("scalingGroupId", description.getScalingGroupId());
@@ -423,7 +432,11 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
       if (rsp.getErrorMessage() != null) {
         log.error("Create scheduled task failed with response:" + JSONObject.toJSONString(rsp));
-        return "Create Scheduled Task Return Error " + rsp.getErrorMessage();
+        return "Create Scheduled Task Return Error "
+            + rsp.getErrorMessage()
+            + "("
+            + rsp.getRequestId()
+            + ")";
       }
     }
     return null;
@@ -444,7 +457,11 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
     EcloudResponse enableRsp = EcloudOpenApiHelper.execute(enableRequest);
     if (enableRsp.getErrorMessage() != null) {
       log.error("Enable scalingGroup failed with response:" + JSONObject.toJSONString(enableRsp));
-      return "Enable Server Group Return Error " + enableRsp.getErrorMessage();
+      return "Enable Server Group Return Error "
+          + enableRsp.getErrorMessage()
+          + "("
+          + enableRsp.getRequestId()
+          + ")";
     }
     return null;
   }
