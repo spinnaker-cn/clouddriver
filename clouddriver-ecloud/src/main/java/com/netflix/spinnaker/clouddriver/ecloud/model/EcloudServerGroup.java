@@ -2,6 +2,7 @@ package com.netflix.spinnaker.clouddriver.ecloud.model;
 
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,7 +49,7 @@ public class EcloudServerGroup implements ServerGroup {
   @Override
   public InstanceCounts getInstanceCounts() {
     if (instances != null) {
-      return ServerGroup.InstanceCounts.builder()
+      return InstanceCounts.builder()
           .total(instances.size())
           .down(
               (int)
@@ -69,11 +70,29 @@ public class EcloudServerGroup implements ServerGroup {
   }
 
   @Override
+  public ImagesSummary getImagesSummary() {
+    return new ServerGroup.ImagesSummary() {
+      @Override
+      public List<? extends ImageSummary> getSummaries() {
+        List<ServerGroup.ImageSummary> list = new ArrayList<>();
+        EcloudImageSummary summary = new EcloudImageSummary(launchConfig, name);
+        list.add(summary);
+        return list;
+      }
+    };
+  }
+
+  @Override
   public ImageSummary getImageSummary() {
+    if (imagesSummary != null
+        && imagesSummary.getSummaries() != null
+        && !imagesSummary.getSummaries().isEmpty()) {
+      return imagesSummary.getSummaries().get(0);
+    }
     return null;
   }
 
-  public static class EcloudImageSummary implements ServerGroup.ImageSummary {
+  public static class EcloudImageSummary implements ImageSummary {
 
     private Map<String, Object> i;
     private String serverGroupName;
