@@ -189,7 +189,7 @@ public class EcloudLoadbalancerCachingAgent implements CachingAgent, AccountAwar
       Moniker moniker = namer.deriveMoniker(eclb);
       String applicationName = moniker.getApp();
       if (applicationName == null) {
-        break;
+        continue;
       }
 
       String loadBalancerKey = Keys.getLoadBalancerKey(eclb.getId(), this.getAccountName(), region);

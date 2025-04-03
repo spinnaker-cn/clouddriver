@@ -89,6 +89,10 @@ public class EcloudInstanceProvider implements InstanceProvider<EcloudInstance, 
                 cacheView.get(
                     Keys.Namespace.LOAD_BALANCERS.ns,
                     Keys.getLoadBalancerKey(lbId, account, region));
+            if (lbCache == null) {
+              log.error("LoadBalance Not Found, serverGroupName=" + asgName + ", lbId=" + lbId);
+              continue;
+            }
             EcloudLoadBalancer loadBalancer =
                 objectMapper.convertValue(lbCache.getAttributes(), EcloudLoadBalancer.class);
             if (loadBalancer != null && loadBalancer.getPools() != null) {
