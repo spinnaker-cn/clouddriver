@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.clouddriver.ecloud.provider.agent;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.ecloud.client.openapi.EcloudOpenApiHelper;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudRequest;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
@@ -21,8 +20,6 @@ import lombok.extern.slf4j.Slf4j;
 public class EcloudZoneHelper {
 
   private static ConcurrentHashMap<String, Map<String, EcloudZone>> map = new ConcurrentHashMap<>();
-
-  private static ObjectMapper objectMapper = new ObjectMapper();
 
   public static Collection<EcloudZone> getEcloudZones(String account, String poolId) {
     String key = account + "-" + poolId;
@@ -60,7 +57,16 @@ public class EcloudZoneHelper {
     Map<String, EcloudZone> availableZones = new HashMap<>();
     if (body != null && !body.isEmpty()) {
       for (Map map : body) {
-        EcloudZone zone = objectMapper.convertValue(map, EcloudZone.class);
+        EcloudZone zone = new EcloudZone();
+        zone.setId(Long.parseLong("" + map.get("id")));
+        zone.setRegion((String) map.get("region"));
+        zone.setName((String) map.get("name"));
+        zone.setComponent((String) map.get("component"));
+        zone.setPoolId((String) map.get("poolId"));
+        zone.setDeleted((Boolean) map.get("deleted"));
+        zone.setVisible((Boolean) map.get("visible"));
+        zone.setType((String) map.get("type"));
+        zone.setStatus((String) map.get("status"));
         if (!zone.getDeleted() && zone.getVisible()) {
           availableZones.put(zone.getRegion(), zone);
         }
