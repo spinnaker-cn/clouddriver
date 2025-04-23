@@ -503,23 +503,18 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
 
   private String getNewLaunchTime(String launchTime) throws ParseException {
     SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
+    df.setTimeZone(TimeZone.getTimeZone("UTC"));
     Date launchTimeDate = df.parse(launchTime);
-    Calendar launchTimeCalendar = Calendar.getInstance();
-    launchTimeCalendar.setTime(new Date());
-    Calendar oldCalendar = Calendar.getInstance();
-    oldCalendar.setTime(launchTimeDate);
 
-    Calendar down8Calendar = Calendar.getInstance();
-    down8Calendar.setTime(new Date());
-    down8Calendar.add(Calendar.HOUR, -8); // 24小时制
+    Calendar nowTimeCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    Calendar onlineCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    onlineCalendar.setTime(launchTimeDate);
 
-    if (launchTimeDate.before(down8Calendar.getTime())) {
-      launchTimeCalendar.set(Calendar.MINUTE, oldCalendar.get(Calendar.MINUTE));
-      launchTimeCalendar.set(Calendar.HOUR_OF_DAY, oldCalendar.get(Calendar.HOUR_OF_DAY));
-      if (launchTimeCalendar.getTime().before(down8Calendar.getTime())) {
-        launchTimeCalendar.add(Calendar.DATE, 1);
-      }
-      return df.format(launchTimeCalendar.getTime());
+    if (onlineCalendar.before(nowTimeCalendar)) {
+      nowTimeCalendar.set(Calendar.MINUTE, onlineCalendar.get(Calendar.MINUTE));
+      nowTimeCalendar.set(Calendar.HOUR_OF_DAY, onlineCalendar.get(Calendar.HOUR_OF_DAY));
+      nowTimeCalendar.add(Calendar.DATE, 1);
+      return df.format(nowTimeCalendar.getTime());
     }
     return launchTime;
   }
