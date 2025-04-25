@@ -502,7 +502,6 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
   }
 
   private String getNewLaunchTime(String launchTime) throws ParseException {
-    log.info("fix_launchTime_origin is " launchTime);
     SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
     df.setTimeZone(TimeZone.getTimeZone("UTC"));
     Date launchTimeDate = df.parse(launchTime);
@@ -511,13 +510,12 @@ public class CreateAliCloudServerGroupAtomicOperation implements AtomicOperation
     Calendar onlineCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     onlineCalendar.setTime(launchTimeDate);
 
-    log.info("fix_nowTimeCalendar is " nowTimeCalendar.getTime());
-    log.info("fix_onlineCalendar is " onlineCalendar.getTime());
-
     if (onlineCalendar.before(nowTimeCalendar)) {
       nowTimeCalendar.set(Calendar.MINUTE, onlineCalendar.get(Calendar.MINUTE));
+      if(nowTimeCalendar.get(Calendar.HOUR_OF_DAY)>onlineCalendar.get(Calendar.HOUR_OF_DAY)){
+        nowTimeCalendar.add(Calendar.DATE, 1);
+      }
       nowTimeCalendar.set(Calendar.HOUR_OF_DAY, onlineCalendar.get(Calendar.HOUR_OF_DAY));
-      nowTimeCalendar.add(Calendar.DATE, 1);
       return df.format(nowTimeCalendar.getTime());
     }
     return launchTime;
