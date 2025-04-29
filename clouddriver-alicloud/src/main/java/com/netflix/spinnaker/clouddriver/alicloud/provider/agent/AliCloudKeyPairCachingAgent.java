@@ -35,6 +35,8 @@ import com.netflix.spinnaker.clouddriver.alicloud.exception.ExceptionUtils;
 import com.netflix.spinnaker.clouddriver.alicloud.provider.AliProvider;
 import com.netflix.spinnaker.clouddriver.alicloud.security.AliCloudCredentials;
 import com.netflix.spinnaker.monitor.enums.AlarmLevelEnum;
+import org.springframework.util.CollectionUtils;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -71,23 +73,35 @@ public class AliCloudKeyPairCachingAgent implements CachingAgent {
     Map<String, Collection<CacheData>> resultMap = new HashMap<>(16);
     List<CacheData> keyPairDatas = new ArrayList<>();
     DescribeKeyPairsRequest keyPairsRequest = new DescribeKeyPairsRequest();
-    keyPairsRequest.setPageSize(50);
+    int pageNumber = 1;
+    int pageSize = 50;
+
+
     DescribeKeyPairsResponse keyPairsResponse;
     try {
-      keyPairsResponse = client.getAcsResponse(keyPairsRequest);
-      for (KeyPair keyPair : keyPairsResponse.getKeyPairs()) {
-        Map<String, Object> attributes = objectMapper.convertValue(keyPair, Map.class);
-        attributes.put("provider", AliCloudProvider.ID);
-        attributes.put("account", account.getName());
-        attributes.put("regionId", region);
-        CacheData data =
-            new DefaultCacheData(
+      while (true) {
+        keyPairsRequest.setPageSize(pageSize);
+        keyPairsRequest.setPageNumber(pageNumber);
+        keyPairsResponse = client.getAcsResponse(keyPairsRequest);
+        if(!CollectionUtils.isEmpty(keyPairsResponse.getKeyPairs())){
+          pageNumber = pageNumber + 1;
+          for (KeyPair keyPair : keyPairsResponse.getKeyPairs()) {
+            Map<String, Object> attributes = objectMapper.convertValue(keyPair, Map.class);
+            attributes.put("provider", AliCloudProvider.ID);
+            attributes.put("account", account.getName());
+            attributes.put("regionId", region);
+            CacheData data =
+              new DefaultCacheData(
                 Keys.getKeyPairKey(keyPair.getKeyPairName(), region, account.getName()),
                 attributes,
                 new HashMap<>(16));
-        keyPairDatas.add(data);
-      }
+            keyPairDatas.add(data);
+          }
+        } else {
+          break;
+        }
 
+      }
     } catch (Exception e) {
       ExceptionUtils.registerMetric(e, AlarmLevelEnum.LEVEL_2);
       e.printStackTrace();
