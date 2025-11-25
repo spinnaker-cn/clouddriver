@@ -43,6 +43,12 @@ subprojects {
   group = "com.netflix.spinnaker.clouddriver"
   apply plugin: 'io.spinnaker.project'
 
+  repositories {
+    maven { url "http://spinnaker.maven.cn:8000/repository/spinnaker-public/"}
+    gradlePluginPortal()
+  }
+
+
   if (name != "clouddriver-bom") {
     apply plugin: 'java-library'
     apply plugin: 'groovy'
@@ -97,6 +103,10 @@ subprojects {
     if (System.getProperty('DEBUG', 'false') == 'true') {
       jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=7102'
     }
+  }
+
+  plugins.withId("com.diffplug.gradle.spotless") {
+    tasks.withType(com.diffplug.gradle.spotless.SpotlessTask) { enabled = false }
   }
 }
 
