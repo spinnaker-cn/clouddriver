@@ -4,7 +4,7 @@ server:
     enabled: false
 
 redis:
-  connection: redis://localhost:6379
+  connection: redis://10.1.108.140:6379
   scheduler: default
   parallelism: -1
 
@@ -313,10 +313,10 @@ hecloud:
       accessKeyId: ${HE_ACCOUNT_ACCESS_KEY_ID}
       accessSecretKey: ${HE_ACCOUNT_ACCESS_SECRET_KEY}
       regions:
-        - name: ${HE_ACCOUNT_REGIONS_NAME}	  
+        - name: ${HE_ACCOUNT_REGIONS_NAME}
 
 ecloud:
-  enabled: true
+  enabled: false
   accounts:
     - name: my-ecloud-account
       accessKey: ${ECLOUD_ACCESS_KEY}
