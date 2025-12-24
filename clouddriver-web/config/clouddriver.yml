@@ -323,6 +323,17 @@ ecloud:
       secretKey: ${ECLOUD_SECRET_KEY}
       regions: ["CIDC-RP-29"]
 
+alicloud:
+  enabled: ${ALICLOUD_ENABLED:false}
+  accounts:
+    - name: pcloud-account
+      accessKeyId: ${ALICLOUD_KEY_ID}
+      accessSecretKey: ${ALICLOUD_SECRET_KEY}
+      permissions: {}
+      regions:
+        - cn-beijing
+
+
 spring:
   jackson:
     mapper:
