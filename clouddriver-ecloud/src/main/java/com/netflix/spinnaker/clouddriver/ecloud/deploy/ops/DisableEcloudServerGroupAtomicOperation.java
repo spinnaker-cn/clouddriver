@@ -23,14 +23,16 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 /**
- * @author xu.dangling
- * @Description Disable Ecloud Scaling Group
+ * @author xu.dangling @Description Disable Ecloud Scaling Group
  * @date 2024/4/11
  */
 @Slf4j
 public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<Void> {
 
   private static final String BASE_PHASE = "DISABLE_SERVER_GROUP";
+
+  /** 单次 batchDelete 接口的 memberIds 数量上限(loadBalanceProperties.getBatchCreateMemberLimit,默认 20) */
+  private static final int LB_MEMBER_BATCH_SIZE = 20;
 
   @Autowired private EcloudClusterProvider ecloudClusterProvider;
 
@@ -54,6 +56,12 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
         ecloudClusterProvider.getServerGroup(
             description.getAccount(), description.getRegion(), description.getServerGroupName());
     if (sg != null) {
+      log.info(
+          "DisableServerGroup start: serverGroup={}, account={}, region={}, scalingGroupId={}",
+          description.getServerGroupName(),
+          description.getAccount(),
+          description.getRegion(),
+          sg.getScalingGroupId());
       // check the state of sg
       EcloudRequest checkReq =
           new EcloudRequest(
@@ -89,6 +97,11 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
       List<EcloudServerGroup.ForwardLoadBalancer> lbs = sg.getForwardLoadBalancers();
       if (!CollectionUtils.isEmpty(lbs)) {
         Set<EcloudInstance> instanceSet = sg.getInstances();
+        log.info(
+            "DisableServerGroup {}: found {} forwardLoadBalancer(s), {} instance(s) to remove from pool.",
+            description.getServerGroupName(),
+            lbs.size(),
+            instanceSet.size());
         for (EcloudServerGroup.ForwardLoadBalancer lb : lbs) {
           List<String> members = new ArrayList<>();
           for (EcloudInstance inst : instanceSet) {
@@ -96,6 +109,11 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
                 && inst.getLbMemberMap().get(lb.getPoolId()) != null) {
               members.add(inst.getLbMemberMap().get(lb.getPoolId()));
             } else {
+              log.error(
+                  "DisableServerGroup {}: instance {} has no lb member mapping for poolId={}, abort.",
+                  description.getServerGroupName(),
+                  inst.getName(),
+                  lb.getPoolId());
               getTask()
                   .updateStatus(
                       BASE_PHASE,
@@ -107,41 +125,75 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
               return null;
             }
           }
-          EcloudRequest memberRequest =
-              new EcloudRequest(
-                  "DELETE",
-                  description.getRegion(),
-                  "/api/openapi-vlb/lb-console/acl/v3/member/"
+          // 按 LB_MEMBER_BATCH_SIZE 分批删除,避免单次 memberIds 超过接口上限触发异常
+          int batchCount = (members.size() + LB_MEMBER_BATCH_SIZE - 1) / LB_MEMBER_BATCH_SIZE;
+          log.info(
+              "DisableServerGroup {}: poolId={} has {} member(s) to delete, split into {} batch(es) of up to {}.",
+              description.getServerGroupName(),
+              lb.getPoolId(),
+              members.size(),
+              batchCount,
+              LB_MEMBER_BATCH_SIZE);
+          getTask()
+              .updateStatus(
+                  BASE_PHASE,
+                  "Removing "
+                      + members.size()
+                      + " member(s) from pool "
                       + lb.getPoolId()
-                      + "/member/batchDelete",
-                  description.getCredentials().getAccessKey(),
-                  description.getCredentials().getSecretKey());
-          Map<String, Object> memberBody = new HashMap<>();
-          memberBody.put("memberIds", members);
-          memberRequest.setBodyParams(memberBody);
-          EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
-          if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
-            log.error(
-                "Delete LbMemeber failed with response:" + JSONObject.toJSONString(memberRsp));
-            StringBuffer info = new StringBuffer();
-            info.append("DeleteLbMember Failed:")
-                .append(memberRsp.getErrorMessage())
-                .append("(")
-                .append(memberRsp.getRequestId())
-                .append(")");
-            getTask().updateStatus(BASE_PHASE, info.toString());
-            getTask().fail(false);
-            return null;
-          }
-          boolean lbOk =
-              EcloudLbUtil.checkLbTaskStatus(
-                  description.getRegion(),
-                  description.getCredentials().getAccessKey(),
-                  description.getCredentials().getSecretKey(),
-                  memberRsp.getRequestId());
-          if (!lbOk) {
-            log.error(
-                "Check LoadBalance Status Failed. RemoveMemberFromLb Operation may fail later.");
+                      + ", split into "
+                      + batchCount
+                      + " batch(es) of up to "
+                      + LB_MEMBER_BATCH_SIZE
+                      + ".");
+          for (int i = 0; i < members.size(); i += LB_MEMBER_BATCH_SIZE) {
+            List<String> batch =
+                members.subList(i, Math.min(i + LB_MEMBER_BATCH_SIZE, members.size()));
+            int batchIndex = i / LB_MEMBER_BATCH_SIZE + 1;
+            log.info(
+                "DisableServerGroup {}: poolId={} deleting batch {}/{}, memberIds={}",
+                description.getServerGroupName(),
+                lb.getPoolId(),
+                batchIndex,
+                batchCount,
+                batch);
+            getTask()
+                .updateStatus(
+                    BASE_PHASE,
+                    "Deleting lb member batch "
+                        + batchIndex
+                        + "/"
+                        + batchCount
+                        + " from pool "
+                        + lb.getPoolId()
+                        + " ("
+                        + batch.size()
+                        + " member(s))...");
+            if (!deleteLbMemberBatch(lb.getPoolId(), batch)) {
+              log.error(
+                  "DisableServerGroup {}: poolId={} batch {}/{} failed, abort remaining batches.",
+                  description.getServerGroupName(),
+                  lb.getPoolId(),
+                  batchIndex,
+                  batchCount);
+              return null;
+            }
+            log.info(
+                "DisableServerGroup {}: poolId={} batch {}/{} done.",
+                description.getServerGroupName(),
+                lb.getPoolId(),
+                batchIndex,
+                batchCount);
+            getTask()
+                .updateStatus(
+                    BASE_PHASE,
+                    "Batch "
+                        + batchIndex
+                        + "/"
+                        + batchCount
+                        + " done for pool "
+                        + lb.getPoolId()
+                        + ".");
           }
         }
       }
@@ -184,6 +236,62 @@ public class DisableEcloudServerGroupAtomicOperation implements AtomicOperation<
       getTask().fail(false);
     }
     return null;
+  }
+
+  /**
+   * 删除单个 pool 的一批 member(不超过 {@link #LB_MEMBER_BATCH_SIZE} 个)。
+   *
+   * @return true=本批提交成功(轮询失败仅告警,不视为提交失败);false=提交失败,已 task.fail,调用方应中断
+   */
+  private boolean deleteLbMemberBatch(String poolId, List<String> memberIds) {
+    EcloudRequest memberRequest =
+        new EcloudRequest(
+            "DELETE",
+            description.getRegion(),
+            "/api/openapi-vlb/lb-console/acl/v3/member/" + poolId + "/member/batchDelete",
+            description.getCredentials().getAccessKey(),
+            description.getCredentials().getSecretKey());
+    Map<String, Object> memberBody = new HashMap<>();
+    memberBody.put("memberIds", memberIds);
+    memberRequest.setBodyParams(memberBody);
+    EcloudResponse memberRsp = EcloudOpenApiHelper.execute(memberRequest);
+    if (!StringUtils.isEmpty(memberRsp.getErrorMessage())) {
+      log.error("Delete LbMemeber failed with response:" + JSONObject.toJSONString(memberRsp));
+      StringBuffer info = new StringBuffer();
+      info.append("DeleteLbMember Failed:")
+          .append(memberRsp.getErrorMessage())
+          .append("(")
+          .append(memberRsp.getRequestId())
+          .append(")");
+      getTask().updateStatus(BASE_PHASE, info.toString());
+      getTask().fail(false);
+      return false;
+    }
+    log.info(
+        "DeleteLbMember submitted: poolId={}, requestId={}, memberIds={}, start polling task status.",
+        poolId,
+        memberRsp.getRequestId(),
+        memberIds);
+    boolean lbOk =
+        EcloudLbUtil.checkLbTaskStatus(
+            description.getRegion(),
+            description.getCredentials().getAccessKey(),
+            description.getCredentials().getSecretKey(),
+            memberRsp.getRequestId());
+    if (!lbOk) {
+      log.error(
+          "Check LoadBalance Status Failed. RemoveMemberFromLb Operation may fail later. poolId={}, requestId={}, memberIds={}",
+          poolId,
+          memberRsp.getRequestId(),
+          memberIds);
+    } else {
+      log.info(
+          "DeleteLbMember confirmed success: poolId={}, requestId={}, memberIds={}",
+          poolId,
+          memberRsp.getRequestId(),
+          memberIds);
+    }
+    return true;
   }
 
   static Task getTask() {
