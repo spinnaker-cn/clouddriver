@@ -98,6 +98,7 @@ public final class EcloudLbUtil {
     for (String lbId : lbIds) {
       int page = 1;
       int size = 50;
+      int fetchedCount = 0;
       while (true) {
         ListLoadBalanceListenerRespRequest request = new ListLoadBalanceListenerRespRequest();
         ListLoadBalanceListenerRespPath queryPath = new ListLoadBalanceListenerRespPath();
@@ -117,7 +118,8 @@ public final class EcloudLbUtil {
           List<ListLoadBalanceListenerRespResponseContent> currLbList = rsp.getBody().getContent();
           if (!CollectionUtils.isEmpty(currLbList)) {
             listenerList.addAll(currLbList);
-            if (listenerList.size() < rsp.getBody().getTotal()) {
+            fetchedCount += currLbList.size();
+            if (fetchedCount < rsp.getBody().getTotal()) {
               page++;
               continue;
             }
@@ -145,6 +147,7 @@ public final class EcloudLbUtil {
     for (String lbId : lbIds) {
       int page = 1;
       int size = 50;
+      int fetchedCount = 0;
       while (true) {
         ListPoolRespRequest request = new ListPoolRespRequest();
         ListPoolRespQuery query = new ListPoolRespQuery();
@@ -162,7 +165,8 @@ public final class EcloudLbUtil {
           List<ListPoolRespResponseContent> currLbList = rsp.getBody().getContent();
           if (!CollectionUtils.isEmpty(currLbList)) {
             poolList.addAll(currLbList);
-            if (poolList.size() < rsp.getBody().getTotal()) {
+            fetchedCount += currLbList.size();
+            if (fetchedCount < rsp.getBody().getTotal()) {
               page++;
               continue;
             }
@@ -190,6 +194,7 @@ public final class EcloudLbUtil {
       String poolId = pool.getPoolId();
       int page = 1;
       int size = 50;
+      int fetchedCount = 0;
       while (true) {
         ListLoadBalancePoolMemberRequest request = new ListLoadBalancePoolMemberRequest();
         ListLoadBalancePoolMemberQuery query = new ListLoadBalancePoolMemberQuery();
@@ -209,7 +214,8 @@ public final class EcloudLbUtil {
           List<ListLoadBalancePoolMemberResponseContent> currLbList = rsp.getBody().getContent();
           if (!CollectionUtils.isEmpty(currLbList)) {
             memberList.addAll(currLbList);
-            if (memberList.size() < rsp.getBody().getTotal()) {
+            fetchedCount += currLbList.size();
+            if (fetchedCount < rsp.getBody().getTotal()) {
               page++;
               continue;
             }
