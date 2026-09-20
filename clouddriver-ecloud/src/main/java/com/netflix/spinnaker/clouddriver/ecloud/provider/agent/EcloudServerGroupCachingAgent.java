@@ -43,26 +43,26 @@ import org.springframework.util.StringUtils;
  * @date 2024/4/9 @Description
  */
 public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
-    implements OnDemandAgent {
+  implements OnDemandAgent {
 
   private static final Collection<AgentDataType> types =
-      Collections.unmodifiableCollection(
-          new ArrayList<AgentDataType>() {
-            {
-              add(AUTHORITATIVE.forType(Keys.Namespace.SERVER_GROUPS.ns));
-              add(AUTHORITATIVE.forType(Keys.Namespace.CLUSTERS.ns));
-              add(AUTHORITATIVE.forType(Keys.Namespace.APPLICATIONS.ns));
-            }
-          });
+    Collections.unmodifiableCollection(
+      new ArrayList<AgentDataType>() {
+        {
+          add(AUTHORITATIVE.forType(Keys.Namespace.SERVER_GROUPS.ns));
+          add(AUTHORITATIVE.forType(Keys.Namespace.CLUSTERS.ns));
+          add(AUTHORITATIVE.forType(Keys.Namespace.APPLICATIONS.ns));
+        }
+      });
 
   private OnDemandMetricsSupport metricsSupport;
 
   public EcloudServerGroupCachingAgent(
-      EcloudCredentials account, String region, Registry registry, ObjectMapper objectMapper) {
+    EcloudCredentials account, String region, Registry registry, ObjectMapper objectMapper) {
     super(account, region, objectMapper);
     metricsSupport =
-        new OnDemandMetricsSupport(
-            registry, this, EcloudProvider.ID + ":" + OnDemandType.ServerGroup);
+      new OnDemandMetricsSupport(
+        registry, this, EcloudProvider.ID + ":" + OnDemandType.ServerGroup);
   }
 
   @Override
@@ -79,53 +79,53 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
     List<CacheData> toKeepOnDemandCacheData = new ArrayList<>();
 
     Set<String> scalingGroupNames =
-        scalingGroupDataList.stream()
-            .map(
-                sg -> {
-                  return Keys.getServerGroupKey(
-                      (String) sg.get("scalingGroupName"), account.getName(), region);
-                })
-            .collect(Collectors.toSet());
+      scalingGroupDataList.stream()
+        .map(
+          sg -> {
+            return Keys.getServerGroupKey(
+              (String) sg.get("scalingGroupName"), account.getName(), region);
+          })
+        .collect(Collectors.toSet());
 
     Set<String> pendingOnDemandRequestKeys =
-        providerCache
-            .filterIdentifiers(
-                Keys.Namespace.ON_DEMAND.ns,
-                Keys.getServerGroupKey("*", "*", account.getName(), region))
-            .stream()
-            .filter(scalingGroupNames::contains)
-            .collect(Collectors.toSet());
+      providerCache
+        .filterIdentifiers(
+          Keys.Namespace.ON_DEMAND.ns,
+          Keys.getServerGroupKey("*", "*", account.getName(), region))
+        .stream()
+        .filter(scalingGroupNames::contains)
+        .collect(Collectors.toSet());
 
     Collection<CacheData> pendingOnDemandRequestsForServerGroups =
-        providerCache.getAll(Keys.Namespace.ON_DEMAND.ns, pendingOnDemandRequestKeys);
+      providerCache.getAll(Keys.Namespace.ON_DEMAND.ns, pendingOnDemandRequestKeys);
     pendingOnDemandRequestsForServerGroups.forEach(
-        it -> {
-          Date cacheTime = (Date) it.getAttributes().get("cacheTime");
-          Integer processedCount = (Integer) it.getAttributes().get("processedCount");
-          if ((cacheTime != null && cacheTime.getTime() >= start)
-              || (processedCount != null && processedCount <= 0)) {
-            toKeepOnDemandCacheData.add(it);
-          } else {
-            toEvictOnDemandCacheData.add(it);
-          }
-        });
+      it -> {
+        Date cacheTime = (Date) it.getAttributes().get("cacheTime");
+        Integer processedCount = (Integer) it.getAttributes().get("processedCount");
+        if ((cacheTime != null && cacheTime.getTime() >= start)
+          || (processedCount != null && processedCount <= 0)) {
+          toKeepOnDemandCacheData.add(it);
+        } else {
+          toEvictOnDemandCacheData.add(it);
+        }
+      });
 
     CacheResult result =
-        buildCacheResult(scalingGroupDataList, toKeepOnDemandCacheData, toEvictOnDemandCacheData);
+      buildCacheResult(scalingGroupDataList, toKeepOnDemandCacheData, toEvictOnDemandCacheData);
 
     result
-        .getCacheResults()
-        .get(Keys.Namespace.ON_DEMAND.ns)
-        .forEach(
-            it -> {
-              it.getAttributes().put("processedTime", System.currentTimeMillis());
-              it.getAttributes()
-                  .put(
-                      "processedCount",
-                      it.getAttributes().get("processedCount") == null
-                          ? 0
-                          : (int) it.getAttributes().get("processedCount") + 1);
-            });
+      .getCacheResults()
+      .get(Keys.Namespace.ON_DEMAND.ns)
+      .forEach(
+        it -> {
+          it.getAttributes().put("processedTime", System.currentTimeMillis());
+          it.getAttributes()
+            .put(
+              "processedCount",
+              it.getAttributes().get("processedCount") == null
+                ? 0
+                : (int) it.getAttributes().get("processedCount") + 1);
+        });
 
     return result;
   }
@@ -149,33 +149,33 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
   @Override
   public OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
     if (!data.containsKey("serverGroupName")
-        || !account.getName().equals(data.get("accountName"))
-        || !region.equals(data.get("region"))) {
+      || !account.getName().equals(data.get("accountName"))
+      || !region.equals(data.get("region"))) {
       return null;
     }
     String serverGroupName = (String) data.get("serverGroupName");
     Map scalingGroup =
-        metricsSupport.readData(
-            () -> {
-              List<Map> scalingGroups = this.loadScalingGroups(serverGroupName);
+      metricsSupport.readData(
+        () -> {
+          List<Map> scalingGroups = this.loadScalingGroups(serverGroupName);
 
-              Map sgInfo = null;
-              if (scalingGroups.size() == 1) {
-                sgInfo = scalingGroups.get(0);
-              } else {
-                // Barely happens: more than one scalingGroup were found, locate the right one.
-                sgInfo =
-                    scalingGroups.stream()
-                        .filter(one -> serverGroupName.equals(one.get("scalingGroupName")))
-                        .collect(Collectors.toList())
-                        .get(0);
-              }
-              return sgInfo;
-            });
+          Map sgInfo = null;
+          if (scalingGroups.size() == 1) {
+            sgInfo = scalingGroups.get(0);
+          } else {
+            // Barely happens: more than one scalingGroup were found, locate the right one.
+            sgInfo =
+              scalingGroups.stream()
+                .filter(one -> serverGroupName.equals(one.get("scalingGroupName")))
+                .collect(Collectors.toList())
+                .get(0);
+          }
+          return sgInfo;
+        });
 
     CacheResult cacheResult =
-        metricsSupport.transformData(
-            () -> buildCacheResult(Collections.singletonList(scalingGroup), null, null));
+      metricsSupport.transformData(
+        () -> buildCacheResult(Collections.singletonList(scalingGroup), null, null));
 
     String cacheResultAsJson;
     try {
@@ -189,30 +189,30 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
 
     if (cacheResult.getCacheResults().values().stream().allMatch(Collection::isEmpty)) {
       providerCache.evictDeletedItems(
-          Keys.Namespace.ON_DEMAND.ns, Collections.singletonList(serverGroupKey));
+        Keys.Namespace.ON_DEMAND.ns, Collections.singletonList(serverGroupKey));
     } else {
       metricsSupport.onDemandStore(
-          () -> {
-            Map<String, Object> attributes = new HashMap<>();
-            attributes.put("cacheTime", new Date());
-            attributes.put("cacheResults", cacheResultAsJson);
+        () -> {
+          Map<String, Object> attributes = new HashMap<>();
+          attributes.put("cacheTime", new Date());
+          attributes.put("cacheResults", cacheResultAsJson);
 
-            DefaultCacheData cacheData =
-                new DefaultCacheData(
-                    serverGroupKey,
-                    10 * 60, // TTL
-                    attributes,
-                    new HashMap<>());
-            providerCache.putCacheData(Keys.Namespace.ON_DEMAND.ns, cacheData);
-            return null;
-          });
+          DefaultCacheData cacheData =
+            new DefaultCacheData(
+              serverGroupKey,
+              10 * 60, // TTL
+              attributes,
+              new HashMap<>());
+          providerCache.putCacheData(Keys.Namespace.ON_DEMAND.ns, cacheData);
+          return null;
+        });
     }
 
     Map<String, Collection<String>> evictions =
-        scalingGroup != null
-            ? new HashMap<>()
-            : Collections.singletonMap(
-                Keys.Namespace.SERVER_GROUPS.ns, Collections.singletonList(serverGroupKey));
+      scalingGroup != null
+        ? new HashMap<>()
+        : Collections.singletonMap(
+        Keys.Namespace.SERVER_GROUPS.ns, Collections.singletonList(serverGroupKey));
 
     return new OnDemandResult(getOnDemandAgentType(), cacheResult, evictions);
   }
@@ -220,43 +220,43 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
   @Override
   public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
     Collection<String> keys =
-        providerCache.filterIdentifiers(
-            Keys.Namespace.ON_DEMAND.ns,
-            Keys.getServerGroupKey("*", "*", account.getName(), region));
+      providerCache.filterIdentifiers(
+        Keys.Namespace.ON_DEMAND.ns,
+        Keys.getServerGroupKey("*", "*", account.getName(), region));
     return fetchPendingOnDemandRequests(providerCache, keys);
   }
 
   private Collection<Map> fetchPendingOnDemandRequests(
-      ProviderCache providerCache, Collection<String> keys) {
+    ProviderCache providerCache, Collection<String> keys) {
     return providerCache.getAll(Keys.Namespace.ON_DEMAND.ns, keys, RelationshipCacheFilter.none())
-        .stream()
-        .map(
-            item -> {
-              Map<String, String> details = Keys.parse(item.getId());
+      .stream()
+      .map(
+        item -> {
+          Map<String, String> details = Keys.parse(item.getId());
 
-              Map<String, Object> map = new HashMap<>();
-              map.put("id", item.getId());
-              map.put("details", details);
-              map.put("moniker", convertOnDemandDetails(details));
-              map.put("cacheTime", item.getAttributes().get("cacheTime"));
-              map.put("processedCount", item.getAttributes().get("processedCount"));
-              map.put("processedTime", item.getAttributes().get("processedTime"));
+          Map<String, Object> map = new HashMap<>();
+          map.put("id", item.getId());
+          map.put("details", details);
+          map.put("moniker", convertOnDemandDetails(details));
+          map.put("cacheTime", item.getAttributes().get("cacheTime"));
+          map.put("processedCount", item.getAttributes().get("processedCount"));
+          map.put("processedTime", item.getAttributes().get("processedTime"));
 
-              return map;
-            })
-        .collect(Collectors.toList());
+          return map;
+        })
+      .collect(Collectors.toList());
   }
 
   private List<Map> loadScalingGroups(String keyword) {
     List<Map> allSgDatas = new ArrayList<>();
     Map<String, Map> scalingConfigMap = new HashMap<>(16);
     EcloudRequest listRequest =
-        new EcloudRequest(
-            "GET",
-            region,
-            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/list",
-            account.getAccessKey(),
-            account.getSecretKey());
+      new EcloudRequest(
+        "GET",
+        region,
+        "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/list",
+        account.getAccessKey(),
+        account.getSecretKey());
     listRequest.setVersion("2016-12-05");
     Map<String, String> queryParams = new HashMap<>();
     listRequest.setQueryParams(queryParams);
@@ -326,12 +326,12 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
 
   private Map getVpcInfo(String routerId) {
     EcloudRequest request =
-        new EcloudRequest(
-            "GET",
-            region,
-            "/api/openapi-vpc/customer/v3/vpc/router/" + routerId,
-            account.getAccessKey(),
-            account.getSecretKey());
+      new EcloudRequest(
+        "GET",
+        region,
+        "/api/openapi-vpc/customer/v3/vpc/router/" + routerId,
+        account.getAccessKey(),
+        account.getSecretKey());
     EcloudResponse listRsp = EcloudOpenApiHelper.execute(request);
     Map body = (Map) listRsp.getBody();
     Map vpcInfo = new HashMap();
@@ -342,12 +342,12 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
 
   private Map getScalingConfig(String scalingConfigId) {
     EcloudRequest request =
-        new EcloudRequest(
-            "GET",
-            region,
-            "/api/v4/autoScaling/scalingConfig/" + scalingConfigId,
-            account.getAccessKey(),
-            account.getSecretKey());
+      new EcloudRequest(
+        "GET",
+        region,
+        "/api/v4/autoScaling/scalingConfig/" + scalingConfigId,
+        account.getAccessKey(),
+        account.getSecretKey());
     request.setVersion("2016-12-05");
     EcloudResponse listRsp = EcloudOpenApiHelper.execute(request);
     return (Map) listRsp.getBody();
@@ -355,12 +355,12 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
 
   private List<Map> getScalingGroupTags(String scalingGroupId) {
     EcloudRequest listRequest =
-        new EcloudRequest(
-            "GET",
-            region,
-            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/tag",
-            account.getAccessKey(),
-            account.getSecretKey());
+      new EcloudRequest(
+        "GET",
+        region,
+        "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/tag",
+        account.getAccessKey(),
+        account.getSecretKey());
     listRequest.setVersion("2016-12-05");
     Map<String, String> queryParam = new HashMap<>();
     queryParam.put("scalingGroupIds", scalingGroupId);
@@ -379,12 +379,12 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
 
   private List<Map> getScalingNodes(String scalingGroupId) {
     EcloudRequest listRequest =
-        new EcloudRequest(
-            "GET",
-            region,
-            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/node/" + scalingGroupId,
-            account.getAccessKey(),
-            account.getSecretKey());
+      new EcloudRequest(
+        "GET",
+        region,
+        "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/node/" + scalingGroupId,
+        account.getAccessKey(),
+        account.getSecretKey());
     listRequest.setVersion("2016-12-05");
     Map<String, String> pageQuery = new HashMap<>();
     listRequest.setQueryParams(pageQuery);
@@ -415,102 +415,140 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
   }
 
   private Map<String, Map> getScalingRules(String scalingGroupId) {
+    Map<String, Map> scalingRuleMap = new HashMap<>();
+    int page = 1;
+    int pageSize = 50;
     EcloudRequest listRequest =
-        new EcloudRequest(
-            "GET",
-            region,
-            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingRule/list",
-            account.getAccessKey(),
-            account.getSecretKey());
+      new EcloudRequest(
+        "GET",
+        region,
+        "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingRule/list",
+        account.getAccessKey(),
+        account.getSecretKey());
     listRequest.setVersion("2016-12-05");
     Map<String, String> queryParams = new HashMap<>();
     listRequest.setQueryParams(queryParams);
-    queryParams.put("pageSize", "50");
-    queryParams.put("page", "1");
+    queryParams.put("pageSize", String.valueOf(pageSize));
     queryParams.put("scalingGroupId", scalingGroupId);
-    EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
-    if (listRsp.getBody() != null) {
+    while (true) {
+      queryParams.put("page", String.valueOf(page));
+      EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
+      if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
+        logger.error("ListScalingRules Failed:" + JSONObject.toJSONString(listRsp));
+        throw new EcloudException("ListScalingRules Failed");
+      }
+      if (listRsp.getBody() == null) {
+        return page == 1 ? null : scalingRuleMap;
+      }
       Map body = (Map) listRsp.getBody();
-      if (body != null && body.get("scalingRules") != null) {
-        Map<String, Map> scalingRuleMap = new HashMap<>();
-        List<Map> scalingRules = (List<Map>) body.get("scalingRules");
-        for (Map scalingRule : scalingRules) {
-          scalingRuleMap.put((String) scalingRule.get("scalingRuleId"), scalingRule);
-        }
+      if (body == null || body.get("scalingRules") == null) {
+        return page == 1 ? null : scalingRuleMap;
+      }
+      List<Map> scalingRules = (List<Map>) body.get("scalingRules");
+      for (Map scalingRule : scalingRules) {
+        scalingRuleMap.put((String) scalingRule.get("scalingRuleId"), scalingRule);
+      }
+      if (scalingRules.size() < pageSize) {
         return scalingRuleMap;
       }
+      page++;
     }
-    if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
-      logger.error("ListScalingRules Failed:" + JSONObject.toJSONString(listRsp));
-      throw new EcloudException("ListScalingRules Failed");
-    }
-    return null;
   }
 
   private List<Map> getAlarmTasks(String scalingGroupId) {
+    List<Map> alarmTasks = new ArrayList<>();
+    int page = 1;
+    int pageSize = 50;
     EcloudRequest listRequest =
-        new EcloudRequest(
-            "GET",
-            region,
-            "/api/v4/autoScaling/alarmTask/" + scalingGroupId,
-            account.getAccessKey(),
-            account.getSecretKey());
+      new EcloudRequest(
+        "GET",
+        region,
+        "/api/v4/autoScaling/alarmTask/" + scalingGroupId,
+        account.getAccessKey(),
+        account.getSecretKey());
     listRequest.setVersion("2016-12-05");
     Map<String, String> queryParams = new HashMap<>();
     listRequest.setQueryParams(queryParams);
-    queryParams.put("page", "1");
-    queryParams.put("pageSize", "50");
-    EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
-    if (listRsp.getBody() != null) {
-      Map body = (Map) listRsp.getBody();
-      if (body != null && body.get("content") != null) {
-        return (List<Map>) body.get("content");
+    queryParams.put("pageSize", String.valueOf(pageSize));
+    while (true) {
+      queryParams.put("page", String.valueOf(page));
+      EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
+      if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
+        logger.error("ListAlarmTasks Failed:" + JSONObject.toJSONString(listRsp));
+        throw new EcloudException("ListAlarmTasks Failed");
       }
+      if (listRsp.getBody() == null) {
+        return page == 1 ? null : alarmTasks;
+      }
+      Map body = (Map) listRsp.getBody();
+      if (body == null || body.get("content") == null) {
+        return page == 1 ? null : alarmTasks;
+      }
+      List<Map> pageTasks = (List<Map>) body.get("content");
+      alarmTasks.addAll(pageTasks);
+      Object totalPagesValue = body.get("totalPages");
+      if (pageTasks.isEmpty()) {
+        return alarmTasks;
+      }
+      if (totalPagesValue instanceof Number) {
+        if (page >= ((Number) totalPagesValue).intValue()) {
+          return alarmTasks;
+        }
+      } else if (pageTasks.size() < pageSize) {
+        return alarmTasks;
+      }
+      page++;
     }
-    if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
-      logger.error("ListAlarmTasks Failed:" + JSONObject.toJSONString(listRsp));
-      throw new EcloudException("ListAlarmTasks Failed");
-    }
-    return null;
   }
 
   private List<Map> getScheduledTask(String scalingGroupId) {
+    List<Map> scheduledTasks = new ArrayList<>();
+    int page = 1;
+    int pageSize = 50;
     EcloudRequest listRequest =
-        new EcloudRequest(
-            "GET",
-            region,
-            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scheduledTask/"
-                + scalingGroupId
-                + "/list",
-            account.getAccessKey(),
-            account.getSecretKey());
+      new EcloudRequest(
+        "GET",
+        region,
+        "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scheduledTask/"
+          + scalingGroupId
+          + "/list",
+        account.getAccessKey(),
+        account.getSecretKey());
     listRequest.setVersion("2016-12-05");
     Map<String, String> queryParams = new HashMap<>();
     listRequest.setQueryParams(queryParams);
-    queryParams.put("page", "1");
-    queryParams.put("pageSize", "50");
-    EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
-    if (listRsp.getBody() != null) {
-      Map body = (Map) listRsp.getBody();
-      if (body != null && body.get("content") != null) {
-        return (List<Map>) body.get("content");
+    queryParams.put("pageSize", String.valueOf(pageSize));
+    while (true) {
+      queryParams.put("page", String.valueOf(page));
+      EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
+      if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
+        logger.error("ListScheduledTasks Failed:" + JSONObject.toJSONString(listRsp));
+        throw new EcloudException("ListScheduledTasks Failed");
       }
+      if (listRsp.getBody() == null) {
+        return page == 1 ? null : scheduledTasks;
+      }
+      Map body = (Map) listRsp.getBody();
+      if (body == null || body.get("content") == null) {
+        return page == 1 ? null : scheduledTasks;
+      }
+      List<Map> pageTasks = (List<Map>) body.get("content");
+      scheduledTasks.addAll(pageTasks);
+      if (pageTasks.size() < pageSize) {
+        return scheduledTasks;
+      }
+      page++;
     }
-    if (!StringUtils.isEmpty(listRsp.getErrorMessage())) {
-      logger.error("ListScheduledTasks Failed:" + JSONObject.toJSONString(listRsp));
-      throw new EcloudException("ListScheduledTasks Failed");
-    }
-    return null;
   }
 
   private List<Map> getLoadBalancers(String scalingGroupId) {
     EcloudRequest listRequest =
-        new EcloudRequest(
-            "GET",
-            region,
-            "/api/v4/autoScaling/scalingGroup/loadBalancer/" + scalingGroupId,
-            account.getAccessKey(),
-            account.getSecretKey());
+      new EcloudRequest(
+        "GET",
+        region,
+        "/api/v4/autoScaling/scalingGroup/loadBalancer/" + scalingGroupId,
+        account.getAccessKey(),
+        account.getSecretKey());
     listRequest.setVersion("2016-12-05");
     EcloudResponse listRsp = EcloudOpenApiHelper.execute(listRequest);
     if (listRsp.getBody() != null) {
@@ -526,12 +564,12 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
 
   private List<Map> getScheduledActions(String scalingGroupId) {
     EcloudRequest listRequest =
-        new EcloudRequest(
-            "GET",
-            region,
-            "/api/v4/autoScaling/scalingActivity/list/page/" + scalingGroupId,
-            account.getAccessKey(),
-            account.getSecretKey());
+      new EcloudRequest(
+        "GET",
+        region,
+        "/api/v4/autoScaling/scalingActivity/list/page/" + scalingGroupId,
+        account.getAccessKey(),
+        account.getSecretKey());
     listRequest.setVersion("2016-12-05");
     Map<String, String> queryParams = new HashMap<>();
     queryParams.put("page", "1");
@@ -551,15 +589,15 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
   }
 
   private CacheResult buildCacheResult(
-      List<Map> scalingGroupList,
-      Collection<CacheData> toKeepOnDemandCacheData,
-      Collection<CacheData> toEvictOnDemandCacheData) {
+    List<Map> scalingGroupList,
+    Collection<CacheData> toKeepOnDemandCacheData,
+    Collection<CacheData> toEvictOnDemandCacheData) {
 
     Map<String, Collection<CacheData>> cacheResults = new HashMap<>();
     Map<String, Collection<String>> evictions = new HashMap<>();
     evictions.put(
-        Keys.Namespace.ON_DEMAND.ns,
-        toEvictOnDemandCacheData.stream().map(CacheData::getId).collect(Collectors.toList()));
+      Keys.Namespace.ON_DEMAND.ns,
+      toEvictOnDemandCacheData.stream().map(CacheData::getId).collect(Collectors.toList()));
     Map<String, Map<String, CacheData>> namespaceCache = new HashMap<>();
     for (Map sg : scalingGroupList) {
       String serverGroupName = (String) sg.get("scalingGroupName");
@@ -579,138 +617,138 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
       // application
       namespaceCache.computeIfAbsent(Keys.Namespace.APPLICATIONS.ns, k -> new HashMap<>());
       CacheData applications =
-          namespaceCache
-              .get(Keys.Namespace.APPLICATIONS.ns)
-              .computeIfAbsent(appKey, MutableCacheData::new);
+        namespaceCache
+          .get(Keys.Namespace.APPLICATIONS.ns)
+          .computeIfAbsent(appKey, MutableCacheData::new);
       this.addCommonAttributes(applications.getAttributes());
       applications.getAttributes().put("name", applicationName);
       applications
-          .getRelationships()
-          .computeIfAbsent(Keys.Namespace.CLUSTERS.ns, k -> new HashSet<>())
-          .add(clusterKey);
+        .getRelationships()
+        .computeIfAbsent(Keys.Namespace.CLUSTERS.ns, k -> new HashSet<>())
+        .add(clusterKey);
       applications
-          .getRelationships()
-          .computeIfAbsent(Keys.Namespace.SERVER_GROUPS.ns, k -> new HashSet<>())
-          .add(serverGroupKey);
+        .getRelationships()
+        .computeIfAbsent(Keys.Namespace.SERVER_GROUPS.ns, k -> new HashSet<>())
+        .add(serverGroupKey);
 
       // cluster
       namespaceCache.computeIfAbsent(Keys.Namespace.CLUSTERS.ns, k -> new HashMap<>());
       CacheData cluster =
-          namespaceCache
-              .get(Keys.Namespace.CLUSTERS.ns)
-              .computeIfAbsent(clusterKey, MutableCacheData::new);
+        namespaceCache
+          .get(Keys.Namespace.CLUSTERS.ns)
+          .computeIfAbsent(clusterKey, MutableCacheData::new);
       this.addCommonAttributes(applications.getAttributes());
       cluster.getAttributes().put("name", clusterName);
       cluster
-          .getRelationships()
-          .computeIfAbsent(Keys.Namespace.APPLICATIONS.ns, k -> new HashSet<>())
-          .add(appKey);
+        .getRelationships()
+        .computeIfAbsent(Keys.Namespace.APPLICATIONS.ns, k -> new HashSet<>())
+        .add(appKey);
       cluster
-          .getRelationships()
-          .computeIfAbsent(Keys.Namespace.SERVER_GROUPS.ns, k -> new HashSet<>())
-          .add(serverGroupKey);
+        .getRelationships()
+        .computeIfAbsent(Keys.Namespace.SERVER_GROUPS.ns, k -> new HashSet<>())
+        .add(serverGroupKey);
       cluster
-          .getRelationships()
-          .computeIfAbsent(Keys.Namespace.INSTANCES.ns, k -> new HashSet<>())
-          .addAll(instanceKeys);
+        .getRelationships()
+        .computeIfAbsent(Keys.Namespace.INSTANCES.ns, k -> new HashSet<>())
+        .addAll(instanceKeys);
       cluster
-          .getRelationships()
-          .computeIfAbsent(Keys.Namespace.LOAD_BALANCERS.ns, k -> new HashSet<>())
-          .addAll(loadBalancerKeys);
+        .getRelationships()
+        .computeIfAbsent(Keys.Namespace.LOAD_BALANCERS.ns, k -> new HashSet<>())
+        .addAll(loadBalancerKeys);
 
       // server group
       CacheData onDemandServerGroupCache =
-          toKeepOnDemandCacheData.stream()
-              .filter(c -> c.getAttributes().get("name").equals(serverGroupKey))
-              .findFirst()
-              .orElse(null);
+        toKeepOnDemandCacheData.stream()
+          .filter(c -> c.getAttributes().get("name").equals(serverGroupKey))
+          .findFirst()
+          .orElse(null);
 
       if (onDemandServerGroupCache != null) {
         mergeOnDemandCache(onDemandServerGroupCache, namespaceCache);
       } else {
         CacheData serverGroupCacheData =
-            namespaceCache
-                .computeIfAbsent(Keys.Namespace.SERVER_GROUPS.ns, k -> new HashMap<>())
-                .computeIfAbsent(serverGroupKey, MutableCacheData::new);
+          namespaceCache
+            .computeIfAbsent(Keys.Namespace.SERVER_GROUPS.ns, k -> new HashMap<>())
+            .computeIfAbsent(serverGroupKey, MutableCacheData::new);
         Map<String, Object> serverGroupAttr = objectMapper.convertValue(sg, Map.class);
         serverGroupAttr = addCommonAttributes(serverGroupAttr);
         serverGroupAttr.put("cluster", clusterName);
         serverGroupAttr.put("app", applicationName);
         serverGroupCacheData.getAttributes().putAll(serverGroupAttr);
         serverGroupCacheData
-            .getRelationships()
-            .computeIfAbsent(Keys.Namespace.APPLICATIONS.ns, k -> new HashSet<>())
-            .add(appKey);
+          .getRelationships()
+          .computeIfAbsent(Keys.Namespace.APPLICATIONS.ns, k -> new HashSet<>())
+          .add(appKey);
         serverGroupCacheData
-            .getRelationships()
-            .computeIfAbsent(Keys.Namespace.CLUSTERS.ns, k -> new HashSet<>())
-            .add(clusterKey);
+          .getRelationships()
+          .computeIfAbsent(Keys.Namespace.CLUSTERS.ns, k -> new HashSet<>())
+          .add(clusterKey);
         serverGroupCacheData
-            .getRelationships()
-            .computeIfAbsent(Keys.Namespace.INSTANCES.ns, k -> new HashSet<>())
-            .addAll(instanceKeys);
+          .getRelationships()
+          .computeIfAbsent(Keys.Namespace.INSTANCES.ns, k -> new HashSet<>())
+          .addAll(instanceKeys);
         serverGroupCacheData
-            .getRelationships()
-            .computeIfAbsent(Keys.Namespace.LOAD_BALANCERS.ns, k -> new HashSet<>())
-            .addAll(loadBalancerKeys);
+          .getRelationships()
+          .computeIfAbsent(Keys.Namespace.LOAD_BALANCERS.ns, k -> new HashSet<>())
+          .addAll(loadBalancerKeys);
 
         // loadBalancer
         for (String lbKey : loadBalancerKeys) {
           CacheData lbCache =
-              namespaceCache
-                  .computeIfAbsent(Keys.Namespace.LOAD_BALANCERS.ns, k -> new HashMap<>())
-                  .computeIfAbsent(lbKey, MutableCacheData::new);
+            namespaceCache
+              .computeIfAbsent(Keys.Namespace.LOAD_BALANCERS.ns, k -> new HashMap<>())
+              .computeIfAbsent(lbKey, MutableCacheData::new);
           lbCache
-              .getRelationships()
-              .computeIfAbsent(Keys.Namespace.SERVER_GROUPS.ns, k -> new HashSet<>())
-              .add(serverGroupKey);
+            .getRelationships()
+            .computeIfAbsent(Keys.Namespace.SERVER_GROUPS.ns, k -> new HashSet<>())
+            .add(serverGroupKey);
         }
       }
     }
 
     namespaceCache.forEach(
-        (namespace, cacheDataMap) -> {
-          cacheResults.put(namespace, new ArrayList<>(cacheDataMap.values()));
-        });
+      (namespace, cacheDataMap) -> {
+        cacheResults.put(namespace, new ArrayList<>(cacheDataMap.values()));
+      });
     cacheResults.put(Keys.Namespace.ON_DEMAND.ns, toKeepOnDemandCacheData);
 
     return new DefaultCacheResult(cacheResults, evictions);
   }
 
   public void mergeOnDemandCache(
-      CacheData onDemandServerGroupCache, Map<String, Map<String, CacheData>> namespaceCache) {
+    CacheData onDemandServerGroupCache, Map<String, Map<String, CacheData>> namespaceCache) {
     try {
       String jsonCacheResults =
-          (String) onDemandServerGroupCache.getAttributes().get("cacheResults");
+        (String) onDemandServerGroupCache.getAttributes().get("cacheResults");
       Map<String, List<MutableCacheData>> onDemandCache =
-          objectMapper.readValue(
-              jsonCacheResults, new TypeReference<Map<String, List<MutableCacheData>>>() {});
+        objectMapper.readValue(
+          jsonCacheResults, new TypeReference<Map<String, List<MutableCacheData>>>() {});
       onDemandCache.forEach(
-          (namespace, cacheDataList) -> {
-            if (!"onDemand".equalsIgnoreCase(namespace)) {
-              cacheDataList.forEach(
-                  cacheData -> {
-                    CacheData existingCacheData =
-                        namespaceCache
-                            .computeIfAbsent(namespace, k -> new HashMap<>())
-                            .get(cacheData.getId());
-                    if (existingCacheData == null) {
-                      namespaceCache.get(namespace).put(cacheData.getId(), cacheData);
-                    } else {
-                      existingCacheData.getAttributes().putAll(cacheData.getAttributes());
-                      cacheData
+        (namespace, cacheDataList) -> {
+          if (!"onDemand".equalsIgnoreCase(namespace)) {
+            cacheDataList.forEach(
+              cacheData -> {
+                CacheData existingCacheData =
+                  namespaceCache
+                    .computeIfAbsent(namespace, k -> new HashMap<>())
+                    .get(cacheData.getId());
+                if (existingCacheData == null) {
+                  namespaceCache.get(namespace).put(cacheData.getId(), cacheData);
+                } else {
+                  existingCacheData.getAttributes().putAll(cacheData.getAttributes());
+                  cacheData
+                    .getRelationships()
+                    .forEach(
+                      (relationshipName, relationships) -> {
+                        existingCacheData
                           .getRelationships()
-                          .forEach(
-                              (relationshipName, relationships) -> {
-                                existingCacheData
-                                    .getRelationships()
-                                    .computeIfAbsent(relationshipName, k -> new HashSet<>())
-                                    .addAll(relationships);
-                              });
-                    }
-                  });
-            }
-          });
+                          .computeIfAbsent(relationshipName, k -> new HashSet<>())
+                          .addAll(relationships);
+                      });
+                }
+              });
+          }
+        });
     } catch (IOException e) {
       logger.error(e.getMessage(), e);
     }
@@ -722,7 +760,7 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
       List<Map> nodes = (List<Map>) sg.get("nodeList");
       for (Map node : nodes) {
         instanceKeys.add(
-            Keys.getInstanceKey((String) node.get("serverId"), account.getName(), region));
+          Keys.getInstanceKey((String) node.get("serverId"), account.getName(), region));
       }
     }
     return instanceKeys;
@@ -734,7 +772,7 @@ public class EcloudServerGroupCachingAgent extends AbstractEcloudCachingAgent
       List<Map> lbs = (List<Map>) sg.get("loadBalancers");
       for (Map lb : lbs) {
         lbKeys.add(
-            Keys.getLoadBalancerKey((String) lb.get("loadBalancerId"), account.getName(), region));
+          Keys.getLoadBalancerKey((String) lb.get("loadBalancerId"), account.getName(), region));
       }
     }
     return lbKeys;

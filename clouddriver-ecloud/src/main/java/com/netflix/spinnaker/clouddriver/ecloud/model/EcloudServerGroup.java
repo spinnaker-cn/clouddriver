@@ -10,8 +10,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * @author xu.dangling
- * @date 2024/4/9 @Description
+ * @Description: 移动云弹性伸缩组模型。
+ * @Author: han.pengfei-ai
+ * @Date: 2024/04/09
  */
 @Getter
 @Setter
@@ -50,21 +51,21 @@ public class EcloudServerGroup implements ServerGroup {
   public InstanceCounts getInstanceCounts() {
     if (instances != null) {
       return InstanceCounts.builder()
-          .total(instances.size())
-          .down(
-              (int)
-                  instances.stream()
-                      .filter(i -> i.getHealthState().equals(HealthState.Down))
-                      .count())
-          .up(
-              (int)
-                  instances.stream().filter(i -> i.getHealthState().equals(HealthState.Up)).count())
-          .unknown(
-              (int)
-                  instances.stream()
-                      .filter(i -> i.getHealthState().equals(HealthState.Unknown))
-                      .count())
-          .build();
+        .total(instances.size())
+        .down(
+          (int)
+            instances.stream()
+              .filter(i -> i.getHealthState().equals(HealthState.Down))
+              .count())
+        .up(
+          (int)
+            instances.stream().filter(i -> i.getHealthState().equals(HealthState.Up)).count())
+        .unknown(
+          (int)
+            instances.stream()
+              .filter(i -> i.getHealthState().equals(HealthState.Unknown))
+              .count())
+        .build();
     }
     return null;
   }
@@ -85,8 +86,8 @@ public class EcloudServerGroup implements ServerGroup {
   @Override
   public ImageSummary getImageSummary() {
     if (imagesSummary != null
-        && imagesSummary.getSummaries() != null
-        && !imagesSummary.getSummaries().isEmpty()) {
+      && imagesSummary.getSummaries() != null
+      && !imagesSummary.getSummaries().isEmpty()) {
       return imagesSummary.getSummaries().get(0);
     }
     return null;
@@ -190,6 +191,9 @@ public class EcloudServerGroup implements ServerGroup {
     private String periodName;
     private String periodValue;
     private Integer retryExpireTime;
+    private Integer minSize;
+    private Integer desiredSize;
+    private Integer maxSize;
   }
 
   @Getter

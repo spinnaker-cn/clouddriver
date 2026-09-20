@@ -51,7 +51,7 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
 
   @Autowired
   public EcloudClusterProvider(
-      ObjectMapper objectMapper, Cache cacheView, EcloudProvider provider) {
+    ObjectMapper objectMapper, Cache cacheView, EcloudProvider provider) {
     this.objectMapper = objectMapper;
     this.cacheView = cacheView;
     this.provider = provider;
@@ -62,22 +62,22 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
     Collection<CacheData> clusterData = cacheView.getAll(Keys.Namespace.CLUSTERS.ns);
     Set<EcloudCluster> clusters = this.translateClusters(clusterData, false);
     return clusters.stream()
-        .collect(Collectors.groupingBy(EcloudCluster::getAccountName))
-        .entrySet()
-        .stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> new HashSet<>(entry.getValue())));
+      .collect(Collectors.groupingBy(EcloudCluster::getAccountName))
+      .entrySet()
+      .stream()
+      .collect(Collectors.toMap(Map.Entry::getKey, entry -> new HashSet<>(entry.getValue())));
   }
 
   @Override
   public Map<String, Set<EcloudCluster>> getClusterSummaries(String application) {
     CacheData applicationCache =
-        cacheView.get(Keys.Namespace.APPLICATIONS.ns, Keys.getApplicationKey(application));
+      cacheView.get(Keys.Namespace.APPLICATIONS.ns, Keys.getApplicationKey(application));
     if (applicationCache != null) {
       Set<EcloudCluster> clusters =
-          translateClusters(
-              resolveRelationshipData(applicationCache, Keys.Namespace.CLUSTERS.ns, null), false);
+        translateClusters(
+          resolveRelationshipData(applicationCache, Keys.Namespace.CLUSTERS.ns, null), false);
       return clusters.stream()
-          .collect(Collectors.groupingBy(EcloudCluster::getAccountName, Collectors.toSet()));
+        .collect(Collectors.groupingBy(EcloudCluster::getAccountName, Collectors.toSet()));
     } else {
       return null;
     }
@@ -86,18 +86,18 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
   @Override
   public Map<String, Set<EcloudCluster>> getClusterDetails(String application) {
     CacheData applicationCache =
-        cacheView.get(Keys.Namespace.APPLICATIONS.ns, Keys.getApplicationKey(application));
+      cacheView.get(Keys.Namespace.APPLICATIONS.ns, Keys.getApplicationKey(application));
     if (applicationCache != null) {
       Set<EcloudCluster> clusters =
-          translateClusters(
-              resolveRelationshipData(
-                  applicationCache,
-                  Keys.Namespace.CLUSTERS.ns,
-                  RelationshipCacheFilter.include(
-                      Keys.Namespace.SERVER_GROUPS.ns, Keys.Namespace.LOAD_BALANCERS.ns)),
-              true);
+        translateClusters(
+          resolveRelationshipData(
+            applicationCache,
+            Keys.Namespace.CLUSTERS.ns,
+            RelationshipCacheFilter.include(
+              Keys.Namespace.SERVER_GROUPS.ns, Keys.Namespace.LOAD_BALANCERS.ns)),
+          true);
       return clusters.stream()
-          .collect(Collectors.groupingBy(EcloudCluster::getAccountName, Collectors.toSet()));
+        .collect(Collectors.groupingBy(EcloudCluster::getAccountName, Collectors.toSet()));
     } else {
       return null;
     }
@@ -106,12 +106,12 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
   @Override
   public Set<EcloudCluster> getClusters(String application, String account) {
     CacheData applicationCache =
-        cacheView.get(Keys.Namespace.APPLICATIONS.ns, Keys.getApplicationKey(application));
+      cacheView.get(Keys.Namespace.APPLICATIONS.ns, Keys.getApplicationKey(application));
     if (applicationCache != null) {
       Collection<String> clusterKeys =
-          applicationCache.getRelationships().get(Keys.Namespace.CLUSTERS).stream()
-              .filter(key -> Keys.parse(key).get("account").equals(account))
-              .collect(Collectors.toList());
+        applicationCache.getRelationships().get(Keys.Namespace.CLUSTERS).stream()
+          .filter(key -> Keys.parse(key).get("account").equals(account))
+          .collect(Collectors.toList());
       Collection<CacheData> clusters = cacheView.getAll(Keys.Namespace.CLUSTERS.ns, clusterKeys);
       return translateClusters(clusters, true);
     } else {
@@ -128,60 +128,60 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
   @Nullable
   @Override
   public EcloudCluster getCluster(
-      String application, String account, String name, boolean includeDetails) {
+    String application, String account, String name, boolean includeDetails) {
     long diagnosticStarted = System.nanoTime();
     String diagnosticContext =
-        new StringBuilder()
-            .append("application=")
-            .append(application)
-            .append(" account=")
-            .append(account)
-            .append(" cluster=")
-            .append(name)
-            .append(" includeDetails=")
-            .append(includeDetails)
-            .toString();
+      new StringBuilder()
+        .append("application=")
+        .append(application)
+        .append(" account=")
+        .append(account)
+        .append(" cluster=")
+        .append(name)
+        .append(" includeDetails=")
+        .append(includeDetails)
+        .toString();
     String diagnosticStep = "PREPARE";
     diagnosticInfo("GET_CLUSTER", "BEGIN", diagnosticContext);
     try {
       diagnosticStep = diagnosticNextStep(diagnosticStep, "CLUSTER_CACHE", diagnosticContext);
       CacheData cluster =
-          cacheView.get(Keys.Namespace.CLUSTERS.ns, Keys.getClusterKey(name, application, account));
+        cacheView.get(Keys.Namespace.CLUSTERS.ns, Keys.getClusterKey(name, application, account));
       diagnosticInfo(diagnosticStep, "END", new StringBuilder()
-              .append(diagnosticContext)
-              .append(" hit=")
-              .append(cluster != null)
-              .toString());
+        .append(diagnosticContext)
+        .append(" hit=")
+        .append(cluster != null)
+        .toString());
       diagnosticStep = "CLUSTER_RESULT_BUILD";
       diagnosticInfo(diagnosticStep, "BEGIN", diagnosticContext);
       EcloudCluster result = cluster == null ? null : translateCluster(cluster, includeDetails);
       diagnosticInfo(diagnosticStep, "END", diagnosticContext);
       diagnosticInfo("GET_CLUSTER", "SUCCESS", new StringBuilder()
-              .append(diagnosticContext)
-              .append(" found=")
-              .append(result != null)
-              .toString());
+        .append(diagnosticContext)
+        .append(" found=")
+        .append(result != null)
+        .toString());
       return result;
     } catch (RuntimeException e) {
       log.error("[ECLOUD_DIAG] step=GET_CLUSTER event=ERROR phase={} {}",
-          diagnosticStep, diagnosticContext, e);
+        diagnosticStep, diagnosticContext, e);
       throw e;
     } finally {
       diagnosticInfo("GET_CLUSTER", "EXIT", new StringBuilder()
-              .append(diagnosticContext)
-              .append(" elapsedMs=")
-              .append((System.nanoTime() - diagnosticStarted) / 1_000_000)
-              .toString());
+        .append(diagnosticContext)
+        .append(" elapsedMs=")
+        .append((System.nanoTime() - diagnosticStarted) / 1_000_000)
+        .toString());
     }
   }
 
   @Nullable
   @Override
   public EcloudServerGroup getServerGroup(
-      String account, String region, String name, boolean includeDetails) {
+    String account, String region, String name, boolean includeDetails) {
     CacheData cacheData =
-        cacheView.get(
-            Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(name, account, region));
+      cacheView.get(
+        Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(name, account, region));
     if (cacheData != null) {
       EcloudServerGroup serverGroup = translateServerGroup(cacheData);
       return serverGroup;
@@ -193,8 +193,8 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
   @Override
   public EcloudServerGroup getServerGroup(String account, String region, String name) {
     CacheData cacheData =
-        cacheView.get(
-            Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(name, account, region));
+      cacheView.get(
+        Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(name, account, region));
     if (cacheData != null) {
       EcloudServerGroup serverGroup = translateServerGroup(cacheData);
       return serverGroup;
@@ -204,8 +204,8 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
 
   public Map<String, Object> getAttributes(String account, String region, String name) {
     CacheData cacheData =
-        cacheView.get(
-            Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(name, account, region));
+      cacheView.get(
+        Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(name, account, region));
     if (cacheData != null) {
       return cacheData.getAttributes();
     }
@@ -214,8 +214,8 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
 
   public String getServerGroupIdByName(String account, String region, String name) {
     CacheData serverGroup =
-        cacheView.get(
-            Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(name, account, region));
+      cacheView.get(
+        Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(name, account, region));
     if (serverGroup != null) {
       return (String) serverGroup.getAttributes().get("scalingGroupId");
     }
@@ -233,21 +233,21 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
   }
 
   private Set<EcloudCluster> translateClusters(
-      Collection<CacheData> clusterData, boolean includeDetail) {
+    Collection<CacheData> clusterData, boolean includeDetail) {
     Set<EcloudCluster> clusters =
-        clusterData.stream()
-            .map(one -> translateCluster(one, includeDetail))
-            .collect(Collectors.toSet());
+      clusterData.stream()
+        .map(one -> translateCluster(one, includeDetail))
+        .collect(Collectors.toSet());
     return clusters;
   }
 
   private EcloudCluster translateCluster(CacheData clusterData, boolean includeDetail) {
     long diagnosticStarted = System.nanoTime();
     String diagnosticContext =
-        new StringBuilder()
-            .append("cacheId=")
-            .append(clusterData == null ? null : clusterData.getId())
-            .toString();
+      new StringBuilder()
+        .append("cacheId=")
+        .append(clusterData == null ? null : clusterData.getId())
+        .toString();
     String diagnosticStep = "PREPARE";
     diagnosticInfo("TRANSLATE_CLUSTER", "BEGIN", diagnosticContext);
     try {
@@ -259,11 +259,11 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
       cluster.setType(provider.getId());
       diagnosticStep = diagnosticNextStep(diagnosticStep, "CLUSTER_SERVER_GROUPS_CACHE", diagnosticContext);
       Collection<CacheData> clusterServerCache =
-          this.resolveRelationshipData(
-              clusterData,
-              Keys.Namespace.SERVER_GROUPS.ns,
-              RelationshipCacheFilter.include(
-                  Keys.Namespace.INSTANCES.ns, Keys.Namespace.LOAD_BALANCERS.ns));
+        this.resolveRelationshipData(
+          clusterData,
+          Keys.Namespace.SERVER_GROUPS.ns,
+          RelationshipCacheFilter.include(
+            Keys.Namespace.INSTANCES.ns, Keys.Namespace.LOAD_BALANCERS.ns));
       diagnosticStep = diagnosticNextStep(diagnosticStep, "CLUSTER_SERVER_GROUPS_CONVERT", diagnosticContext);
       Map<String, EcloudServerGroup> serverGroups = translateServerGroups(clusterServerCache);
       cluster.setServerGroups(serverGroups.values().stream().collect(Collectors.toSet()));
@@ -274,29 +274,29 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
       //      cluster.setLoadBalancers(lbSet);
       //    }
       diagnosticInfo("CLUSTER_RESULT", "DATA", new StringBuilder()
-              .append(diagnosticContext)
-              .append(" serverGroupCount=")
-              .append(serverGroups.size())
-              .toString());
+        .append(diagnosticContext)
+        .append(" serverGroupCount=")
+        .append(serverGroups.size())
+        .toString());
       diagnosticInfo(diagnosticStep, "END", diagnosticContext);
       diagnosticInfo("TRANSLATE_CLUSTER", "SUCCESS", diagnosticContext);
       return cluster;
 
     } catch (RuntimeException e) {
       log.error("[ECLOUD_DIAG] step=TRANSLATE_CLUSTER event=ERROR phase={} {}",
-          diagnosticStep, diagnosticContext, e);
+        diagnosticStep, diagnosticContext, e);
       throw e;
     } finally {
       diagnosticInfo("TRANSLATE_CLUSTER", "EXIT", new StringBuilder()
-              .append(diagnosticContext)
-              .append(" elapsedMs=")
-              .append((System.nanoTime() - diagnosticStarted) / 1_000_000)
-              .toString());
+        .append(diagnosticContext)
+        .append(" elapsedMs=")
+        .append((System.nanoTime() - diagnosticStarted) / 1_000_000)
+        .toString());
     }
   }
 
   private Map<String, EcloudServerGroup> translateServerGroups(
-      Collection<CacheData> serverGroupData) {
+    Collection<CacheData> serverGroupData) {
     Map<String, EcloudServerGroup> serverGroups = new HashMap<>(16);
     for (CacheData one : serverGroupData) {
       serverGroups.put(one.getId(), translateServerGroup(one));
@@ -307,10 +307,10 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
   public EcloudServerGroup translateServerGroup(CacheData serverGroupData) {
     long diagnosticStarted = System.nanoTime();
     String diagnosticContext =
-        new StringBuilder()
-            .append("cacheId=")
-            .append(serverGroupData == null ? null : serverGroupData.getId())
-            .toString();
+      new StringBuilder()
+        .append("cacheId=")
+        .append(serverGroupData == null ? null : serverGroupData.getId())
+        .toString();
     String diagnosticStep = "PREPARE";
     diagnosticInfo("TRANSLATE_SERVER_GROUP", "BEGIN", diagnosticContext);
     try {
@@ -320,17 +320,17 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
       String serverGroupName = (String) attributes.get("scalingGroupName");
       serverGroup.setName(serverGroupName);
       diagnosticContext =
-          new StringBuilder()
-              .append(diagnosticContext)
-              .append(" serverGroup=")
-              .append(serverGroupName)
-              .append(" scalingGroupId=")
-              .append(attributes.get("scalingGroupId"))
-              .append(" account=")
-              .append(attributes.get("account"))
-              .append(" region=")
-              .append(attributes.get("poolId"))
-              .toString();
+        new StringBuilder()
+          .append(diagnosticContext)
+          .append(" serverGroup=")
+          .append(serverGroupName)
+          .append(" scalingGroupId=")
+          .append(attributes.get("scalingGroupId"))
+          .append(" account=")
+          .append(attributes.get("account"))
+          .append(" region=")
+          .append(attributes.get("poolId"))
+          .toString();
       diagnosticInfo("SG_BASIC", "DATA", diagnosticContext);
       serverGroup.setCloudProvider((String) attributes.get("provider"));
       serverGroup.setProvider((String) attributes.get("provider"));
@@ -354,27 +354,27 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
       if (attributes.get("networkWithRegionList") != null) {
         List<Map> networkWithRegionList = (List<Map>) attributes.get("networkWithRegionList");
         Set<String> zones =
-            networkWithRegionList.stream()
-                .map(
-                    one -> {
-                      EcloudZone zone =
-                          EcloudZoneHelper.getEcloudZone(
-                              (String) attributes.get("account"),
-                              (String) attributes.get("poolId"),
-                              (String) one.get("region"));
-                      return zone == null ? null : zone.getName();
-                    })
-                .collect(Collectors.toSet());
+          networkWithRegionList.stream()
+            .map(
+              one -> {
+                EcloudZone zone =
+                  EcloudZoneHelper.getEcloudZone(
+                    (String) attributes.get("account"),
+                    (String) attributes.get("poolId"),
+                    (String) one.get("region"));
+                return zone == null ? null : zone.getName();
+              })
+            .collect(Collectors.toSet());
         asg.setZoneSet(zones);
         List<String> networkIdList = new ArrayList<>();
         networkWithRegionList.stream()
-            .forEach(
-                one -> {
-                  List<String> networkIds = (List<String>) one.get("networkIdList");
-                  if (networkIds != null) {
-                    networkIdList.addAll(networkIds);
-                  }
-                });
+          .forEach(
+            one -> {
+              List<String> networkIds = (List<String>) one.get("networkIdList");
+              if (networkIds != null) {
+                networkIdList.addAll(networkIds);
+              }
+            });
       }
       asg.setDesiredCapacity((Integer) attributes.get("desiredSize"));
       asg.setMaxSize((Integer) attributes.get("maxSize"));
@@ -420,9 +420,9 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
       asg.setSubnetIdSet(subnetIdSet);
       serverGroup.setForwardLoadBalancers(lbs);
       serverGroup.setLoadBalancers(
-          lbs.stream()
-              .map(EcloudServerGroup.ForwardLoadBalancer::getLoadBalancerId)
-              .collect(Collectors.toSet()));
+        lbs.stream()
+          .map(EcloudServerGroup.ForwardLoadBalancer::getLoadBalancerId)
+          .collect(Collectors.toSet()));
       diagnosticStep = diagnosticNextStep(diagnosticStep, "SG_LAUNCH_CONFIG", diagnosticContext);
       // launchConfig
       EcloudServerGroup.LauchConfiguartion lc = new EcloudServerGroup.LauchConfiguartion();
@@ -432,9 +432,9 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
         if (sc.get("securityGroupInfoRespList") != null) {
           List<Map> secGrps = (List<Map>) sc.get("securityGroupInfoRespList");
           securityGroups =
-              secGrps.stream()
-                  .map(one -> (String) one.get("securityGroupId"))
-                  .collect(Collectors.toSet());
+            secGrps.stream()
+              .map(one -> (String) one.get("securityGroupId"))
+              .collect(Collectors.toSet());
         }
         serverGroup.setSecurityGroups(securityGroups);
         lc.setSecurityGroupIds(securityGroups);
@@ -449,9 +449,9 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
         List<Map> flavorInfoList = (List<Map>) sc.get("flavorInfoRespList");
         if (flavorInfoList != null && !flavorInfoList.isEmpty()) {
           List<String> instanceTypes =
-              flavorInfoList.stream()
-                  .map(one -> (String) one.get("specsName"))
-                  .collect(Collectors.toList());
+            flavorInfoList.stream()
+              .map(one -> (String) one.get("specsName"))
+              .collect(Collectors.toList());
           lc.setInstanceType(String.join(",", instanceTypes));
           lc.setInstanceTypes(instanceTypes);
         }
@@ -477,15 +477,15 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
         if (sc.get("accessInfoRespList") != null) {
           List<Map> accessList = (List<Map>) sc.get("accessInfoRespList");
           List<String> keyPairs =
-              accessList.stream()
-                  .filter(one -> "KEYPAIR".equals((String) one.get("accessType")))
-                  .map(one -> (String) one.get("keypairName"))
-                  .collect(Collectors.toList());
+            accessList.stream()
+              .filter(one -> "KEYPAIR".equals((String) one.get("accessType")))
+              .map(one -> (String) one.get("keypairName"))
+              .collect(Collectors.toList());
           loginSettings.setKeyIds(keyPairs);
         }
         lc.setLoginSettings(loginSettings);
         EcloudServerGroup.InternetAccessible internetAccessible =
-            new EcloudServerGroup.InternetAccessible();
+          new EcloudServerGroup.InternetAccessible();
         Map fip = (Map) sc.get("fipAndBandwidth");
         if (fip == null) {
           internetAccessible.setPublicIpAssigned(false);
@@ -518,10 +518,10 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
           Map sgRule = sgRuleMap.get(sgRuleId);
           if (sgRule == null) {
             diagnosticInfo("SG_SCALING_POLICIES", "INVALID_DATA", new StringBuilder()
-                    .append(diagnosticContext)
-                    .append(" missingScalingRuleId=")
-                    .append(sgRuleId)
-                    .toString());
+              .append(diagnosticContext)
+              .append(" missingScalingRuleId=")
+              .append(sgRuleId)
+              .toString());
           }
           sp.setAutoScalingPolicyId((String) map.get("alarmTaskId"));
           sp.setPolicyType((String) map.get("scalingRuleType"));
@@ -546,17 +546,18 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
           sps.add(sp);
         }
       }
-      if (!CollectionUtils.isEmpty(scheduledTasks) && sgRuleMap != null) {
+      if (!CollectionUtils.isEmpty(scheduledTasks)) {
         for (Map map : scheduledTasks) {
           EcloudServerGroup.ScalingPolicy sp = new EcloudServerGroup.ScalingPolicy();
           String sgRuleId = (String) map.get("scalingRuleId");
-          Map sgRule = sgRuleMap.get(sgRuleId);
-          if (sgRule == null) {
+          String taskType = (String) map.get("taskType");
+          Map sgRule = sgRuleMap == null || sgRuleId == null ? null : sgRuleMap.get(sgRuleId);
+          if (sgRule == null && !"SCALING_GROUP_CAPACITY".equals(taskType)) {
             diagnosticInfo("SG_SCALING_POLICIES", "INVALID_DATA", new StringBuilder()
-                    .append(diagnosticContext)
-                    .append(" missingScalingRuleId=")
-                    .append(sgRuleId)
-                    .toString());
+              .append(diagnosticContext)
+              .append(" missingScalingRuleId=")
+              .append(sgRuleId)
+              .toString());
           }
           sp.setAutoScalingPolicyId((String) map.get("scheduledTaskId"));
           sp.setPolicyType((String) map.get("taskType"));
@@ -566,14 +567,28 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
           scheduleTask.setPeriodName((String) map.get("period"));
           scheduleTask.setPeriodValue((String) map.get("periodValue"));
           scheduleTask.setRetryExpireTime((Integer) map.get("retryExpireTime"));
+          Object minSize = map.get("minSize");
+          if (minSize instanceof Number) {
+            scheduleTask.setMinSize(((Number) minSize).intValue());
+          }
+          Object desiredSize = map.get("desiredSize");
+          if (desiredSize instanceof Number) {
+            scheduleTask.setDesiredSize(((Number) desiredSize).intValue());
+          }
+          Object maxSize = map.get("maxSize");
+          if (maxSize instanceof Number) {
+            scheduleTask.setMaxSize(((Number) maxSize).intValue());
+          }
           sp.setScheduledTask(scheduleTask);
-          sp.setScalingRuleId(sgRuleId);
-          sp.setScalingRuleType((String) sgRule.get("scalingRuleType"));
-          sp.setScalingRuleName((String) sgRule.get("scalingRuleName"));
-          sp.setCooldown((Integer) sgRule.get("coolDown"));
-          sp.setAdjustmentType((String) sgRule.get("adjustmentType"));
-          sp.setAdjustmentValue((Integer) sgRule.get("adjustmentValue"));
-          sp.setMinAdjustmentMagnitude((Integer) sgRule.get("minAdjustmentValue"));
+          if (sgRule != null) {
+            sp.setScalingRuleId(sgRuleId);
+            sp.setScalingRuleType((String) sgRule.get("scalingRuleType"));
+            sp.setScalingRuleName((String) sgRule.get("scalingRuleName"));
+            sp.setCooldown((Integer) sgRule.get("coolDown"));
+            sp.setAdjustmentType((String) sgRule.get("adjustmentType"));
+            sp.setAdjustmentValue((Integer) sgRule.get("adjustmentValue"));
+            sp.setMinAdjustmentMagnitude((Integer) sgRule.get("minAdjustmentValue"));
+          }
           sp.setTaskDescription((String) map.get("description"));
           sps.add(sp);
         }
@@ -588,7 +603,7 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
           EcloudServerGroup.ScheduledAction action = new EcloudServerGroup.ScheduledAction();
           action.setScheduledActionId((String) map.get("scalingActivityId"));
           action.setScheduledActionName(
-              map.get("scalingActivityType") + " Triggered By " + map.get("scalingActivityTrigger"));
+            map.get("scalingActivityType") + " Triggered By " + map.get("scalingActivityTrigger"));
           action.setStatus((String) map.get("scalingActivityStatus"));
           action.setStartTime((String) map.get("createdAt"));
           action.setEndTime((String) map.get("finishedAt"));
@@ -602,15 +617,15 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
       String account = (String) attributes.get("account");
       String region = (String) attributes.get("poolId");
       serverGroup.setCapacity(
-          ServerGroup.Capacity.builder()
-              .max(asg.getMaxSize())
-              .min(asg.getMinSize())
-              .desired(asg.getDesiredCapacity())
-              .build());
+        ServerGroup.Capacity.builder()
+          .max(asg.getMaxSize())
+          .min(asg.getMinSize())
+          .desired(asg.getDesiredCapacity())
+          .build());
       diagnosticStep = diagnosticNextStep(diagnosticStep, "SG_INSTANCES", diagnosticContext);
       // nodes
       Set<EcloudInstance> instanceSet =
-          translateServerGroupInstances(serverGroupData, account, region);
+        translateServerGroupInstances(serverGroupData, account, region);
       serverGroup.setInstances(instanceSet);
       diagnosticInfo(diagnosticStep, "END", diagnosticContext);
       diagnosticInfo("TRANSLATE_SERVER_GROUP", "SUCCESS", diagnosticContext);
@@ -618,73 +633,73 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
 
     } catch (RuntimeException e) {
       log.error("[ECLOUD_DIAG] step=TRANSLATE_SERVER_GROUP event=ERROR phase={} {}",
-          diagnosticStep, diagnosticContext, e);
+        diagnosticStep, diagnosticContext, e);
       throw e;
     } finally {
       diagnosticInfo("TRANSLATE_SERVER_GROUP", "EXIT", new StringBuilder()
-              .append(diagnosticContext)
-              .append(" elapsedMs=")
-              .append((System.nanoTime() - diagnosticStarted) / 1_000_000)
-              .toString());
+        .append(diagnosticContext)
+        .append(" elapsedMs=")
+        .append((System.nanoTime() - diagnosticStarted) / 1_000_000)
+        .toString());
     }
   }
 
   public Set<EcloudInstance> translateServerGroupInstances(
-      CacheData serverGroupData, String account, String region) {
+    CacheData serverGroupData, String account, String region) {
     long diagnosticStarted = System.nanoTime();
     String diagnosticContext =
-        new StringBuilder()
-            .append("cacheId=")
-            .append(serverGroupData == null ? null : serverGroupData.getId())
-            .append(" account=")
-            .append(account)
-            .append(" region=")
-            .append(region)
-            .toString();
+      new StringBuilder()
+        .append("cacheId=")
+        .append(serverGroupData == null ? null : serverGroupData.getId())
+        .append(" account=")
+        .append(account)
+        .append(" region=")
+        .append(region)
+        .toString();
     String diagnosticStep = "PREPARE";
     diagnosticInfo("SG_INSTANCES", "BEGIN", diagnosticContext);
     try {
       diagnosticStep = diagnosticNextStep(diagnosticStep, "SG_INSTANCE_CACHE", diagnosticContext);
       Collection<CacheData> instanceCache =
-          this.resolveRelationshipData(serverGroupData, Keys.Namespace.INSTANCES.ns, null);
+        this.resolveRelationshipData(serverGroupData, Keys.Namespace.INSTANCES.ns, null);
       diagnosticStep = diagnosticNextStep(diagnosticStep, "SG_INSTANCE_CONVERT", diagnosticContext);
       diagnosticInfo(diagnosticStep, "DATA", new StringBuilder()
-              .append(diagnosticContext)
-              .append(" instanceCount=")
-              .append(instanceCache.size())
-              .toString());
+        .append(diagnosticContext)
+        .append(" instanceCount=")
+        .append(instanceCache.size())
+        .toString());
       Set<EcloudInstance> instanceSet = new HashSet<>();
       instanceCache.forEach(
-          one -> {
-            instanceSet.add(ecloudInstanceProvider.instanceFromCacheData(one, account, region));
-          });
+        one -> {
+          instanceSet.add(ecloudInstanceProvider.instanceFromCacheData(one, account, region));
+        });
       diagnosticInfo(diagnosticStep, "END", diagnosticContext);
       diagnosticInfo("SG_INSTANCES", "SUCCESS", diagnosticContext);
       return instanceSet;
 
     } catch (RuntimeException e) {
       log.error("[ECLOUD_DIAG] step=SG_INSTANCES event=ERROR phase={} {}",
-          diagnosticStep, diagnosticContext, e);
+        diagnosticStep, diagnosticContext, e);
       throw e;
     } finally {
       diagnosticInfo("SG_INSTANCES", "EXIT", new StringBuilder()
-              .append(diagnosticContext)
-              .append(" elapsedMs=")
-              .append((System.nanoTime() - diagnosticStarted) / 1_000_000)
-              .toString());
+        .append(diagnosticContext)
+        .append(" elapsedMs=")
+        .append((System.nanoTime() - diagnosticStarted) / 1_000_000)
+        .toString());
     }
   }
 
   private Collection<CacheData> resolveRelationshipData(
-      CacheData source, String relationship, CacheFilter cacheFilter) {
+    CacheData source, String relationship, CacheFilter cacheFilter) {
     long diagnosticStarted = System.nanoTime();
     String diagnosticContext =
-        new StringBuilder()
-            .append("sourceCacheId=")
-            .append(source == null ? null : source.getId())
-            .append(" relationship=")
-            .append(relationship)
-            .toString();
+      new StringBuilder()
+        .append("sourceCacheId=")
+        .append(source == null ? null : source.getId())
+        .append(" relationship=")
+        .append(relationship)
+        .toString();
     String diagnosticStep = "PREPARE";
     diagnosticInfo("RELATION_CACHE", "BEGIN", diagnosticContext);
     try {
@@ -696,40 +711,40 @@ public class EcloudClusterProvider implements ClusterProvider<EcloudCluster> {
       if (relationKeys != null) {
         diagnosticStep = diagnosticNextStep(diagnosticStep, "RELATION_CACHE_READ", diagnosticContext);
         diagnosticInfo(diagnosticStep, "DATA", new StringBuilder()
-                .append(diagnosticContext)
-                .append(" requested=")
-                .append(relationKeys.size())
-                .toString());
+          .append(diagnosticContext)
+          .append(" requested=")
+          .append(relationKeys.size())
+          .toString());
         Collection<CacheData> result = cacheView.getAll(relationship, relationKeys, cacheFilter);
         diagnosticInfo(diagnosticStep, "END", new StringBuilder()
-                .append(diagnosticContext)
-                .append(" returned=")
-                .append(result == null ? null : result.size())
-                .toString());
+          .append(diagnosticContext)
+          .append(" returned=")
+          .append(result == null ? null : result.size())
+          .toString());
         return result;
       }
       diagnosticInfo(diagnosticStep, "END", new StringBuilder()
-              .append(diagnosticContext)
-              .append(" noRelationship=true")
-              .toString());
+        .append(diagnosticContext)
+        .append(" noRelationship=true")
+        .toString());
       return new ArrayList<>();
 
     } catch (RuntimeException e) {
       log.error("[ECLOUD_DIAG] step=RELATION_CACHE event=ERROR phase={} {}",
-          diagnosticStep, diagnosticContext, e);
+        diagnosticStep, diagnosticContext, e);
       throw e;
     } finally {
       diagnosticInfo("RELATION_CACHE", "EXIT", new StringBuilder()
-              .append(diagnosticContext)
-              .append(" elapsedMs=")
-              .append((System.nanoTime() - diagnosticStarted) / 1_000_000)
-              .toString());
+        .append(diagnosticContext)
+        .append(" elapsedMs=")
+        .append((System.nanoTime() - diagnosticStarted) / 1_000_000)
+        .toString());
     }
   }
 
   private static void diagnosticInfo(String step, String event, String context) {
     log.info("[ECLOUD_DIAG] step={} event={} {}",
-        step, event, context);
+      step, event, context);
   }
 
   private static String diagnosticNextStep(String previous, String next, String context) {
