@@ -29,9 +29,9 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 /**
- * @author xu.dangling
- * @date 2024/4/8
- * @Description
+ * @Description: 采集移动云各可用区的实例规格并生成缓存数据。
+ * @Author: han.pengfei-ai
+ * @Date: 2024/04/08
  */
 @Slf4j
 public class EcloudInstanceTypeCachingAgent extends AbstractEcloudCachingAgent {
@@ -60,6 +60,13 @@ public class EcloudInstanceTypeCachingAgent extends AbstractEcloudCachingAgent {
     List<CacheData> instanceTypeData = new ArrayList<>();
     // Get Available Zones
     Collection<EcloudZone> zoneList = EcloudZoneHelper.getEcloudZones(account.getName(), region);
+    if (log.isInfoEnabled()) {
+      log.info(
+          "[ECLOUD-SPEC-DIAG] collection start, account={}, region={}, zoneCount={}",
+          account.getName(),
+          region,
+          zoneList == null ? 0 : zoneList.size());
+    }
     // Get All ProductIds
     EcloudRequest prodRequest =
         new EcloudRequest(
@@ -70,9 +77,21 @@ public class EcloudInstanceTypeCachingAgent extends AbstractEcloudCachingAgent {
             account.getSecretKey());
     prodRequest.setVersion("2016-12-05");
     EcloudResponse prodRsp = EcloudOpenApiHelper.execute(prodRequest);
+    if (log.isInfoEnabled()) {
+      log.info(
+          "[ECLOUD-SPEC-DIAG] products response, account={}, region={}, httpCode={}, errorCode={}, requestId={}, bodyNull={}, productCount={}",
+          account.getName(),
+          region,
+          prodRsp.getHttpCode(),
+          prodRsp.getErrorCode(),
+          prodRsp.getRequestId(),
+          prodRsp.getBody() == null,
+          prodRsp.getBody() instanceof Collection ? ((Collection<?>) prodRsp.getBody()).size() : null);
+    }
     if (!CollectionUtils.isEmpty(zoneList) && prodRsp.getBody() != null) {
       List<Map> productBodyList = (List<Map>) prodRsp.getBody();
       for (EcloudZone zone : zoneList) {
+        int zoneStartCount = instanceTypeData.size();
         for (Map productBody : productBodyList) {
           // query by zone+product
           String offerId = (String) productBody.get("offerId");
@@ -123,9 +142,24 @@ public class EcloudInstanceTypeCachingAgent extends AbstractEcloudCachingAgent {
             }
           }
         }
+        if (log.isInfoEnabled()) {
+          log.info(
+              "[ECLOUD-SPEC-DIAG] zone processed, account={}, region={}, zone={}, preparedCount={}",
+              account.getName(),
+              region,
+              zone.getRegion(),
+              instanceTypeData.size() - zoneStartCount);
+        }
       }
     }
     resultMap.put(Keys.Namespace.INSTANCE_TYPES.ns, instanceTypeData);
+    if (log.isInfoEnabled()) {
+      log.info(
+          "[ECLOUD-SPEC-DIAG] collection complete, account={}, region={}, preparedCount={}",
+          account.getName(),
+          region,
+          instanceTypeData.size());
+    }
     return new DefaultCacheResult(resultMap);
   }
 
