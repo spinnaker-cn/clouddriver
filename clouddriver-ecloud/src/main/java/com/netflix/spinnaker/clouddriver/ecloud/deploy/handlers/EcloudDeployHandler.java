@@ -15,6 +15,7 @@ import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudServerGroup;
 import com.netflix.spinnaker.clouddriver.ecloud.provider.view.EcloudClusterProvider;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+/**
+ * @Description: 处理移动云弹性伸缩组的部署和复制。
+ * @Author: han.pengfei-ai
+ * @Date: 2024/06/27
+ */
 @Component
 public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescription> {
 
@@ -52,11 +58,11 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
 
     String region = description.getRegion();
     EcloudServerGroupNameResolver serverGroupNameResolver =
-        new EcloudServerGroupNameResolver(
-            description.getAccountName(), description.getRegion(), ecloudClusterProvider);
+      new EcloudServerGroupNameResolver(
+        description.getAccountName(), description.getRegion(), ecloudClusterProvider);
     String serverGroupName =
-        serverGroupNameResolver.resolveNextServerGroupName(
-            description.getApplication(), description.getStack(), description.getDetail(), false);
+      serverGroupNameResolver.resolveNextServerGroupName(
+        description.getApplication(), description.getStack(), description.getDetail(), false);
 
     task.updateStatus(BASE_PHASE, "Produce server group name: " + serverGroupName);
     description.setServerGroupName(serverGroupName);
@@ -70,12 +76,12 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       String accountName = description.getAccountName();
       boolean useSourceCapacity = description.getSource().getUseSourceCapacity();
       EcloudServerGroup sourceServerGroup =
-          ecloudClusterProvider.getServerGroup(accountName, sourceRegion, sourceServerGroupName);
+        ecloudClusterProvider.getServerGroup(accountName, sourceRegion, sourceServerGroupName);
       if (sourceServerGroup == null) {
         task.updateStatus(BASE_PHASE, "Fail to get source serverGroup:" + sourceServerGroup);
         deploymentResult
-            .getMessages()
-            .add("Fail to get config of source server group:" + sourceServerGroup);
+          .getMessages()
+          .add("Fail to get config of source server group:" + sourceServerGroup);
         task.fail(false);
         return deploymentResult;
       } else {
@@ -131,6 +137,7 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
         return deploymentResult;
       }
     }
+    this.copyScalingGroupNotification(description, deploymentResult);
     String error = this.enableScalingGroup(description);
     if (error != null) {
       // destroy scaling group
@@ -142,7 +149,7 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       return deploymentResult;
     }
     task.updateStatus(
-        BASE_PHASE, "Done creating server group " + serverGroupName + " in " + region + ".");
+      BASE_PHASE, "Done creating server group " + serverGroupName + " in " + region + ".");
 
     deploymentResult.getServerGroupNames().add(region + ":" + serverGroupName);
     deploymentResult.getServerGroupNameByRegion().put(region, serverGroupName);
@@ -152,12 +159,12 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
 
   private String createScalingConfig(EcloudDeployDescription description) throws EcloudException {
     EcloudRequest request =
-        new EcloudRequest(
-            "POST",
-            description.getRegion(),
-            "/api/v4/autoScaling/scalingConfig/create/v2",
-            description.getCredentials().getAccessKey(),
-            description.getCredentials().getSecretKey());
+      new EcloudRequest(
+        "POST",
+        description.getRegion(),
+        "/api/v4/autoScaling/scalingConfig/create/v2",
+        description.getCredentials().getAccessKey(),
+        description.getCredentials().getSecretKey());
     Map<String, Object> params = new HashMap<>();
     params.put("scalingConfigName", description.getServerGroupName());
     Map<String, String> access = new HashMap<>();
@@ -171,13 +178,13 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
     params.put("imageId", description.getImageId());
     params.put("imageType", description.getIsPublic() == 0 ? "PRIVATE" : "PUBLIC");
     params.put(
-        "securityReinforce",
-        description.getSecurityReinforce() == null ? false : description.getSecurityReinforce());
+      "securityReinforce",
+      description.getSecurityReinforce() == null ? false : description.getSecurityReinforce());
     params.put("serverName", description.getServerGroupName());
     // spec
     List<Map> scalingConfigCreateFlavorList = new ArrayList<>();
     for (EcloudDeployDescription.InstanceTypeRela instanceTypeRela :
-        description.getInstanceTypeRelas()) {
+      description.getInstanceTypeRelas()) {
       Map<String, Object> flavor = new HashMap<>();
       flavor.put("specsName", instanceTypeRela.getInstanceType());
       flavor.put("cpu", instanceTypeRela.getCpu());
@@ -227,10 +234,10 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       log.error("Create scaling config failed with response:" + JSONObject.toJSONString(response));
       StringBuffer errMsg = new StringBuffer();
       errMsg
-          .append(response.getErrorMessage())
-          .append("(")
-          .append(response.getRequestId())
-          .append(")");
+        .append(response.getErrorMessage())
+        .append("(")
+        .append(response.getRequestId())
+        .append(")");
       throw new EcloudException(errMsg.toString());
     }
     Map body = (Map) response.getBody();
@@ -240,21 +247,21 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       log.error("Create scaling config failed with response:" + JSONObject.toJSONString(response));
       StringBuffer errMsg = new StringBuffer();
       errMsg
-          .append("Create ScalingConfig Return Empty id(")
-          .append(response.getRequestId())
-          .append(")");
+        .append("Create ScalingConfig Return Empty id(")
+        .append(response.getRequestId())
+        .append(")");
       throw new EcloudException(errMsg.toString());
     }
   }
 
   private String createScalingGroup(EcloudDeployDescription description) throws EcloudException {
     EcloudRequest request =
-        new EcloudRequest(
-            "POST",
-            description.getRegion(),
-            "/api/v4/autoScaling/scalingGroup",
-            description.getCredentials().getAccessKey(),
-            description.getCredentials().getSecretKey());
+      new EcloudRequest(
+        "POST",
+        description.getRegion(),
+        "/api/v4/autoScaling/scalingGroup",
+        description.getCredentials().getAccessKey(),
+        description.getCredentials().getSecretKey());
     Map<String, Object> params = new HashMap<>();
     params.put("scalingGroupName", description.getServerGroupName());
     params.put("maxSize", description.getMaxSize());
@@ -272,14 +279,14 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
     }
     params.put("subnetList", subnets);
     params.put(
-        "multiRegionCreatePolicy",
-        description.getMultiRegionCreatePolicy() == null
-            ? "PRIORITY"
-            : description.getMultiRegionCreatePolicy());
+      "multiRegionCreatePolicy",
+      description.getMultiRegionCreatePolicy() == null
+        ? "PRIORITY"
+        : description.getMultiRegionCreatePolicy());
     if (!CollectionUtils.isEmpty(description.getForwardLoadBalancers())) {
       List<Map> loadBalancerList = new ArrayList<>();
       for (EcloudDeployDescription.ForwardLoadBalancer one :
-          description.getForwardLoadBalancers()) {
+        description.getForwardLoadBalancers()) {
         Map<String, Object> map = new HashMap<>();
         map.put("loadBalanceId", one.getLoadBalancerId());
         map.put("poolId", one.getPoolId());
@@ -309,10 +316,10 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       log.error("Create scalingGroup failed with response:" + JSONObject.toJSONString(response));
       StringBuffer errMsg = new StringBuffer();
       errMsg
-          .append(response.getErrorMessage())
-          .append("(")
-          .append(response.getRequestId())
-          .append(")");
+        .append(response.getErrorMessage())
+        .append("(")
+        .append(response.getRequestId())
+        .append(")");
       throw new EcloudException(errMsg.toString());
     }
     Map body = (Map) response.getBody();
@@ -322,9 +329,9 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       log.error("Create scalingGroup failed with response:" + JSONObject.toJSONString(response));
       StringBuffer errMsg = new StringBuffer();
       errMsg
-          .append("create ScalingGroup Return Empty id!(")
-          .append(response.getRequestId())
-          .append(")");
+        .append("create ScalingGroup Return Empty id!(")
+        .append(response.getRequestId())
+        .append(")");
       throw new EcloudException(errMsg.toString());
     }
   }
@@ -334,123 +341,283 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
     String sourceRegion = description.getSource().getRegion();
     String accountName = description.getAccountName();
     Map<String, Object> attributes =
-        ecloudClusterProvider.getAttributes(accountName, sourceRegion, sourceServerGroupName);
+      ecloudClusterProvider.getAttributes(accountName, sourceRegion, sourceServerGroupName);
     // copy scaling rule
     Map newScalingRuleMap = new HashMap<>();
     Map<String, Map> sgRuleMap = (Map<String, Map>) attributes.get("scalingRules");
-    for (Map.Entry<String, Map> entry : sgRuleMap.entrySet()) {
-      Map sr = entry.getValue();
-      // create scalingRule
-      EcloudRequest request =
+    if (sgRuleMap != null) {
+      for (Map.Entry<String, Map> entry : sgRuleMap.entrySet()) {
+        Map sr = entry.getValue();
+        // create scalingRule
+        EcloudRequest request =
           new EcloudRequest(
-              "POST",
-              description.getRegion(),
-              "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingRule",
-              description.getCredentials().getAccessKey(),
-              description.getCredentials().getSecretKey());
-      Map<String, Object> body = new HashMap<>();
-      body.put("adjustmentType", sr.get("adjustmentType"));
-      body.put("adjustmentValue", sr.get("adjustmentValue"));
-      body.put("coolDown", sr.get("coolDown"));
-      body.put("minAdjustmentValue", sr.get("minAdjustmentValue"));
-      body.put("scalingRuleName", sr.get("scalingRuleName"));
-      body.put("scalingRuleType", sr.get("scalingRuleType"));
-      body.put("scalingGroupId", description.getScalingGroupId());
-      request.setBodyParams(body);
-      EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
-      if (rsp.getErrorMessage() != null) {
-        log.error("Create scaling rule failed with response:" + JSONObject.toJSONString(rsp));
-        return "Create Scaling Rule Return Error "
+            "POST",
+            description.getRegion(),
+            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingRule",
+            description.getCredentials().getAccessKey(),
+            description.getCredentials().getSecretKey());
+        Map<String, Object> body = new HashMap<>();
+        body.put("adjustmentType", sr.get("adjustmentType"));
+        body.put("adjustmentValue", sr.get("adjustmentValue"));
+        body.put("coolDown", sr.get("coolDown"));
+        body.put("minAdjustmentValue", sr.get("minAdjustmentValue"));
+        body.put("scalingRuleName", sr.get("scalingRuleName"));
+        body.put("scalingRuleType", sr.get("scalingRuleType"));
+        body.put("scalingGroupId", description.getScalingGroupId());
+        request.setBodyParams(body);
+        EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
+        if (rsp.getErrorMessage() != null) {
+          log.error("Create scaling rule failed with response:" + JSONObject.toJSONString(rsp));
+          return "Create Scaling Rule Return Error "
             + rsp.getErrorMessage()
             + "("
             + rsp.getRequestId()
             + ")";
-      }
-      Map rspBody = (Map) rsp.getBody();
-      if (rspBody == null || rspBody.get("scalingRuleId") == null) {
-        log.error("Create scaling rule failed with response:" + JSONObject.toJSONString(rsp));
-        return "Create Scaling Rule Return Empty Id";
-      }
-      newScalingRuleMap.put(
+        }
+        Map rspBody = (Map) rsp.getBody();
+        if (rspBody == null || rspBody.get("scalingRuleId") == null) {
+          log.error("Create scaling rule failed with response:" + JSONObject.toJSONString(rsp));
+          return "Create Scaling Rule Return Empty Id";
+        }
+        newScalingRuleMap.put(
           (String) sr.get("scalingRuleId"), (String) rspBody.get("scalingRuleId"));
+      }
     }
     // copy alarm tasks
     List<Map> alarmTasks = (List<Map>) attributes.get("alarmTasks");
-    for (Map task : alarmTasks) {
-      EcloudRequest request =
+    if (!CollectionUtils.isEmpty(alarmTasks)) {
+      for (Map task : alarmTasks) {
+        EcloudRequest request =
           new EcloudRequest(
-              "POST",
-              description.getRegion(),
-              "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/alarmTask",
-              description.getCredentials().getAccessKey(),
-              description.getCredentials().getSecretKey());
-      Map<String, Object> body = new HashMap<>();
-      body.put("alarmTaskName", task.get("alarmTaskName"));
-      body.put("comparisonOperator", task.get("comparisonOperator"));
-      body.put("evaluationCount", task.get("evaluationCount"));
-      body.put("metricName", task.get("metricName"));
-      body.put("monitorType", task.get("monitorType"));
-      body.put("period", task.get("period"));
-      body.put("statistics", task.get("statistics"));
-      body.put("threshold", task.get("threshold"));
-      body.put("description", task.get("description"));
-      body.put("scalingRuleId", newScalingRuleMap.get(task.get("scalingRuleId")));
-      body.put("scalingGroupId", description.getScalingGroupId());
-      request.setBodyParams(body);
-      EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
-      if (rsp.getErrorMessage() != null) {
-        log.error("Create alarm task failed with response:" + JSONObject.toJSONString(rsp));
-        return "Create Alarm Task Return Error "
+            "POST",
+            description.getRegion(),
+            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/alarmTask",
+            description.getCredentials().getAccessKey(),
+            description.getCredentials().getSecretKey());
+        Map<String, Object> body = new HashMap<>();
+        body.put("alarmTaskName", task.get("alarmTaskName"));
+        body.put("comparisonOperator", task.get("comparisonOperator"));
+        body.put("evaluationCount", task.get("evaluationCount"));
+        body.put("metricName", task.get("metricName"));
+        body.put("monitorType", task.get("monitorType"));
+        body.put("period", task.get("period"));
+        body.put("statistics", task.get("statistics"));
+        body.put("threshold", task.get("threshold"));
+        body.put("description", task.get("description"));
+        body.put("scalingRuleId", newScalingRuleMap.get(task.get("scalingRuleId")));
+        body.put("scalingGroupId", description.getScalingGroupId());
+        request.setBodyParams(body);
+        EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
+        if (rsp.getErrorMessage() != null) {
+          log.error("Create alarm task failed with response:" + JSONObject.toJSONString(rsp));
+          return "Create Alarm Task Return Error "
             + rsp.getErrorMessage()
             + "("
             + rsp.getRequestId()
             + ")";
+        }
       }
     }
     // copy scheduled tasks
     List<Map> scheduledTasks = (List<Map>) attributes.get("scheduledTasks");
-    for (Map task : scheduledTasks) {
-      EcloudRequest request =
+    if (!CollectionUtils.isEmpty(scheduledTasks)) {
+      for (Map task : scheduledTasks) {
+        EcloudRequest request =
           new EcloudRequest(
-              "POST",
-              description.getRegion(),
-              "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scheduledTask",
-              description.getCredentials().getAccessKey(),
-              description.getCredentials().getSecretKey());
-      Map<String, Object> body = new HashMap<>();
-      body.put("taskType", task.get("taskType"));
-      body.put("scheduledTaskName", task.get("scheduledTaskName"));
-      body.put("triggerTime", task.get("triggerTime"));
-      body.put("period", task.get("period"));
-      body.put("periodValue", task.get("periodValue"));
-      body.put("expireTime", task.get("expireTime"));
-      body.put("retryExpireTime", task.get("retryExpireTime"));
-      body.put("description", task.get("description"));
-      body.put("scalingRuleId", newScalingRuleMap.get(task.get("scalingRuleId")));
-      body.put("scalingGroupId", description.getScalingGroupId());
-      request.setBodyParams(body);
-      EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
-      if (rsp.getErrorMessage() != null) {
-        log.error("Create scheduled task failed with response:" + JSONObject.toJSONString(rsp));
-        return "Create Scheduled Task Return Error "
+            "POST",
+            description.getRegion(),
+            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scheduledTask",
+            description.getCredentials().getAccessKey(),
+            description.getCredentials().getSecretKey());
+        Map<String, Object> body = new HashMap<>();
+        body.put("taskType", task.get("taskType"));
+        body.put("scheduledTaskName", task.get("scheduledTaskName"));
+        body.put("triggerTime", task.get("triggerTime"));
+        body.put("period", task.get("period"));
+        body.put("periodValue", task.get("periodValue"));
+        body.put("expireTime", task.get("expireTime"));
+        body.put("retryExpireTime", task.get("retryExpireTime"));
+        body.put("description", task.get("description"));
+        String taskType = (String) task.get("taskType");
+        if ("SCALING_GROUP_CAPACITY".equals(taskType)) {
+          body.put("minSize", task.get("minSize"));
+          body.put("desiredSize", task.get("desiredSize"));
+          body.put("maxSize", task.get("maxSize"));
+        } else {
+          Object newScalingRuleId = newScalingRuleMap.get(task.get("scalingRuleId"));
+          if (newScalingRuleId == null) {
+            return "Create Scheduled Task Failed: scaling rule mapping is missing";
+          }
+          body.put("scalingRuleId", newScalingRuleId);
+        }
+        body.put("scalingGroupId", description.getScalingGroupId());
+        request.setBodyParams(body);
+        EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
+        if (rsp.getErrorMessage() != null) {
+          log.error("Create scheduled task failed with response:" + JSONObject.toJSONString(rsp));
+          return "Create Scheduled Task Return Error "
             + rsp.getErrorMessage()
             + "("
             + rsp.getRequestId()
             + ")";
+        }
       }
     }
     return null;
   }
 
+  // 消息通知独立复制；查询、校验或设置失败时仅提示，不阻断原有部署流程。
+  private void copyScalingGroupNotification(
+    EcloudDeployDescription description, DeploymentResult deploymentResult) {
+    if (description.getSource() == null
+      || description.getSource().getServerGroupName() == null) {
+      return;
+    }
+    String accountName = description.getAccountName();
+    String sourceServerGroupName = description.getSource().getServerGroupName();
+    String sourceRegion = description.getSource().getRegion();
+    String targetRegion = description.getRegion();
+    String targetScalingGroupId = description.getScalingGroupId();
+    String sourceScalingGroupId = null;
+    String requestId = null;
+    String step = "LOOKUP_SOURCE";
+    EcloudResponse response = null;
+    try {
+      sourceScalingGroupId =
+        ecloudClusterProvider.getServerGroupIdByName(
+          accountName, sourceRegion, sourceServerGroupName);
+      if (!StringUtils.hasText(sourceScalingGroupId)) {
+        throw new EcloudException("Source scaling group ID is missing");
+      }
+      step = "QUERY";
+      log.info(
+        "[ECLOUD-NOTIFY] query start, account={}, sourceRegion={}, sourceScalingGroupId={}, targetRegion={}, targetScalingGroupId={}",
+        accountName, sourceRegion, sourceScalingGroupId, targetRegion, targetScalingGroupId);
+      EcloudRequest queryRequest =
+        new EcloudRequest(
+          "GET", sourceRegion,
+          "/api/v4/autoScaling/notification/" + sourceScalingGroupId,
+          description.getCredentials().getAccessKey(),
+          description.getCredentials().getSecretKey());
+      response = EcloudOpenApiHelper.execute(queryRequest);
+      requestId = response == null ? null : response.getRequestId();
+      checkNotificationResponse(response);
+      boolean bodyNull = response.getBody() == null;
+      log.info(
+        "[ECLOUD-NOTIFY] query complete, sourceScalingGroupId={}, bodyNull={}, requestId={}",
+        sourceScalingGroupId, bodyNull, requestId);
+      step = "VALIDATE";
+      Map<String, Object> params =
+        getCopiedNotificationParams(
+          (Map) response.getBody(), targetScalingGroupId);
+      if (params == null) {
+        log.info(
+          "[ECLOUD-NOTIFY] copy skipped, sourceScalingGroupId={}, reason=no notification scenes, requestId={}",
+          sourceScalingGroupId, requestId);
+        return;
+      }
+      step = "SETUP";
+      String mode = (String) params.get("notificationMode");
+      int sceneCount = ((List<?>) params.get("notificationScenes")).size();
+      log.info(
+        "[ECLOUD-NOTIFY] setup start, targetScalingGroupId={}, notificationMode={}, sceneCount={}",
+        targetScalingGroupId, mode, sceneCount);
+      response = null;
+      requestId = null;
+      EcloudRequest setupRequest =
+        new EcloudRequest(
+          "POST", targetRegion,
+          "/api/v4/autoScaling/notification/setup",
+          description.getCredentials().getAccessKey(),
+          description.getCredentials().getSecretKey());
+      setupRequest.setBodyParams(params);
+      response = EcloudOpenApiHelper.execute(setupRequest);
+      requestId = response == null ? null : response.getRequestId();
+      checkNotificationResponse(response);
+      if (!Boolean.TRUE.equals(response.getBody())) {
+        throw new EcloudException("Setting message notification did not return true");
+      }
+      log.info(
+        "[ECLOUD-NOTIFY] setup complete, targetScalingGroupId={}, requestId={}",
+        targetScalingGroupId, requestId);
+    } catch (Exception e) {
+      if (log.isWarnEnabled()) {
+        log.warn(
+          "[ECLOUD-NOTIFY] copy failed, step={}, account={}, sourceServerGroup={}, sourceRegion={}, sourceScalingGroupId={}, targetScalingGroupId={}, {}; deployment will continue",
+          step, accountName, sourceServerGroupName, sourceRegion,
+          sourceScalingGroupId, targetScalingGroupId, notificationResponseDetails(response), e);
+      }
+      String warning = new StringBuffer()
+        .append("[ECLOUD-NOTIFY] Message notification was not copied; deployment will continue. step=")
+        .append(step)
+        .append(" requestId=")
+        .append(requestId)
+        .toString();
+      getTask().updateStatus(BASE_PHASE, warning);
+      deploymentResult.getMessages().add(warning);
+    }
+  }
+
+  private String notificationResponseDetails(EcloudResponse response) {
+    if (response == null) {
+      return "response=null";
+    }
+    return new StringBuffer()
+      .append("httpCode=").append(response.getHttpCode())
+      .append(" errorCode=").append(response.getErrorCode())
+      .append(" errorMessage=").append(response.getErrorMessage())
+      .append(" requestId=").append(response.getRequestId())
+      .toString();
+  }
+
+  private Map<String, Object> getCopiedNotificationParams(Map notification, String scalingGroupId) {
+    List<String> scenes =
+      notification == null ? null : (List<String>) notification.get("notificationScenes");
+    if (CollectionUtils.isEmpty(scenes)) {
+      return null;
+    }
+    for (String scene : scenes) {
+      if (!StringUtils.hasText(scene)) {
+        throw new EcloudException("Message notification scene is empty");
+      }
+    }
+    String mode = (String) notification.get("notificationMode");
+    if (!Arrays.asList("CURRENT_USER", "USER_GROUP", "EVENT_BUS").contains(mode)) {
+      throw new EcloudException("Message notification mode is missing or unsupported");
+    }
+    Map<String, Object> params = new HashMap<>();
+    params.put("scalingGroupId", scalingGroupId);
+    params.put("notificationScenes", new ArrayList<>(scenes));
+    params.put("notificationMode", mode);
+    if ("USER_GROUP".equals(mode)) {
+      String receiver = (String) notification.get("notificationReceiver");
+      if (!StringUtils.hasText(receiver)) {
+        throw new EcloudException("Message notification user group ID is missing");
+      }
+      params.put("notificationReceiver", receiver);
+    }
+    // CURRENT_USER 由移动云按调用者确定接收人，EVENT_BUS 不需要接收方 ID。
+    return params;
+  }
+
+  private void checkNotificationResponse(EcloudResponse response) {
+    if (response == null
+      || !response.isHttpSuccess()
+      || StringUtils.hasText(response.getErrorCode())
+      || StringUtils.hasText(response.getErrorMessage())) {
+      throw new EcloudException("Message notification API request failed");
+    }
+  }
+
   private String enableScalingGroup(EcloudDeployDescription description) {
     EcloudRequest enableRequest =
-        new EcloudRequest(
-            "PUT",
-            description.getRegion(),
-            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/"
-                + description.getScalingGroupId(),
-            description.getCredentials().getAccessKey(),
-            description.getCredentials().getSecretKey());
+      new EcloudRequest(
+        "PUT",
+        description.getRegion(),
+        "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/"
+          + description.getScalingGroupId(),
+        description.getCredentials().getAccessKey(),
+        description.getCredentials().getSecretKey());
     Map<String, String> query = new HashMap<>();
     query.put("action", "enable");
     enableRequest.setQueryParams(query);
@@ -458,23 +625,23 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
     if (enableRsp.getErrorMessage() != null) {
       log.error("Enable scalingGroup failed with response:" + JSONObject.toJSONString(enableRsp));
       return "Enable Server Group Return Error "
-          + enableRsp.getErrorMessage()
-          + "("
-          + enableRsp.getRequestId()
-          + ")";
+        + enableRsp.getErrorMessage()
+        + "("
+        + enableRsp.getRequestId()
+        + ")";
     }
     return null;
   }
 
   private void destroyScalingGroup(EcloudDeployDescription description) {
     EcloudRequest request =
-        new EcloudRequest(
-            "DELETE",
-            description.getRegion(),
-            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/"
-                + description.getScalingGroupId(),
-            description.getCredentials().getAccessKey(),
-            description.getCredentials().getSecretKey());
+      new EcloudRequest(
+        "DELETE",
+        description.getRegion(),
+        "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingGroup/"
+          + description.getScalingGroupId(),
+        description.getCredentials().getAccessKey(),
+        description.getCredentials().getSecretKey());
     request.setVersion("2016-12-05");
     EcloudResponse rsp = EcloudOpenApiHelper.execute(request);
     if (rsp.getErrorMessage() != null) {
@@ -484,12 +651,12 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
 
   private void deleteScalingConfig(EcloudDeployDescription description) {
     EcloudRequest request =
-        new EcloudRequest(
-            "DELETE",
-            description.getRegion(),
-            "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingConfig",
-            description.getCredentials().getAccessKey(),
-            description.getCredentials().getSecretKey());
+      new EcloudRequest(
+        "DELETE",
+        description.getRegion(),
+        "/api/openapi-eas-v2/customer/v3/autoScaling/cloudApi/scalingConfig",
+        description.getCredentials().getAccessKey(),
+        description.getCredentials().getSecretKey());
     Map<String, String> queryParams = new HashMap<>();
     queryParams.put("scalingConfigIds", description.getScalingConfigId());
     request.setQueryParams(queryParams);
