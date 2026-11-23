@@ -15,6 +15,7 @@ import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudResponse;
 import com.netflix.spinnaker.clouddriver.ecloud.model.EcloudServerGroup;
 import com.netflix.spinnaker.clouddriver.ecloud.provider.view.EcloudClusterProvider;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -136,6 +137,7 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
         return deploymentResult;
       }
     }
+    this.copyScalingGroupNotification(description, deploymentResult);
     String error = this.enableScalingGroup(description);
     if (error != null) {
       // destroy scaling group
@@ -462,6 +464,149 @@ public class EcloudDeployHandler implements DeployHandler<EcloudDeployDescriptio
       }
     }
     return null;
+  }
+
+  // 消息通知独立复制；查询、校验或设置失败时仅提示，不阻断原有部署流程。
+  private void copyScalingGroupNotification(
+    EcloudDeployDescription description, DeploymentResult deploymentResult) {
+    if (description.getSource() == null
+      || description.getSource().getServerGroupName() == null) {
+      return;
+    }
+    String accountName = description.getAccountName();
+    String sourceServerGroupName = description.getSource().getServerGroupName();
+    String sourceRegion = description.getSource().getRegion();
+    String targetRegion = description.getRegion();
+    String targetScalingGroupId = description.getScalingGroupId();
+    String sourceScalingGroupId = null;
+    String requestId = null;
+    String step = "LOOKUP_SOURCE";
+    EcloudResponse response = null;
+    try {
+      sourceScalingGroupId =
+        ecloudClusterProvider.getServerGroupIdByName(
+          accountName, sourceRegion, sourceServerGroupName);
+      if (!StringUtils.hasText(sourceScalingGroupId)) {
+        throw new EcloudException("Source scaling group ID is missing");
+      }
+      step = "QUERY";
+      log.info(
+        "[ECLOUD-NOTIFY] query start, account={}, sourceRegion={}, sourceScalingGroupId={}, targetRegion={}, targetScalingGroupId={}",
+        accountName, sourceRegion, sourceScalingGroupId, targetRegion, targetScalingGroupId);
+      EcloudRequest queryRequest =
+        new EcloudRequest(
+          "GET", sourceRegion,
+          "/api/v4/autoScaling/notification/" + sourceScalingGroupId,
+          description.getCredentials().getAccessKey(),
+          description.getCredentials().getSecretKey());
+      response = EcloudOpenApiHelper.execute(queryRequest);
+      requestId = response == null ? null : response.getRequestId();
+      checkNotificationResponse(response);
+      boolean bodyNull = response.getBody() == null;
+      log.info(
+        "[ECLOUD-NOTIFY] query complete, sourceScalingGroupId={}, bodyNull={}, requestId={}",
+        sourceScalingGroupId, bodyNull, requestId);
+      step = "VALIDATE";
+      Map<String, Object> params =
+        getCopiedNotificationParams(
+          (Map) response.getBody(), targetScalingGroupId);
+      if (params == null) {
+        log.info(
+          "[ECLOUD-NOTIFY] copy skipped, sourceScalingGroupId={}, reason=no notification scenes, requestId={}",
+          sourceScalingGroupId, requestId);
+        return;
+      }
+      step = "SETUP";
+      String mode = (String) params.get("notificationMode");
+      int sceneCount = ((List<?>) params.get("notificationScenes")).size();
+      log.info(
+        "[ECLOUD-NOTIFY] setup start, targetScalingGroupId={}, notificationMode={}, sceneCount={}",
+        targetScalingGroupId, mode, sceneCount);
+      response = null;
+      requestId = null;
+      EcloudRequest setupRequest =
+        new EcloudRequest(
+          "POST", targetRegion,
+          "/api/v4/autoScaling/notification/setup",
+          description.getCredentials().getAccessKey(),
+          description.getCredentials().getSecretKey());
+      setupRequest.setBodyParams(params);
+      response = EcloudOpenApiHelper.execute(setupRequest);
+      requestId = response == null ? null : response.getRequestId();
+      checkNotificationResponse(response);
+      if (!Boolean.TRUE.equals(response.getBody())) {
+        throw new EcloudException("Setting message notification did not return true");
+      }
+      log.info(
+        "[ECLOUD-NOTIFY] setup complete, targetScalingGroupId={}, requestId={}",
+        targetScalingGroupId, requestId);
+    } catch (Exception e) {
+      if (log.isWarnEnabled()) {
+        log.warn(
+          "[ECLOUD-NOTIFY] copy failed, step={}, account={}, sourceServerGroup={}, sourceRegion={}, sourceScalingGroupId={}, targetScalingGroupId={}, {}; deployment will continue",
+          step, accountName, sourceServerGroupName, sourceRegion,
+          sourceScalingGroupId, targetScalingGroupId, notificationResponseDetails(response), e);
+      }
+      String warning = new StringBuffer()
+        .append("[ECLOUD-NOTIFY] Message notification was not copied; deployment will continue. step=")
+        .append(step)
+        .append(" requestId=")
+        .append(requestId)
+        .toString();
+      getTask().updateStatus(BASE_PHASE, warning);
+      deploymentResult.getMessages().add(warning);
+    }
+  }
+
+  private String notificationResponseDetails(EcloudResponse response) {
+    if (response == null) {
+      return "response=null";
+    }
+    return new StringBuffer()
+      .append("httpCode=").append(response.getHttpCode())
+      .append(" errorCode=").append(response.getErrorCode())
+      .append(" errorMessage=").append(response.getErrorMessage())
+      .append(" requestId=").append(response.getRequestId())
+      .toString();
+  }
+
+  private Map<String, Object> getCopiedNotificationParams(Map notification, String scalingGroupId) {
+    List<String> scenes =
+      notification == null ? null : (List<String>) notification.get("notificationScenes");
+    if (CollectionUtils.isEmpty(scenes)) {
+      return null;
+    }
+    for (String scene : scenes) {
+      if (!StringUtils.hasText(scene)) {
+        throw new EcloudException("Message notification scene is empty");
+      }
+    }
+    String mode = (String) notification.get("notificationMode");
+    if (!Arrays.asList("CURRENT_USER", "USER_GROUP", "EVENT_BUS").contains(mode)) {
+      throw new EcloudException("Message notification mode is missing or unsupported");
+    }
+    Map<String, Object> params = new HashMap<>();
+    params.put("scalingGroupId", scalingGroupId);
+    params.put("notificationScenes", new ArrayList<>(scenes));
+    params.put("notificationMode", mode);
+    if ("USER_GROUP".equals(mode)) {
+      String receiver = (String) notification.get("notificationReceiver");
+      if (!StringUtils.hasText(receiver)) {
+        throw new EcloudException("Message notification user group ID is missing");
+      }
+      params.put("notificationReceiver", receiver);
+    }
+    // CURRENT_USER 由移动云按调用者确定接收人，EVENT_BUS 不需要接收方 ID。
+    return params;
+  }
+
+  private void checkNotificationResponse(EcloudResponse response) {
+    if (response == null
+      || !response.isHttpSuccess()
+      || StringUtils.hasText(response.getErrorCode())
+      || StringUtils.hasText(response.getErrorMessage())) {
+      throw new EcloudException("Message notification API request failed");
+    }
   }
 
   private String enableScalingGroup(EcloudDeployDescription description) {
